@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ETUDIANT
+  ADMIN
+  ETABLISSEMENT
+}
+
+enum RegistrationStatus {
+  BROUILLON
+  SOUMIS
+  EN_REVISION
+  VALIDE
+  REFUSE
+}
+
+enum Gender {
+  FEMININ
+  MASCULIN
+  AUTRE
+}
+
+model User {
+  id                 String             @id @default(cuid())
+  fullName           String
+  email              String             @unique
+  passwordHash       String?
+  role               UserRole           @default(ETUDIANT)
+  registrationStatus RegistrationStatus @default(BROUILLON)
+  establishment      String?
+  level              String?
+  program            String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  quitus             Quitus[]
+  application        EnrollmentApplication?
+}
+
+model Quitus {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  studentName   String
+  studentEmail  String?
+  establishment String
+  issuedAt      DateTime @default(now())
+  issuedById    String?
+  issuedBy      User?    @relation(fields: [issuedById], references: [id])
+  enrollmentId  String?  @unique
+  enrollment    EnrolledStudent? @relation(fields: [enrollmentId], references: [id])
+  application  EnrollmentApplication?
+}
+
+model EnrollmentApplication {
+  id            String             @id @default(cuid())
+  userId        String             @unique
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  establishment String
+  level         String
+  program       String
+  quitusId      String?            @unique
+  quitus        Quitus?            @relation(fields: [quitusId], references: [id])
+  status        RegistrationStatus @default(BROUILLON)
+  submittedAt   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+}
+
+model EnrolledStudent {
+  id                 String   @id @default(cuid())
+  registrationNumber String   @unique
+  fullName           String
+  email              String?  @unique
+  phone              String
+  gender             Gender
+  establishment      String
+  level              String
+  program            String
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  quitus             Quitus?
+}

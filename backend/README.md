@@ -31,6 +31,22 @@
 $ npm install
 ```
 
+## Base de données et compte administrateur
+
+1. Créez une base PostgreSQL nommée `inscription_mahajanga`.
+2. Copiez `.env.example` vers `.env`, puis renseignez au minimum `DATABASE_URL`,
+   `AUTH_TOKEN_SECRET`, `ADMIN_EMAIL` et `ADMIN_PASSWORD`.
+3. Créez les tables et le compte administrateur :
+
+```bash
+$ npm run prisma:migrate -- --name initial_schema
+$ npm run prisma:seed
+```
+
+L’administrateur se connecte sur la même page `/login` avec l’e-mail configuré.
+Il est ensuite dirigé vers `/admin`, où il peut consulter les étudiants et mettre
+leurs dossiers en brouillon, révision, validé ou refusé.
+
 ## Compile and run the project
 
 ```bash

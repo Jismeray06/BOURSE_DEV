@@ -2,6 +2,13 @@ import { Module } from '@nestjs/common';
 import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { AuthController } from './auth.controller.js';
+import { AuthService } from './auth.service.js';
+import { GoogleAuthService } from './google-auth.service.js';
+import { PrismaService } from './prisma.service.js';
+import { AdminController } from './admin.controller.js';
+import { EstablishmentController } from './establishment.controller.js';
+import { StudentController } from './student.controller.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -15,7 +22,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       serviceId: 'backend',
     }),
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, AuthController, AdminController, EstablishmentController, StudentController],
+  providers: [AppService, AuthService, GoogleAuthService, PrismaService],
 })
 export class AppModule {}
