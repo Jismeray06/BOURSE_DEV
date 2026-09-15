@@ -9,6 +9,7 @@ import { PrismaService } from './prisma.service.js';
 import { AdminController } from './admin.controller.js';
 import { EstablishmentController } from './establishment.controller.js';
 import { StudentController } from './student.controller.js';
+import { CentralRegistrarController } from './central-registrar.controller.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -22,7 +23,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       serviceId: 'backend',
     }),
   ],
-  controllers: [AppController, AuthController, AdminController, EstablishmentController, StudentController],
+  controllers: [AppController, AuthController, AdminController, EstablishmentController, StudentController, CentralRegistrarController],
   providers: [AppService, AuthService, GoogleAuthService, PrismaService],
 })
 export class AppModule {}

@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient, RegistrationStatus, UserRole } from '@prisma/client';
 import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
 import { promisify } from 'node:util';
 
@@ -40,6 +40,14 @@ async function main() {
     create: { email: managerEmail, fullName: process.env.ISSTM_MANAGER_NAME ?? 'Responsable ISSTM', passwordHash: managerPasswordHash, role: UserRole.ETABLISSEMENT },
   });
 
+  const centralEmail = (process.env.SCOLARITE_EMAIL ?? 'scolarite@univ-mahajanga.mg').trim().toLowerCase();
+  const centralPasswordHash = await hashPassword(process.env.SCOLARITE_PASSWORD ?? 'Scolarite-2026!');
+  await prisma.user.upsert({
+    where: { email: centralEmail },
+    update: { fullName: process.env.SCOLARITE_NAME ?? 'Scolarité Centrale', passwordHash: centralPasswordHash, role: UserRole.SCOLARITE_CENTRALE },
+    create: { email: centralEmail, fullName: process.env.SCOLARITE_NAME ?? 'Scolarité Centrale', passwordHash: centralPasswordHash, role: UserRole.SCOLARITE_CENTRALE },
+  });
+
   const enrolledStudents = [
     ['ISSTM-2026-001', 'RASOLO Marie', 'marie.rasolo@isstm.mg', '034 12 345 01', 'FEMININ', 'Licence 1 (L1)', 'Génie Logiciel & Base de Données'],
     ['ISSTM-2026-002', 'ANDRIAMBOLOLONA Tiana', 'tiana.andriambololona@isstm.mg', '034 12 345 02', 'FEMININ', 'Licence 1 (L1)', "Systèmes d’Information & Réseaux"],
@@ -63,6 +71,7 @@ async function main() {
     ['ISSTM-2026-020', 'ANDRIAMIHARISOA Solo', 'solo.andriamiharisoa@isstm.mg', '034 12 345 20', 'MASCULIN', 'Master 2 (M2)', "Systèmes d’Information & Réseaux"],
   ];
   const studentsByRegistrationNumber = new Map();
+  const usersByRegistrationNumber = new Map();
   for (const [registrationNumber, fullName, studentEmail, phone, gender, level, program] of enrolledStudents) {
     const student = await prisma.enrolledStudent.upsert({
       where: { registrationNumber },
@@ -70,7 +79,7 @@ async function main() {
       create: { registrationNumber, fullName, email: studentEmail, phone, gender, level, program, establishment: 'ISSTM' },
     });
     studentsByRegistrationNumber.set(registrationNumber, student);
-    await prisma.user.upsert({
+    const user = await prisma.user.upsert({
       where: { email: studentEmail },
       update: {
         fullName,
@@ -90,6 +99,8 @@ async function main() {
         program,
       },
     });
+    await prisma.enrolledStudent.update({ where: { id: student.id }, data: { userId: user.id } });
+    usersByRegistrationNumber.set(registrationNumber, user);
   }
 
   // Quitus de démonstration : ils permettent de tester immédiatement la
@@ -132,11 +143,27 @@ async function main() {
     createdQuitus += 1;
   }
 
+  // Dossiers déjà finalisés, uniquement pour démontrer l'espace scolarité centrale.
+  for (const registrationNumber of ['ISSTM-2026-001', 'ISSTM-2026-002', 'ISSTM-2026-003']) {
+    const student = studentsByRegistrationNumber.get(registrationNumber);
+    const user = usersByRegistrationNumber.get(registrationNumber);
+    const quitus = await prisma.quitus.findUnique({ where: { enrollmentId: student.id } });
+    if (!quitus) continue;
+    await prisma.enrollmentApplication.upsert({
+      where: { userId: user.id },
+      update: {},
+      create: { userId: user.id, establishment: student.establishment, level: student.level, program: student.program, quitusId: quitus.id, status: RegistrationStatus.SOUMIS, submittedAt: new Date() },
+    });
+    await prisma.user.update({ where: { id: user.id }, data: { registrationStatus: RegistrationStatus.SOUMIS } });
+  }
+
   console.log(`Compte administrateur prêt : ${email}`);
   console.log(`Compte responsable ISSTM prêt : ${managerEmail}`);
+  console.log(`Compte scolarité centrale prêt : ${centralEmail}`);
   console.log(`${enrolledStudents.length} étudiants fictifs ISSTM prêts.`);
   console.log(`Comptes étudiants fictifs : [e-mail ISSTM] / ${process.env.ISSTM_STUDENT_PASSWORD ?? 'ISSTM-2026!'}`);
   console.log(`${createdQuitus} quitus fictif(s) ISSTM ajouté(s).`);
+  console.log('3 dossiers fictifs finalisés sont prêts pour la scolarité centrale.');
 }
 
 main().finally(() => prisma.$disconnect());

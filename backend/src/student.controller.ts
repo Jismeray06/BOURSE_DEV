@@ -23,10 +23,22 @@ export class StudentController {
     });
   }
 
+  @Get('profile')
+  async profile(@Headers('authorization') authorization?: string) {
+    const user = await this.student(authorization);
+    return {
+      fullName: user.fullName,
+      email: user.email,
+      establishment: user.establishment,
+      level: user.level,
+      program: user.program,
+    };
+  }
+
   @Put('application')
   async save(@Body() body: ApplicationBody, @Headers('authorization') authorization?: string) {
     const user = await this.student(authorization);
-    const fields = await this.fields(body, user.email);
+    const fields = await this.fields(body);
     const existing = await this.prisma.enrollmentApplication.findUnique({ where: { userId: user.id } });
     if (existing && existing.status !== RegistrationStatus.BROUILLON && existing.status !== RegistrationStatus.REFUSE) {
       throw new BadRequestException('Ce dossier est déjà soumis et ne peut plus être modifié.');
@@ -45,7 +57,7 @@ export class StudentController {
   @Post('application/submit')
   async submit(@Body() body: ApplicationBody, @Headers('authorization') authorization?: string) {
     const user = await this.student(authorization);
-    const fields = await this.fields(body, user.email, true);
+    const fields = await this.fields(body, true);
     const existing = await this.prisma.enrollmentApplication.findUnique({ where: { userId: user.id } });
     if (existing && existing.status !== RegistrationStatus.BROUILLON && existing.status !== RegistrationStatus.REFUSE) {
       throw new BadRequestException('Ce dossier a déjà été soumis.');
@@ -69,7 +81,7 @@ export class StudentController {
     return user;
   }
 
-  private async fields(body: ApplicationBody, email: string, requireQuitus = false) {
+  private async fields(body: ApplicationBody, requireQuitus = false) {
     const establishment = this.string(body.establishment, 'L’établissement');
     const level = this.string(body.level, 'Le niveau');
     const program = this.string(body.program, 'Le parcours');
@@ -78,9 +90,9 @@ export class StudentController {
 
     let quitusId: string | null = null;
     if (quitusCode) {
-      const quitus = await this.prisma.quitus.findUnique({ where: { code: quitusCode }, include: { enrollment: true } });
-      if (!quitus || quitus.establishment !== establishment || !quitus.enrollment?.active || quitus.enrollment.email?.toLowerCase() !== email.toLowerCase()) {
-        throw new BadRequestException('Le quitus ne correspond pas à votre inscription dans cet établissement.');
+      const quitus = await this.prisma.quitus.findUnique({ where: { code: quitusCode } });
+      if (!quitus || quitus.establishment !== establishment) {
+        throw new BadRequestException('Le quitus ne correspond pas à l’établissement sélectionné.');
       }
       quitusId = quitus.id;
     }

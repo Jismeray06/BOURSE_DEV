@@ -11,6 +11,7 @@ enum UserRole {
   ETUDIANT
   ADMIN
   ETABLISSEMENT
+  SCOLARITE_CENTRALE
 }
 
 enum RegistrationStatus {
@@ -41,6 +42,8 @@ model User {
   updatedAt          DateTime           @updatedAt
   quitus             Quitus[]
   application        EnrollmentApplication?
+  enrolledStudent    EnrolledStudent?
+  reviewedApplications EnrollmentApplication[] @relation("ApplicationReviewer")
 }
 
 model Quitus {
@@ -68,6 +71,10 @@ model EnrollmentApplication {
   quitus        Quitus?            @relation(fields: [quitusId], references: [id])
   status        RegistrationStatus @default(BROUILLON)
   submittedAt   DateTime?
+  reviewNote    String?
+  reviewedAt    DateTime?
+  reviewedById  String?
+  reviewedBy    User?              @relation("ApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 }
@@ -83,6 +90,8 @@ model EnrolledStudent {
   level              String
   program            String
   active             Boolean  @default(true)
+  userId             String?  @unique
+  user               User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   quitus             Quitus?

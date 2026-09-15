@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
@@ -16,7 +16,11 @@ export class AuthService {
     const normalizedEmail = this.normalizeEmail(email);
     let user;
     try {
-      user = await this.prisma.user.create({ data: { fullName: fullName.trim(), email: normalizedEmail, passwordHash: await this.hashPassword(password), role: UserRole.ETUDIANT } });
+      user = await this.prisma.user.create({
+        data: {
+          fullName: fullName.trim(), email: normalizedEmail, passwordHash: await this.hashPassword(password), role: UserRole.ETUDIANT,
+        },
+      });
     } catch (error: unknown) {
       if (this.isUniqueEmailError(error)) throw new ConflictException('Cette adresse e-mail est déjà utilisée.');
       throw error;
@@ -33,10 +37,13 @@ export class AuthService {
   }
 
   async loginWithGoogle(fullName: string, email: string) {
-    const user = await this.prisma.user.upsert({
-      where: { email: this.normalizeEmail(email) }, update: {},
-      create: { fullName: fullName.trim(), email: this.normalizeEmail(email) },
-    });
+    const normalizedEmail = this.normalizeEmail(email);
+    let user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: { fullName: fullName.trim(), email: normalizedEmail },
+      });
+    }
     return this.loginResponse(user);
   }
 
@@ -49,6 +56,12 @@ export class AuthService {
   async requireEstablishmentManager(authorization?: string) {
     const user = await this.userFromAuthorization(authorization);
     if (user.role !== UserRole.ETABLISSEMENT) throw new UnauthorizedException('Accès réservé au responsable d’établissement.');
+    return user;
+  }
+
+  async requireCentralRegistrar(authorization?: string) {
+    const user = await this.userFromAuthorization(authorization);
+    if (user.role !== UserRole.SCOLARITE_CENTRALE) throw new UnauthorizedException('Accès réservé à la scolarité centrale.');
     return user;
   }
 

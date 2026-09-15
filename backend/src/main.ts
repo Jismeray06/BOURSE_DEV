@@ -8,7 +8,8 @@ async function bootstrap() {
   });
   app.enableCors({
     origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
-    methods: ['GET', 'POST', 'PATCH'],
+    // Le formulaire étudiant enregistre son brouillon avec PUT à chaque étape.
+    methods: ['GET', 'POST', 'PUT', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
   await app.listen(process.env.PORT ?? 3001);
