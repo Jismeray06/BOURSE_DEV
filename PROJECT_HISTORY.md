@@ -1,269 +1,199 @@
-# Historique et état du projet — Plateforme d'inscription Mahajanga
+# Cahier de charges — Plateforme de demande de bourse en ligne (Mahajanga)
 
-**Dernière analyse : 14 septembre 2026**
-**Statut : prototype fonctionnel en développement local — non prêt pour la production**
+**Nom du dépôt :** `plateforme-inscription-mahajanga` (le nom du dossier est trompeur : ce n'est pas un système d'inscription universitaire, c'est une plateforme de **dépôt de dossier de demande de bourse en ligne**. Étudiant, établissement et scolarité centrale collaborent autour d'un seul document : le dossier de bourse.)
 
-Ce document est une photographie factuelle du dépôt à la date indiquée. Il sépare les fonctionnalités observables, les éléments partiellement réalisés et les travaux encore absents. Lorsqu'un élément historique ne peut pas être confirmé par Git, il est indiqué comme tel.
+Ce document décrit, du plus petit détail (chaque fichier) jusqu'à la vue d'ensemble (le fonctionnement global), comment le site est construit, comment il fonctionne, et quel rôle joue chaque type d'utilisateur.
 
-## 1. Objectif du projet
+---
 
-La plateforme vise à gérer les inscriptions universitaires de l'Université de Mahajanga :
+## 1. Vue d'ensemble — à quoi sert le site
 
-- connexion et création de compte étudiant ;
-- choix d'un établissement, niveau et parcours ;
-- contrôle d'un quitus ;
-- espace d'administration des inscriptions ;
-- espace propre à un établissement, actuellement **ISSTM**.
+Un étudiant crée un compte, choisit son établissement/niveau/parcours, renseigne un **quitus** (numéro de reçu de paiement délivré par son établissement) et téléverse ses pièces justificatives (CIN, quitus, certificat de résidence, relevé de bac, etc.). Une fois le dossier complet, il le **soumet**.
 
-Le projet est organisé en deux applications :
+Le dossier soumis part ensuite vers la **Scolarité centrale**, qui l'examine et décide de le **valider** (la bourse est accordée) ou de le **refuser** (avec un motif obligatoire). L'étudiant suit l'état de son dossier en temps réel et peut télécharger une attestation une fois validé.
+
+En parallèle, chaque **établissement** (aujourd'hui : ISSTM) gère sa propre base d'étudiants inscrits/réinscrits, configure ses niveaux et parcours, et génère les quitus que les étudiants utiliseront pour appuyer leur demande de bourse.
+
+Un **administrateur** supervise l'ensemble : comptes du personnel (établissements, scolarité centrale, secrétaires), listes globales d'étudiants, apparence du site public, et journal d'audit.
+
+Schéma du flux principal :
+
+```
+Étudiant                Établissement (ISSTM…)         Scolarité centrale
+   │                            │                              │
+   │  s'inscrit, remplit        │  inscrit/réinscrit l'étudiant │
+   │  établissement/niveau/     │  dans sa base, génère un      │
+   │  parcours                  │  quitus (reçu de paiement)    │
+   │                            │                              │
+   │◄── vérifie le quitus ──────┤                              │
+   │                            │                              │
+   │  téléverse les pièces      │                              │
+   │  (CIN, quitus, résidence,  │                              │
+   │  bac si L1…)               │                              │
+   │                            │                              │
+   │  SOUMET le dossier ────────┼─────────────────────────────►│
+   │                            │                    examine, VALIDE ou REFUSE
+   │◄───────────────────────────┼── notifie le statut ─────────┤
+   │  télécharge l'attestation  │                              │
+   │  (si validé)               │                              │
+```
+
+Le tout est piloté par un **Administrateur** qui gère les comptes du personnel, la liste globale des étudiants/établissements et l'apparence du site public.
+
+---
+
+## 2. Les deux applications
 
 | Partie | Technologie | Rôle |
 | --- | --- | --- |
-| `frontend/` | Next.js 16, React 19, Tailwind CSS | Interfaces publique, connexion, étudiant, administrateur et établissement |
-| `backend/` | NestJS 12, Prisma 6, PostgreSQL | API, authentification, données, quitus et contrôle des rôles |
+| `backend/` | NestJS 12, Prisma 6, PostgreSQL | API REST, authentification, base de données, gestion des rôles, stockage des fichiers |
+| `frontend/` | Next.js 16, React 19, Tailwind CSS | Site public + 4 espaces connectés (étudiant, établissement, scolarité, admin) |
 
-## 2. Historique vérifiable
+Le frontend appelle le backend via `NEXT_PUBLIC_API_URL` (par défaut `http://localhost:3001`). La session est stockée côté navigateur dans `sessionStorage` (jeton, rôle, infos utilisateur) — pas de cookie.
 
-### Historique Git
+---
 
-- Le dépôt ne contient qu'un commit visible : `aa05eaf — Premier commit`.
-- Les développements décrits ci-dessous sont actuellement en grande partie **non commités** (modifiés ou nouveaux fichiers). Il n'est donc pas possible de reconstituer une chronologie détaillée par commits.
+## 3. Les rôles (personnages) de la plateforme
 
-### Historique déclaré dans une version antérieure de ce document
+La base de données définit 6 rôles (`enum UserRole` dans `backend/prisma/schema.prisma:10-17`) :
 
-Une version précédente de `PROJECT_HISTORY.md`, datée du 11 septembre 2026, indiquait :
+### 3.1 ÉTUDIANT (`ETUDIANT`)
+Le demandeur de bourse. Il crée son propre compte (email/mot de passe ou Google), vérifie son adresse e-mail, puis :
+- choisit son établissement, son niveau et son parcours ;
+- entre le numéro de quitus délivré par son établissement et le fait vérifier ;
+- téléverse ses pièces justificatives obligatoires ;
+- soumet son dossier de bourse (une seule fois, tant qu'il n'est pas déjà soumis) ;
+- suit le statut de son dossier (Brouillon → Soumis → En révision → Validé/Refusé) ;
+- télécharge une attestation une fois le dossier validé.
+Espace : `/student`.
 
-- la correction d'une page `frontend/src/app/register/page.tsx` qui aurait été vide ou corrompue ;
-- la séparation des ports frontend (`3000`) et backend (`3001`) pour éviter un conflit ;
-- des builds frontend et backend annoncés comme réussis à cette date.
+### 3.2 ADMIN (`ADMIN`)
+Le super-administrateur de la plateforme. Il :
+- voit tous les étudiants et tous les établissements ;
+- crée et gère les comptes du personnel (établissements et scolarité centrale) : activer/désactiver, renommer, réinitialiser le mot de passe, mettre à la corbeille, restaurer, purger définitivement ;
+- consulte le journal d'audit de toutes ces actions ;
+- change manuellement le statut d'un dossier étudiant si besoin ;
+- personnalise l'apparence du site public (logo, favicon, couleurs, texte d'accueil, images du hero).
+Espace : `/admin`.
 
-Ces faits sont conservés comme contexte historique, mais la route `/register` n'est plus présente dans l'arborescence actuelle : l'inscription est maintenant intégrée à `/login`.
+### 3.3 ETABLISSEMENT (`ETABLISSEMENT`) et ADMIN_ETABLISSEMENT (`ADMIN_ETABLISSEMENT`)
+Le responsable d'un établissement (aujourd'hui uniquement ISSTM — codé en dur dans le backend). Il :
+- inscrit de nouveaux étudiants dans la base de son établissement (formulaires distincts pour Licence 1, Master 1, ou réinscription d'un étudiant existant) ;
+- génère les quitus (reçus de paiement) pour ses étudiants inscrits, un par un ou en masse ;
+- configure les niveaux et parcours propres à son établissement (structure académique) ;
+- définit la mention affichée sur les attestations ;
+- (ADMIN_ETABLISSEMENT uniquement) crée et gère les comptes secrétaires de son établissement.
+Espace : `/etablissement`.
 
-### Évolutions visibles dans le code actuel
+### 3.4 SECRETAIRE (`SECRETAIRE`)
+Un compte assistant créé par un ADMIN_ETABLISSEMENT. Accès au même espace `/etablissement` que le responsable, mais sans droit de créer d'autres comptes secrétaires ni de modifier les paramètres sensibles de l'établissement (ces actions exigent `requireEstablishmentAdmin`, réservé à ETABLISSEMENT/ADMIN_ETABLISSEMENT).
 
-Les migrations Prisma datées du 14 septembre 2026 montrent cette séquence :
+### 3.5 SCOLARITE_CENTRALE (`SCOLARITE_CENTRALE`)
+L'autorité qui décide de l'attribution des bourses. Elle :
+- consulte tous les dossiers soumis, en révision, validés ou refusés (tous établissements confondus) ;
+- ouvre le détail d'un dossier et ses pièces jointes ;
+- **valide** ou **refuse** un dossier (un motif texte est obligatoire en cas de refus) ;
+- consulte l'historique de ses décisions.
+Espace : `/scolarite`.
 
-1. `20260914101500_initial_schema` : création de `User`, des rôles `ETUDIANT` / `ADMIN` et des statuts d'inscription.
-2. `20260914113000_add_establishment_quitus` : ajout du rôle `ETABLISSEMENT` et de la table `Quitus`.
-3. `20260914120000_add_enrolled_students` : ajout de `EnrolledStudent`, du genre, et du lien optionnel entre un quitus et un étudiant inscrit.
-4. `20260914130000_add_enrollment_applications` : ajout des dossiers d'inscription persistants (`EnrollmentApplication`).
+Note de cohérence : dans `auth.controller.ts`, la redirection après connexion Google ne gère pas explicitement `SCOLARITE_CENTRALE` (elle route ADMIN → `/admin`, ETABLISSEMENT/ADMIN_ETABLISSEMENT/SECRETAIRE → `/etablissement`, sinon → `/student`) ; seule la connexion classique par mot de passe (`login/page.tsx`) route correctement ce rôle vers `/scolarite`.
 
-### Journal de développement — 14 septembre 2026
+---
 
-- Création de la migration `20260914130000_add_enrollment_applications`, appliquée à PostgreSQL local avec `prisma migrate deploy`.
-- Ajout du contrôleur étudiant et des endpoints de lecture, sauvegarde de brouillon et soumission d'un dossier.
-- Liaison de l'interface `/student` avec ces endpoints : les choix établissement, niveau, parcours et quitus sont maintenant sauvegardés.
-- Soumission du dossier seulement après validation d'un quitus lié à l'étudiant connecté et à l'établissement choisi.
-- Synchronisation du statut entre `EnrollmentApplication` et `User` lors d'une décision de l'administrateur.
-- Correction de l'expérience de progression étudiant : le passage à l'étape suivante dépend de la sauvegarde du brouillon ; un message visible indique désormais lorsque le backend n'est pas démarré sur le port `3001`.
-- Vérifications réussies : compilation NestJS et vérification TypeScript du frontend.
+## 4. Le backend, dossier par dossier
 
-## 3. Fonctionnalités réalisées
+Racine : `backend/src/`
 
-### 3.1 Frontend
+| Fichier | Contenu |
+| --- | --- |
+| `main.ts` | Point d'entrée NestJS. Active CORS pour le frontend, sert les fichiers statiques du site (logo, favicon, images hero) en public via `/uploads/site-settings`, démarre le serveur sur le port `3001` par défaut. |
+| `app.module.ts` | Déclare tous les contrôleurs et fournisseurs de l'application (liste centrale des routes actives). |
+| `auth.controller.ts` | Routes publiques d'authentification : `POST /auth/register`, `POST /auth/login`, `POST /auth/verify-email`, `POST /auth/resend-verification-email`, `GET /auth/google` et `GET /auth/google/callback` (connexion via Google). |
+| `auth.service.ts` | Toute la logique d'authentification et de gestion des comptes : hachage des mots de passe (scrypt + sel), création/vérification de jetons de session signés HMAC (durée de vie 8h), vérification d'e-mail par jeton à durée de vie 24h, garde-fous par rôle (`requireAdmin`, `requireEstablishmentManager`, `requireEstablishmentAdmin`, `requireCentralRegistrar`), gestion complète des comptes du personnel (création, activation/désactivation, renommage, réinitialisation de mot de passe, corbeille, restauration, purge) et journal d'audit. |
+| `google-auth.service.ts` | Encapsule le flux OAuth2 Google (génère l'URL d'autorisation, vérifie le jeton d'identité renvoyé). Nécessite `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` configurés. |
+| `mail.service.ts` | Envoie l'e-mail de vérification d'adresse via SMTP (nodemailer), avec lien pointant vers `/verify-email?token=...` sur le frontend. |
+| `admin.controller.ts` | Toutes les routes réservées au rôle ADMIN : liste des étudiants, liste des établissements avec effectifs, étudiants d'un établissement (recherche/filtre), gestion des comptes du personnel (CRUD + corbeille), journal d'audit, changement de statut d'un dossier étudiant. |
+| `establishment.controller.ts` | Toutes les routes de l'espace établissement (ISSTM en dur) : référentiel de niveaux/parcours (curriculum), liste des étudiants inscrits, gestion des comptes secrétaires, inscription/réinscription d'un étudiant, paramètres (mention), génération de quitus, vérification publique d'un quitus. |
+| `student.controller.ts` | Routes de l'espace étudiant : lecture du dossier (`GET /student/application`), lecture du profil, enregistrement d'un brouillon (`PUT /student/application`), soumission définitive (`POST /student/application/submit` — vérifie que toutes les pièces obligatoires sont présentes et qu'un quitus valide est associé). |
+| `central-registrar.controller.ts` | Routes de l'espace scolarité centrale : liste des dossiers soumis/en révision/validés/refusés, décision (`PATCH /scolarite/applications/:id/decision`) avec motif obligatoire si refus. |
+| `document.controller.ts` | Téléversement et consultation des pièces justificatives : upload d'une pièce par type (`POST /student/application/documents/:type`, max 10 Mo, PDF/PNG/JPG), liste des pièces d'un dossier, consultation du "dossier" complet (infos + pièces) pour admin/scolarité/établissement, téléchargement/visualisation sécurisée d'un fichier (`GET /documents/:id/file`) avec contrôle d'accès selon le rôle. |
+| `document.service.ts` | Logique de stockage des fichiers sur disque (`uploads/documents/`), validation du type MIME et de la taille, remplacement d'une pièce existante du même type. |
+| `site-settings.controller.ts` / `site-settings.service.ts` | Réglages visuels du site public (page d'accueil) : couleurs, logo, favicon, type de fond du hero (couleur/dégradé/image), textes, liens des boutons d'action. Upload d'images limité à l'ADMIN. |
+| `prisma.service.ts` | Connexion Prisma/PostgreSQL, injectée dans tous les services ayant besoin de la base. |
+| `app.controller.ts` / `app.service.ts` | Route de base héritée du squelette NestJS (`GET /`). |
 
-Les routes actuellement présentes sont :
-
-| Route | État | Fonctionnalité |
-| --- | --- | --- |
-| `/` | Réalisée | Page d'accueil et présentation du service |
-| `/login` | Réalisée | Connexion e-mail/mot de passe, création de compte et redirection selon le rôle |
-| `/student` | Partielle | Parcours en 5 étapes : établissement, niveau, parcours, quitus et pièces justificatives |
-| `/admin` | Réalisée partiellement | Liste des comptes étudiants et modification du statut |
-| `/etablissement` | Réalisée pour ISSTM | Liste des étudiants ISSTM, recherche et génération de quitus |
-
-Les interfaces utilisent une gestion de session côté navigateur via `sessionStorage` et des appels HTTP vers `NEXT_PUBLIC_API_URL` ou, par défaut, `http://localhost:3001`.
-
-### 3.2 Backend et sécurité d'accès
-
-Les éléments suivants sont implémentés :
-
-- création de compte étudiant par e-mail/mot de passe ;
-- connexion e-mail/mot de passe ;
-- hachage des mots de passe avec `scrypt` et un sel aléatoire ;
-- jeton signé par HMAC avec une durée de vie de 8 heures ;
-- rôles `ETUDIANT`, `ADMIN`, `ETABLISSEMENT` ;
-- protection des endpoints administrateur et établissement ;
-- CORS configuré pour le frontend local ;
-- début d'intégration Google OAuth, avec contrôle du `state` et validation du jeton d'identité Google.
-
-Endpoints disponibles :
-
-| Méthode | Endpoint | Rôle requis | État |
-| --- | --- | --- | --- |
-| `POST` | `/auth/register` | Public | Réalisé |
-| `POST` | `/auth/login` | Public | Réalisé |
-| `GET` | `/auth/google` | Public | Réalisé, mais nécessite les secrets Google |
-| `GET` | `/auth/google/callback` | Public | Réalisé, mais nécessite les secrets Google |
-| `GET` | `/admin/students` | Admin | Réalisé |
-| `PATCH` | `/admin/students/:id/status` | Admin | Réalisé |
-| `GET` | `/establishment/isstm/students` | Responsable établissement | Réalisé, actuellement limité à ISSTM |
-| `POST` | `/establishment/isstm/quitus/generate` | Responsable établissement | Réalisé |
-| `POST` | `/quitus/verify` | Utilisateur connecté | Réalisé |
-
-### 3.3 Base de données et données fictives ISSTM
-
-Le schéma Prisma contient :
+### Base de données (`backend/prisma/schema.prisma`)
 
 | Modèle | Rôle |
 | --- | --- |
-| `User` | Compte de connexion et état administratif |
-| `EnrolledStudent` | Référentiel des étudiants inscrits dans un établissement |
-| `Quitus` | Quitus unique, émetteur et étudiant référencé |
+| `User` | Compte de connexion (tous rôles confondus) : identité, mot de passe, statut de vérification e-mail, rôle, établissement rattaché (pour le personnel), statut global d'inscription. |
+| `AuditLogEntry` | Historique des actions administratives sur les comptes du personnel. |
+| `EmailVerificationToken` | Jetons à usage unique pour la vérification d'adresse e-mail. |
+| `Quitus` | Le reçu de paiement : code unique, étudiant, établissement, qui l'a émis, éventuellement lié à un `EnrolledStudent` et à un `EnrollmentApplication`. |
+| `EnrollmentApplication` | **Le dossier de demande de bourse** : un par étudiant, avec établissement/niveau/parcours choisis, quitus associé, statut (Brouillon/Soumis/En révision/Validé/Refusé), note de refus, qui a décidé et quand. |
+| `ApplicationDocument` | Une pièce justificative téléversée, liée à un dossier et un type (`cin`, `quitus`, `residence`, `bac`, `unemployment`…). |
+| `EnrolledStudent` | La fiche complète d'un étudiant dans la base d'un établissement (identité, famille, parcours antérieur, matricule, etc.) — distincte du compte `User` ; les deux peuvent être liés par e-mail/`userId`. |
+| `EstablishmentCurriculumOption` | Les niveaux et parcours propres à un établissement, activables/désactivables. |
+| `EstablishmentSettings` | Réglages propres à un établissement (actuellement : la mention affichée sur les attestations). |
+| `SiteSettings` | Apparence et contenus du site public (couleurs, logo, hero, textes des boutons). |
 
-Le seed `backend/prisma/seed.mjs` est idempotent. Il crée ou met à jour :
+---
 
-- un administrateur ;
-- un responsable ISSTM ;
-- **20 étudiants fictifs ISSTM** ;
-- les comptes de connexion fictifs correspondant aux étudiants ;
-- huit quitus de démonstration, puis permet la création des quitus restants depuis l'espace établissement.
+## 5. Le frontend, page par page
 
-Les données ISSTM sont isolées logiquement dans la même base PostgreSQL par le champ `establishment = 'ISSTM'`. Il ne s'agit pas d'une instance PostgreSQL distincte par établissement.
+Racine : `frontend/src/app/`
 
-La vérification de quitus contrôle désormais que :
+| Page (route) | Contenu |
+| --- | --- |
+| `page.tsx` (`/`) | Page d'accueil publique. Bandeau avec logo et bouton "Se connecter", grand hero avec carrousel de photos de campus (ou fond personnalisé via les réglages admin), section "trois étapes" (parcours, quitus, profil), pied de page. Récupère les réglages visuels via `GET /site-settings`. |
+| `login/page.tsx` (`/login`) | Écran unique de connexion **et** création de compte (bascule par un lien). Formulaire email/mot de passe, connexion Google, gestion des erreurs (dont le cas "e-mail non vérifié" avec bouton pour renvoyer l'e-mail). Redirige selon le rôle renvoyé par l'API après connexion (`ADMIN→/admin`, `ETABLISSEMENT/ADMIN_ETABLISSEMENT/SECRETAIRE→/etablissement`, `SCOLARITE_CENTRALE→/scolarite`, `ETUDIANT→/student`). |
+| `verify-email/page.tsx` (`/verify-email`) | Page atteinte via le lien reçu par e-mail (`?token=...`). Appelle `POST /auth/verify-email` et affiche le résultat. |
+| `student/page.tsx` (`/student`) | **Espace étudiant.** Formulaire en 5 étapes (établissement → niveau → parcours → quitus → pièces), sauvegarde automatique du brouillon à chaque étape, vérification du quitus, upload des pièces obligatoires, soumission finale, affichage du statut du dossier et de l'attestation imprimable une fois validé. Contient aussi un onglet Notifications et un onglet Paramètres (apparence de l'interface). |
+| `etablissement/page.tsx` (`/etablissement`) | **Espace établissement (ISSTM).** Liste des étudiants inscrits (recherche, sélection, génération de quitus individuelle/en masse), formulaire d'ajout d'étudiant (3 modes : inscription Licence 1, inscription Master 1, réinscription d'un étudiant existant), gestion des comptes secrétaires (réservé aux responsables), paramètres (apparence, structure académique : niveaux/parcours, mention de l'établissement), et un visualiseur de dossier (pièces jointes) par étudiant. |
+| `scolarite/page.tsx` (`/scolarite`) | **Espace scolarité centrale.** Tableau de bord avec compteurs (dossiers finalisés, à examiner, bourses validées, refusés), liste des dossiers à traiter avec action Valider/Refuser (motif obligatoire pour un refus), historique des décisions, visualiseur de dossier, réglages d'apparence. |
+| `admin/page.tsx` (`/admin`) | **Espace administrateur.** Tableau de bord global, liste des étudiants (globale ou filtrée par établissement), gestion des comptes du personnel (créer, activer/désactiver, renommer, réinitialiser mot de passe, corbeille/restauration/purge), journal d'audit, réglages d'apparence de la plateforme et de la page d'accueil publique (logo, couleurs, textes, images). |
+| `layout.tsx` | Mise en page racine : police (Playfair Display pour les titres), métadonnées (titre, manifeste PWA, icônes), enregistrement du service worker, et le `PlatformThemeProvider` qui applique le thème visuel choisi selon l'espace visité. |
 
-1. le code existe ;
-2. l'établissement demandé correspond ;
-3. le quitus est associé à un étudiant inscrit et actif ;
-4. l'adresse e-mail de l'utilisateur connecté correspond à celle de cet étudiant.
+### Composants partagés (`frontend/src/components/`)
 
-## 4. Éléments commencés mais non terminés
+| Fichier | Rôle |
+| --- | --- |
+| `DossierViewer.tsx` | Fenêtre modale en lecture seule affichant le détail d'un dossier (infos étudiant, statut, quitus, liste des pièces avec bouton ouvrir/télécharger). Utilisée par établissement, scolarité et admin. |
+| `ConfirmDialog.tsx` | Boîte de dialogue de confirmation générique (ex. confirmer la déconnexion). |
+| `HomepageHero.tsx` | Fond et contenu textuel du hero de la page d'accueil, pilotés par les réglages du site (couleur unie, dégradé, ou une/plusieurs images en diaporama). |
+| `HomepageSettingsPanel.tsx` | Panneau (dans `/admin`) permettant de modifier logo, favicon, couleurs, textes et images du hero de la page d'accueil publique. |
+| `AdminSettingsPanel.tsx` | Panneau générique de personnalisation d'interface (thème, couleurs, police, largeur, animations) partagé par les 4 espaces connectés. |
+| `siteSettings.ts` | Type et valeurs par défaut des réglages du site public, fonction pour les récupérer depuis l'API et construire l'URL d'un asset. |
+| `adminSettings.ts` | Type, valeurs par défaut, migration et sérialisation des réglages d'interface personnels (stockés en `localStorage`, par espace) ; génère le CSS de thème appliqué dynamiquement. |
+| `useInterfaceSettings.ts` | Hook React qui charge/sauvegarde les réglages d'interface d'un espace donné et les synchronise entre onglets. |
+| `PlatformThemeProvider.tsx` | Composant racine qui détecte l'espace visité (`/admin`, `/etablissement`, `/scolarite`, `/student`) et injecte le CSS du thème correspondant. |
+| `ServiceWorkerRegistration.tsx` | Enregistre le service worker en production (PWA) ; le désinstalle en développement pour éviter les conflits de cache. |
 
-### Dépôt de dossier étudiant
+---
 
-**Réalisé le 14 septembre 2026.** Le modèle `EnrollmentApplication` conserve un dossier par étudiant : établissement, niveau, parcours, quitus, statut, dates et propriétaire. La migration `20260914130000_add_enrollment_applications` a été appliquée à la base locale.
+## 6. Parcours détaillé du dossier de bourse (le cœur du système)
 
-Les endpoints suivants existent désormais :
+1. **Création de compte** (`/login`, mode inscription) → e-mail de vérification envoyé → l'étudiant clique le lien (`/verify-email`) → compte activé.
+2. **Connexion** → redirection vers `/student`.
+3. **Étape 1 : Établissement** — l'étudiant choisit parmi la liste (ENS, Médecine, FSTE, ISSTM, etc.). Seul ISSTM a un référentiel dynamique de niveaux/parcours ; les autres établissements utilisent des listes statiques côté frontend.
+4. **Étape 2 : Niveau** (L1 à M2).
+5. **Étape 3 : Parcours/spécialité.**
+   → Après chaque étape, le formulaire est sauvegardé en brouillon (`PUT /student/application`).
+6. **Étape 4 : Quitus** — l'étudiant entre le code du quitus délivré par son établissement ; vérification en direct (`POST /quitus/verify`) qu'il existe et correspond à l'établissement choisi.
+7. **Étape 5 : Pièces justificatives** — upload de chaque pièce requise (CIN, quitus scanné, certificat de résidence, et bac si niveau L1) via `POST /student/application/documents/:type`.
+8. **Soumission** (`POST /student/application/submit`) — bloquée tant que les pièces obligatoires ne sont pas toutes présentes ou que le quitus n'est pas validé. Le statut passe à `SOUMIS`.
+9. **Traitement par la Scolarité centrale** (`/scolarite`) — le dossier apparaît dans la liste à examiner ; la scolarité consulte les pièces (`DossierViewer`) puis décide `VALIDE` ou `REFUSE` (motif obligatoire pour un refus).
+10. **Retour à l'étudiant** — le statut se met à jour (l'interface étudiant re-vérifie toutes les 30 secondes) ; si validé, l'étudiant peut imprimer une attestation.
 
-- `GET /student/application` : récupération du dossier de l'étudiant connecté ;
-- `PUT /student/application` : enregistrement du brouillon ;
-- `POST /student/application/submit` : soumission définitive avec quitus obligatoire.
+En parallèle, côté établissement : un responsable ou secrétaire inscrit/réinscrit ses étudiants dans sa propre base (`EnrolledStudent`), ce qui n'est pas la même chose qu'un compte `User` — un même étudiant peut exister des deux côtés, reliés par e-mail ou `userId`. C'est l'établissement qui génère les quitus utilisés à l'étape 4 ci-dessus.
 
-L'interface étudiant enregistre le brouillon lors du passage des étapes, sauvegarde le quitus vérifié et soumet réellement le dossier. L'admin retrouve le statut synchronisé du dossier via la liste des étudiants.
+---
 
-### Pièces justificatives
+## 7. Points d'attention connus (dette technique)
 
-L'interface permet de choisir des fichiers, mais ceux-ci restent dans l'état React du navigateur.
-
-Il manque :
-
-- téléversement HTTP sécurisé ;
-- stockage de fichiers (local en développement, stockage objet en production) ;
-- modèle de données des documents ;
-- limites de taille, validation de type, contrôle antivirus et suppression ;
-- consultation et validation/refus des documents par l'administration.
-
-### Administration des dossiers
-
-L'administrateur peut afficher les comptes étudiants et changer un statut. Cette partie ne traite pas encore un dossier complet.
-
-Il manque :
-
-- liste des dossiers réels avec filtres ;
-- visualisation des documents ;
-- commentaire interne et motif de refus ;
-- historique des changements de statut ;
-- notification de l'étudiant après une décision ;
-- pagination et tri côté serveur.
-
-### Google OAuth
-
-Le code est en place, mais `GOOGLE_CLIENT_SECRET` est vide dans la configuration de développement. La connexion Google ne fonctionnera pas tant que les identifiants et l'URL de redirection ne seront pas configurés dans Google Cloud.
-
-## 5. Incohérences et dette technique observées
-
-### Modèle métier
-
-- `User` et `EnrolledStudent` représentent tous deux une personne, sans relation directe. Le contrôle actuel repose sur l'e-mail. À terme, `EnrolledStudent` devrait référencer `User` via `userId` ou le dossier devrait porter une relation explicite vers les deux entités.
-- Les établissements sont des chaînes de caractères. Il n'existe pas de modèle `Establishment`, ni de table des formations/parcours. L'API ISSTM est codée en dur.
-- La date affichée par l'interface est parfois 2025-2026 tandis que les données fictives et migrations sont datées 2026. Il faut définir une unique année universitaire configurable.
-- Les parcours proposés au frontend couvrent plusieurs établissements, mais seul ISSTM dispose actuellement d'un référentiel backend et d'un flux de quitus.
-
-### API et validation
-
-- Les contrôleurs utilisent des types manuels plutôt que des DTO NestJS validés avec `class-validator` et `ValidationPipe`.
-- Les erreurs ne suivent pas encore un format d'API documenté et uniforme.
-- Il n'y a ni versionnement (`/api/v1`), ni documentation OpenAPI/Swagger.
-- Les endpoints de liste ne sont pas paginés.
-
-### Authentification et sécurité
-
-- Les jetons sont stockés dans `sessionStorage`, donc accessibles au JavaScript de la page en cas de faille XSS. Pour une production, privilégier des cookies `httpOnly`, `secure` et `sameSite` adaptés.
-- Il n'y a pas de réinitialisation de mot de passe, vérification d'e-mail, limitation des essais de connexion, ni révocation de session.
-- `AUTH_TOKEN_SECRET` doit être remplacé par un secret long, aléatoire et propre à chaque environnement avant la mise en ligne.
-- Les mots de passe fictifs sont pratiques en développement mais ne doivent jamais être conservés en production.
-- Les données réellement sensibles ne doivent pas être ajoutées à Git ; `.env` doit rester ignoré.
-
-### Qualité et tests
-
-- `npm run build` du backend a réussi lors de la dernière vérification.
-- `npx prisma validate` a validé le schéma Prisma.
-- `npx tsc --noEmit` dans le frontend a réussi.
-- Le build complet Next.js n'a pas pu être confirmé dans l'environnement d'analyse : Turbopack a échoué lors de la création d'un processus/port, avec une erreur de permission de l'environnement, pas une erreur TypeScript du projet.
-- Le test e2e ne couvre actuellement que `GET /` et attend encore `Hello World!`.
-- Une vérification TypeScript du backend a signalé une incompatibilité d'import dans `backend/test/app.e2e-spec.ts` : `supertest/types` n'est pas résolu. Les tests doivent être corrigés puis étendus aux règles métier.
-
-### Exploitation et déploiement
-
-- Aucun `docker-compose.yml` n'est présent pour démarrer de manière reproductible PostgreSQL, backend et frontend.
-- Les migrations ont été appliquées avec `prisma migrate deploy` sur la base locale. `prisma migrate dev` requiert un utilisateur PostgreSQL ayant le droit `CREATEDB` pour la shadow database.
-- Le `README` backend contient encore principalement le contenu standard NestJS et doit être réécrit pour le projet.
-- Le message Prisma indique que `package.json#prisma` sera déprécié avec Prisma 7 ; une future migration vers `prisma.config.ts` est à prévoir.
-- Les sauvegardes PostgreSQL, la supervision, la journalisation applicative et une configuration de production ne sont pas définies.
-
-## 6. Priorités recommandées
-
-### Priorité 1 — Rendre l'inscription réelle
-
-1. Ajouter le modèle `Document` et le téléversement sécurisé des pièces.
-2. Afficher le détail complet du dossier et de ses documents côté admin.
-3. Ajouter commentaires, motifs de refus et historique des décisions.
-4. Ajouter les notifications de changement d'état.
-
-### Priorité 2 — Documents et décision administrative
-
-1. Ajouter le téléversement et le stockage des pièces.
-2. Permettre à l'admin de consulter, approuver ou refuser chaque pièce.
-3. Ajouter motifs de refus, commentaires et historique des décisions.
-4. Notifier l'étudiant de chaque changement important.
-
-### Priorité 3 — Généraliser les établissements
-
-1. Remplacer les chaînes codées en dur par les modèles `Establishment`, `Program` et `AcademicYear`.
-2. Associer un responsable à son établissement.
-3. Générer des routes génériques au lieu de routes limitées à ISSTM.
-4. Importer les listes officielles d'étudiants et conserver les données fictives uniquement pour le développement.
-
-### Priorité 4 — Production, sécurité et qualité
-
-1. Mettre les secrets réels hors du dépôt et créer les variables de production.
-2. Ajouter validation DTO, limitation de débit, récupération de mot de passe et gestion de sessions plus robuste.
-3. Ajouter les tests unitaires, d'intégration et e2e couvrant auth, quitus, dépôt et administration.
-4. Ajouter Docker Compose, CI, sauvegardes et documentation de déploiement.
-
-## 7. Commandes utiles en développement local
-
-```bash
-# Backend
-cd backend
-npm run prisma:generate
-npx prisma migrate deploy
-npm run prisma:seed
-npm run start:dev
-```
-
-```bash
-# Frontend, dans un autre terminal
-cd frontend
-npm run dev
-```
-
-Adresses locales :
-
-- Frontend : `http://localhost:3000`
-- Backend : `http://localhost:3001`
-
-## 8. Conclusion
-
-Le projet dispose désormais d'une base technique cohérente pour l'authentification, la gestion admin simple, le cas ISSTM avec quitus et la persistance d'un dossier d'inscription. Le prochain jalon indispensable est le téléversement sécurisé des **documents**, puis leur examen administratif. Tant que les pièces restent uniquement dans le navigateur, la plateforme ne peut pas encore gérer un dépôt universitaire complet de bout en bout.
+- **Incohérence de nommage** : le dépôt s'appelle "plateforme-inscription-mahajanga" et les textes de l'interface (page d'accueil, attestations) parlent encore d'"inscription universitaire", alors que la fonction réelle et validée par le porteur du projet est la **demande de bourse**. Les futurs textes/écrans devraient être alignés sur "dossier de bourse" plutôt que "dossier d'inscription".
+- **ISSTM codé en dur** : tout l'espace établissement (`establishment.controller.ts`) est écrit spécifiquement pour "ISSTM" (constante `ISSTM`). Les autres établissements listés côté étudiant (ENS, Médecine, FSTE…) n'ont pas de référentiel backend ni de flux de quitus réel.
+- **Redirection Google incomplète** : la connexion via Google ne route pas le rôle `SCOLARITE_CENTRALE` vers `/scolarite` (voir section 3.5).
+- **Deux entités étudiant distinctes** : `User` (compte de connexion) et `EnrolledStudent` (fiche dans la base d'un établissement) ne sont reliées que par e-mail ou un `userId` optionnel — source de désynchronisation possible.
+- **Jetons de session** stockés en `sessionStorage` (pas de cookie httpOnly) — acceptable en développement, à revoir avant mise en production.
+- **Pas de réinitialisation de mot de passe** en libre-service (le lien "mot de passe oublié" renvoie un message invitant à contacter la scolarité).

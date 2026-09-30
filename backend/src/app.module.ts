@@ -6,24 +6,35 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { GoogleAuthService } from './google-auth.service.js';
 import { PrismaService } from './prisma.service.js';
+import { MailService } from './mail.service.js';
 import { AdminController } from './admin.controller.js';
 import { EstablishmentController } from './establishment.controller.js';
 import { StudentController } from './student.controller.js';
 import { CentralRegistrarController } from './central-registrar.controller.js';
+import { DocumentService } from './document.service.js';
+import { DocumentController } from './document.controller.js';
+import { SiteSettingsService } from './site-settings.service.js';
+import { SiteSettingsController } from './site-settings.controller.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
+const observeImports =
+  process.env.OBSERVE_APP_KEY && process.env.OBSERVE_APP_SECRET
+    ? [
+        ObserveModule.forRoot({
+          appKey: process.env.OBSERVE_APP_KEY,
+          appSecret: process.env.OBSERVE_APP_SECRET,
+          serviceId: 'backend',
+        }),
+      ]
+    : [];
+
 @Module({
   imports: [
-    // Distributed tracing, auto-correlated logs, request/job metrics, error
-    // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
-    ObserveModule.forRoot({
-      appKey: 'YOUR_APP_KEY',
-      appSecret: 'YOUR_APP_SECRET',
-      serviceId: 'backend',
-    }),
+    ...observeImports,
+    // controllers...
   ],
-  controllers: [AppController, AuthController, AdminController, EstablishmentController, StudentController, CentralRegistrarController],
-  providers: [AppService, AuthService, GoogleAuthService, PrismaService],
+  controllers: [AppController, AuthController, AdminController, EstablishmentController, StudentController, CentralRegistrarController, DocumentController, SiteSettingsController],
+  providers: [AppService, AuthService, GoogleAuthService, PrismaService, MailService, DocumentService, SiteSettingsService],
 })
 export class AppModule {}

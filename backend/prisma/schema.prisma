@@ -11,6 +11,8 @@ enum UserRole {
   ETUDIANT
   ADMIN
   ETABLISSEMENT
+  ADMIN_ETABLISSEMENT
+  SECRETAIRE
   SCOLARITE_CENTRALE
 }
 
@@ -28,22 +30,81 @@ enum Gender {
   AUTRE
 }
 
+enum CurriculumOptionType {
+  NIVEAU
+  PARCOURS
+}
+
+enum CurriculumCycle {
+  LICENCE
+  MASTER
+}
+
+enum DocumentRequirementContext {
+  INSCRIPTION
+  CANDIDATURE
+}
+
+enum EnrollmentQuality {
+  PASSANT
+  REDOUBLANT
+}
+
 model User {
   id                 String             @id @default(cuid())
   fullName           String
   email              String             @unique
   passwordHash       String?
+  emailVerified      Boolean            @default(false)
+  active             Boolean            @default(true)
   role               UserRole           @default(ETUDIANT)
   registrationStatus RegistrationStatus @default(BROUILLON)
   establishment      String?
   level              String?
   program            String?
+  deletedAt          DateTime?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   quitus             Quitus[]
   application        EnrollmentApplication?
   enrolledStudent    EnrolledStudent?
   reviewedApplications EnrollmentApplication[] @relation("ApplicationReviewer")
+  emailVerificationTokens EmailVerificationToken[]
+}
+
+enum AuditAction {
+  STAFF_ACCOUNT_CREATED
+  STAFF_ACCOUNT_STATUS_CHANGED
+  STAFF_ACCOUNT_NAME_UPDATED
+  STAFF_ACCOUNT_PASSWORD_RESET
+  STAFF_ACCOUNT_TRASHED
+  STAFF_ACCOUNT_RESTORED
+  STAFF_ACCOUNT_PURGED
+}
+
+model AuditLogEntry {
+  id         String      @id @default(cuid())
+  action     AuditAction
+  actorId    String?
+  actorName  String
+  targetId   String?
+  targetName String
+  detail     String?
+  createdAt  DateTime    @default(now())
+
+  @@index([createdAt])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Quitus {
@@ -77,6 +138,23 @@ model EnrollmentApplication {
   reviewedBy    User?              @relation("ApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
+  documents     ApplicationDocument[]
+}
+
+model ApplicationDocument {
+  id            String                @id @default(cuid())
+  applicationId String
+  type          String
+  originalName  String
+  storageName   String                @unique
+  mimeType      String
+  size          Int
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  application   EnrollmentApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, type])
+  @@index([applicationId])
 }
 
 model EnrolledStudent {
@@ -86,6 +164,29 @@ model EnrolledStudent {
   email              String?  @unique
   phone              String
   gender             Gender
+  registrationForm   String   @default("LICENCE")
+  birthDatePlace     String?
+  cin                String?
+  nationality        String?
+  address            String?
+  previousEstablishment String?
+  bacYear            String?
+  bacSeries          String?
+  bacCenter          String?
+  previousUniversityRegistration Boolean?
+  fatherName         String?
+  motherName         String?
+  parentsPhone       String?
+  parentsCity        String?
+  respondentName     String?
+  respondentPhone    String?
+  respondentAddress  String?
+  maritalStatus      String?
+  licenceYear        String?
+  mention            String?
+  previousLevel      String?
+  previousProgram    String?
+  quality            EnrollmentQuality?
   establishment      String
   level              String
   program            String
@@ -95,4 +196,81 @@ model EnrolledStudent {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   quitus             Quitus?
+  documents          EnrolledStudentDocument[]
+}
+
+model EnrolledStudentDocument {
+  id                String          @id @default(cuid())
+  enrolledStudentId String
+  type              String
+  originalName      String
+  storageName       String          @unique
+  mimeType          String
+  size              Int
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  enrolledStudent   EnrolledStudent @relation(fields: [enrolledStudentId], references: [id], onDelete: Cascade)
+
+  @@unique([enrolledStudentId, type])
+  @@index([enrolledStudentId])
+}
+
+model EstablishmentCurriculumOption {
+  id            String               @id @default(cuid())
+  establishment String
+  type          CurriculumOptionType
+  name          String
+  cycle         CurriculumCycle      @default(LICENCE)
+  active        Boolean              @default(true)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@unique([establishment, type, name, cycle])
+  @@index([establishment, type, active])
+}
+
+model DocumentRequirement {
+  id            String                      @id @default(cuid())
+  establishment String
+  context       DocumentRequirementContext  @default(INSCRIPTION)
+  cycle         CurriculumCycle             @default(LICENCE)
+  type          String
+  label         String
+  active        Boolean                     @default(true)
+  createdAt     DateTime                    @default(now())
+  updatedAt     DateTime                    @updatedAt
+
+  @@unique([establishment, context, cycle, type])
+  @@index([establishment, context, cycle, active])
+}
+
+model EstablishmentSettings {
+  establishment String   @id
+  mention       String?
+  updatedAt     DateTime @updatedAt
+}
+
+enum HeroBackgroundType {
+  COLOR
+  GRADIENT
+  IMAGE
+}
+
+model SiteSettings {
+  id                  String             @id @default("default")
+  primaryColor        String             @default("#0b3b60")
+  secondaryColor      String             @default("#fbbf24")
+  backgroundColor     String             @default("#ffffff")
+  logoUrl             String?
+  faviconUrl          String?
+  heroBackgroundType  HeroBackgroundType @default(IMAGE)
+  heroBackgroundImages String[]         @default([])
+  heroOverlayOpacity  Int                @default(60)
+  heroTitle           String             @default("Votre inscription universitaire, simple et accessible.")
+  heroSubtitle        String             @default("Déposez votre dossier d'inscription en ligne en quelques étapes. Sélectionnez votre établissement, validez votre quitus et suivez l'avancement de votre dossier.")
+  ctaPrimaryLabel     String             @default("Se connecter")
+  ctaPrimaryLink      String             @default("/login")
+  ctaSecondaryLabel   String             @default("Commencer mon inscription")
+  ctaSecondaryLink    String             @default("/login")
+  updatedAt           DateTime           @updatedAt
 }

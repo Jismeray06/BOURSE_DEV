@@ -16,6 +16,7 @@ import { GoogleAuthService } from './google-auth.service.js';
 
 type Credentials = { email?: unknown; password?: unknown };
 type Registration = Credentials & { fullName?: unknown };
+type Verification = { token?: unknown };
 
 @Controller('auth')
 export class AuthController {
@@ -38,6 +39,16 @@ export class AuthController {
       this.email(body.email),
       this.requiredString(body.password, 'Le mot de passe'),
     );
+  }
+
+  @Post('verify-email')
+  verifyEmail(@Body() body: Verification) {
+    return this.authService.verifyEmail(this.requiredString(body.token, 'Le jeton de vérification'));
+  }
+
+  @Post('resend-verification-email')
+  resendVerificationEmail(@Body() body: Pick<Credentials, 'email'>) {
+    return this.authService.resendVerificationEmail(this.email(body.email));
   }
 
   @Get('google')
@@ -69,7 +80,7 @@ export class AuthController {
 
     const profile = await this.googleAuthService.getVerifiedProfile(code);
     const result = await this.authService.loginWithGoogle(profile.fullName, profile.email);
-    const destination = result.user.role === 'ADMIN' ? '/admin' : result.user.role === 'ETABLISSEMENT' ? '/etablissement' : '/student';
+    const destination = result.user.role === 'ADMIN' ? '/admin' : ['ETABLISSEMENT', 'ADMIN_ETABLISSEMENT', 'SECRETAIRE'].includes(result.user.role) ? '/etablissement' : '/student';
     response.redirect(`${process.env.FRONTEND_URL ?? 'http://localhost:3000'}${destination}`);
   }
 

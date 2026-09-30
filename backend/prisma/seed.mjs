@@ -1,4 +1,4 @@
-import { PrismaClient, RegistrationStatus, UserRole } from '@prisma/client';
+import { CurriculumCycle, CurriculumOptionType, DocumentRequirementContext, PrismaClient, RegistrationStatus, UserRole } from '@prisma/client';
 import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
 import { promisify } from 'node:util';
 
@@ -23,6 +23,7 @@ async function main() {
       fullName: process.env.ADMIN_NAME ?? 'Administrateur Université',
       passwordHash,
       role: UserRole.ADMIN,
+      emailVerified: true,
     },
     create: {
       email,
@@ -36,39 +37,80 @@ async function main() {
   const managerPasswordHash = await hashPassword(process.env.ISSTM_MANAGER_PASSWORD ?? 'ISSTM-2026!');
   const manager = await prisma.user.upsert({
     where: { email: managerEmail },
-    update: { fullName: process.env.ISSTM_MANAGER_NAME ?? 'Responsable ISSTM', passwordHash: managerPasswordHash, role: UserRole.ETABLISSEMENT },
-    create: { email: managerEmail, fullName: process.env.ISSTM_MANAGER_NAME ?? 'Responsable ISSTM', passwordHash: managerPasswordHash, role: UserRole.ETABLISSEMENT },
+    update: { fullName: process.env.ISSTM_MANAGER_NAME ?? 'Responsable ISSTM', passwordHash: managerPasswordHash, role: UserRole.ADMIN_ETABLISSEMENT, establishment: 'ISSTM', emailVerified: true },
+    create: { email: managerEmail, fullName: process.env.ISSTM_MANAGER_NAME ?? 'Responsable ISSTM', passwordHash: managerPasswordHash, role: UserRole.ADMIN_ETABLISSEMENT, establishment: 'ISSTM', emailVerified: true },
   });
+
+  const curriculum = [
+    ...['Licence 1 (L1)', 'Licence 2 (L2)', 'Licence 3 (L3)'].map((name) => [CurriculumOptionType.NIVEAU, name, CurriculumCycle.LICENCE]),
+    ...['Master 1 (M1)', 'Master 2 (M2)'].map((name) => [CurriculumOptionType.NIVEAU, name, CurriculumCycle.MASTER]),
+    // Parcours réels de l'ISSTM (fiches d'inscription papier), par cycle
+    ...['GI', 'GC', 'GT', 'GE', 'GInfo', 'GEI', 'GBM', 'GH', 'GArch'].map((name) => [CurriculumOptionType.PARCOURS, name, CurriculumCycle.LICENCE]),
+    ...['GE (ISEA)', 'GAOH', 'G.Logiciel', 'GC', 'EII', 'TR', 'GI', 'GBM'].map((name) => [CurriculumOptionType.PARCOURS, name, CurriculumCycle.MASTER]),
+  ];
+  for (const [type, name, cycle] of curriculum) {
+    await prisma.establishmentCurriculumOption.upsert({
+      where: { establishment_type_name_cycle: { establishment: 'ISSTM', type, name, cycle } },
+      update: { active: true, cycle },
+      create: { establishment: 'ISSTM', type, name, cycle },
+    });
+  }
+
+  const documentRequirements = [
+    [DocumentRequirementContext.INSCRIPTION, CurriculumCycle.LICENCE, 'photo', "Photo d'identité (4×4)"],
+    [DocumentRequirementContext.INSCRIPTION, CurriculumCycle.LICENCE, 'carte_etudiant', "Photocopie de l'ancienne carte d'étudiant"],
+    [DocumentRequirementContext.INSCRIPTION, CurriculumCycle.LICENCE, 'lettre_engagement', 'Lettre d’engagement (légalisée)'],
+    [DocumentRequirementContext.INSCRIPTION, CurriculumCycle.LICENCE, 'certificat_residence', 'Certificat de résidence du répondant'],
+    [DocumentRequirementContext.INSCRIPTION, CurriculumCycle.LICENCE, 'recu_versement', 'Reçu de versement'],
+    [DocumentRequirementContext.INSCRIPTION, CurriculumCycle.MASTER, 'photo', "Photo d'identité (4×4)"],
+    [DocumentRequirementContext.INSCRIPTION, CurriculumCycle.MASTER, 'certificat_residence', 'Certificat de résidence des parents'],
+    [DocumentRequirementContext.INSCRIPTION, CurriculumCycle.MASTER, 'diplome_licence', 'Photocopie certifiée du diplôme/attestation de Licence'],
+    [DocumentRequirementContext.INSCRIPTION, CurriculumCycle.MASTER, 'acte_naissance', 'Acte de naissance (moins de 3 mois)'],
+    [DocumentRequirementContext.INSCRIPTION, CurriculumCycle.MASTER, 'cin', 'Photocopie CIN légalisée'],
+    [DocumentRequirementContext.INSCRIPTION, CurriculumCycle.MASTER, 'recu_versement', 'Reçu de versement'],
+    [DocumentRequirementContext.CANDIDATURE, CurriculumCycle.LICENCE, 'cin', "Photocopie EN COULEUR de la Carte d'Identité Nationale légalisée"],
+    [DocumentRequirementContext.CANDIDATURE, CurriculumCycle.LICENCE, 'quitus', 'Quitus d’inscription ou de réinscription définitive pour l’Année Universitaire en cours'],
+    [DocumentRequirementContext.CANDIDATURE, CurriculumCycle.LICENCE, 'residence', 'Certificat de résidence de l’étudiant à Mahajanga'],
+    [DocumentRequirementContext.CANDIDATURE, CurriculumCycle.LICENCE, 'unemployment', 'Attestation de chômage délivrée par la Direction Régionale du Travail, de l’Emploi, de la Fonction Publique (FOP)'],
+    [DocumentRequirementContext.CANDIDATURE, CurriculumCycle.LICENCE, 'bac', 'Photocopie certifiée du relevé de notes du Baccalauréat'],
+  ];
+  for (const [context, cycle, type, label] of documentRequirements) {
+    await prisma.documentRequirement.upsert({
+      where: { establishment_context_cycle_type: { establishment: 'ISSTM', context, cycle, type } },
+      update: { label },
+      create: { establishment: 'ISSTM', context, cycle, type, label },
+    });
+  }
 
   const centralEmail = (process.env.SCOLARITE_EMAIL ?? 'scolarite@univ-mahajanga.mg').trim().toLowerCase();
   const centralPasswordHash = await hashPassword(process.env.SCOLARITE_PASSWORD ?? 'Scolarite-2026!');
   await prisma.user.upsert({
     where: { email: centralEmail },
-    update: { fullName: process.env.SCOLARITE_NAME ?? 'Scolarité Centrale', passwordHash: centralPasswordHash, role: UserRole.SCOLARITE_CENTRALE },
-    create: { email: centralEmail, fullName: process.env.SCOLARITE_NAME ?? 'Scolarité Centrale', passwordHash: centralPasswordHash, role: UserRole.SCOLARITE_CENTRALE },
+    update: { fullName: process.env.SCOLARITE_NAME ?? 'Scolarité Centrale', passwordHash: centralPasswordHash, role: UserRole.SCOLARITE_CENTRALE, emailVerified: true },
+    create: { email: centralEmail, fullName: process.env.SCOLARITE_NAME ?? 'Scolarité Centrale', passwordHash: centralPasswordHash, role: UserRole.SCOLARITE_CENTRALE, emailVerified: true },
   });
 
   const enrolledStudents = [
-    ['ISSTM-2026-001', 'RASOLO Marie', 'marie.rasolo@isstm.mg', '034 12 345 01', 'FEMININ', 'Licence 1 (L1)', 'Génie Logiciel & Base de Données'],
-    ['ISSTM-2026-002', 'ANDRIAMBOLOLONA Tiana', 'tiana.andriambololona@isstm.mg', '034 12 345 02', 'FEMININ', 'Licence 1 (L1)', "Systèmes d’Information & Réseaux"],
-    ['ISSTM-2026-003', 'RAKOTO Andry', 'andry.rakoto@isstm.mg', '034 12 345 03', 'MASCULIN', 'Licence 1 (L1)', 'Génie Logiciel & Base de Données'],
-    ['ISSTM-2026-004', 'RAVELO Hanta', 'hanta.ravelo@isstm.mg', '034 12 345 04', 'FEMININ', 'Licence 2 (L2)', "Systèmes d’Information & Réseaux"],
-    ['ISSTM-2026-005', 'RANDRIANARISOA Feno', 'feno.randrianarisoa@isstm.mg', '034 12 345 05', 'MASCULIN', 'Licence 2 (L2)', 'Génie Logiciel & Base de Données'],
-    ['ISSTM-2026-006', 'RAZAFINDRAKOTO Miora', 'miora.razafindrakoto@isstm.mg', '034 12 345 06', 'FEMININ', 'Licence 2 (L2)', "Systèmes d’Information & Réseaux"],
-    ['ISSTM-2026-007', 'ANDRIANJAFY Tojo', 'tojo.andrianjafy@isstm.mg', '034 12 345 07', 'MASCULIN', 'Licence 3 (L3)', 'Génie Logiciel & Base de Données'],
-    ['ISSTM-2026-008', 'RABEARIMANANA Soa', 'soa.rabearimanana@isstm.mg', '034 12 345 08', 'FEMININ', 'Licence 3 (L3)', "Systèmes d’Information & Réseaux"],
-    ['ISSTM-2026-009', 'RAKOTONDRABE Lova', 'lova.rakotondrabe@isstm.mg', '034 12 345 09', 'MASCULIN', 'Licence 3 (L3)', 'Génie Logiciel & Base de Données'],
-    ['ISSTM-2026-010', 'RAZANAKOTO Noro', 'noro.razanakoto@isstm.mg', '034 12 345 10', 'FEMININ', 'Master 1 (M1)', 'Génie Logiciel & Base de Données'],
-    ['ISSTM-2026-011', 'RANDRIAMBOLOLONA Kanto', 'kanto.randriambololona@isstm.mg', '034 12 345 11', 'MASCULIN', 'Master 1 (M1)', "Systèmes d’Information & Réseaux"],
-    ['ISSTM-2026-012', 'RAMAROSON Zo', 'zo.ramaroson@isstm.mg', '034 12 345 12', 'FEMININ', 'Master 1 (M1)', 'Génie Logiciel & Base de Données'],
-    ['ISSTM-2026-013', 'RAKOTOARISOA Faly', 'faly.rakotoarisoa@isstm.mg', '034 12 345 13', 'MASCULIN', 'Master 2 (M2)', "Systèmes d’Information & Réseaux"],
-    ['ISSTM-2026-014', 'ANDRIANASOLO Mamy', 'mamy.andrianasolo@isstm.mg', '034 12 345 14', 'FEMININ', 'Master 2 (M2)', 'Génie Logiciel & Base de Données'],
-    ['ISSTM-2026-015', 'RABENJA Bodo', 'bodo.rabenja@isstm.mg', '034 12 345 15', 'FEMININ', 'Licence 1 (L1)', 'Génie Logiciel & Base de Données'],
-    ['ISSTM-2026-016', 'RATSIMBA Hery', 'hery.ratsimba@isstm.mg', '034 12 345 16', 'MASCULIN', 'Licence 1 (L1)', "Systèmes d’Information & Réseaux"],
-    ['ISSTM-2026-017', 'RANAIVOSON Tovo', 'tovo.ranaivoson@isstm.mg', '034 12 345 17', 'MASCULIN', 'Licence 2 (L2)', 'Génie Logiciel & Base de Données'],
-    ['ISSTM-2026-018', 'RAKOTONIAINA Saholy', 'saholy.rakotoniaina@isstm.mg', '034 12 345 18', 'FEMININ', 'Licence 2 (L2)', "Systèmes d’Information & Réseaux"],
-    ['ISSTM-2026-019', 'RABEARISOA Aina', 'aina.rabearisoa@isstm.mg', '034 12 345 19', 'FEMININ', 'Licence 3 (L3)', 'Génie Logiciel & Base de Données'],
-    ['ISSTM-2026-020', 'ANDRIAMIHARISOA Solo', 'solo.andriamiharisoa@isstm.mg', '034 12 345 20', 'MASCULIN', 'Master 2 (M2)', "Systèmes d’Information & Réseaux"],
+    ['ISSTM-2026-001', 'RASOLO Marie', 'marie.rasolo@isstm.mg', '034 12 345 01', 'FEMININ', 'Licence 1 (L1)', 'GInfo'],
+    ['ISSTM-2026-002', 'ANDRIAMBOLOLONA Tiana', 'tiana.andriambololona@isstm.mg', '034 12 345 02', 'FEMININ', 'Licence 1 (L1)', "GC"],
+    ['ISSTM-2026-003', 'RAKOTO Andry', 'andry.rakoto@isstm.mg', '034 12 345 03', 'MASCULIN', 'Licence 1 (L1)', 'GInfo'],
+    ['ISSTM-2026-004', 'RAVELO Hanta', 'hanta.ravelo@isstm.mg', '034 12 345 04', 'FEMININ', 'Licence 2 (L2)', "GC"],
+    ['ISSTM-2026-005', 'RANDRIANARISOA Feno', 'feno.randrianarisoa@isstm.mg', '034 12 345 05', 'MASCULIN', 'Licence 2 (L2)', 'GInfo'],
+    ['ISSTM-2026-006', 'RAZAFINDRAKOTO Miora', 'miora.razafindrakoto@isstm.mg', '034 12 345 06', 'FEMININ', 'Licence 2 (L2)', "GC"],
+    ['ISSTM-2026-007', 'ANDRIANJAFY Tojo', 'tojo.andrianjafy@isstm.mg', '034 12 345 07', 'MASCULIN', 'Licence 3 (L3)', 'GInfo'],
+    ['ISSTM-2026-008', 'RABEARIMANANA Soa', 'soa.rabearimanana@isstm.mg', '034 12 345 08', 'FEMININ', 'Licence 3 (L3)', "GC"],
+    ['ISSTM-2026-009', 'RAKOTONDRABE Lova', 'lova.rakotondrabe@isstm.mg', '034 12 345 09', 'MASCULIN', 'Licence 3 (L3)', 'GInfo'],
+    ['ISSTM-2026-010', 'RAZANAKOTO Noro', 'noro.razanakoto@isstm.mg', '034 12 345 10', 'FEMININ', 'Master 1 (M1)', 'G.Logiciel'],
+    ['ISSTM-2026-011', 'RANDRIAMBOLOLONA Kanto', 'kanto.randriambololona@isstm.mg', '034 12 345 11', 'MASCULIN', 'Master 1 (M1)', "GAOH"],
+    ['ISSTM-2026-012', 'RAMAROSON Zo', 'zo.ramaroson@isstm.mg', '034 12 345 12', 'FEMININ', 'Master 1 (M1)', 'G.Logiciel'],
+    ['ISSTM-2026-013', 'RAKOTOARISOA Faly', 'faly.rakotoarisoa@isstm.mg', '034 12 345 13', 'MASCULIN', 'Master 2 (M2)', "GAOH"],
+    ['ISSTM-2026-014', 'ANDRIANASOLO Mamy', 'mamy.andrianasolo@isstm.mg', '034 12 345 14', 'FEMININ', 'Master 2 (M2)', 'G.Logiciel'],
+    ['ISSTM-2026-015', 'RABENJA Bodo', 'bodo.rabenja@isstm.mg', '034 12 345 15', 'FEMININ', 'Licence 1 (L1)', 'GInfo'],
+    ['ISSTM-2026-016', 'RATSIMBA Hery', 'hery.ratsimba@isstm.mg', '034 12 345 16', 'MASCULIN', 'Licence 1 (L1)', "GC"],
+    ['ISSTM-2026-017', 'RANAIVOSON Tovo', 'tovo.ranaivoson@isstm.mg', '034 12 345 17', 'MASCULIN', 'Licence 2 (L2)', 'GInfo'],
+    ['ISSTM-2026-018', 'RAKOTONIAINA Saholy', 'saholy.rakotoniaina@isstm.mg', '034 12 345 18', 'FEMININ', 'Licence 2 (L2)', "GC"],
+    ['ISSTM-2026-019', 'RABEARISOA Aina', 'aina.rabearisoa@isstm.mg', '034 12 345 19', 'FEMININ', 'Licence 3 (L3)', 'GInfo'],
+    ['ISSTM-2026-020', 'ANDRIAMIHARISOA Solo', 'solo.andriamiharisoa@isstm.mg', '034 12 345 20', 'MASCULIN', 'Master 2 (M2)', "GAOH"],
   ];
   const studentsByRegistrationNumber = new Map();
   const usersByRegistrationNumber = new Map();
@@ -85,6 +127,7 @@ async function main() {
         fullName,
         passwordHash: studentPasswordHash,
         role: UserRole.ETUDIANT,
+        emailVerified: true,
         establishment: 'ISSTM',
         level,
         program,
@@ -94,6 +137,7 @@ async function main() {
         email: studentEmail,
         passwordHash: studentPasswordHash,
         role: UserRole.ETUDIANT,
+        emailVerified: true,
         establishment: 'ISSTM',
         level,
         program,

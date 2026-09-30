@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Headers, Post, Put, UnauthorizedException } from '@nestjs/common';
-import { RegistrationStatus, UserRole } from '@prisma/client';
+import { CurriculumOptionType, DocumentRequirementContext, RegistrationStatus, UserRole } from '@prisma/client';
 import { AuthService } from './auth.service.js';
+import { DocumentService } from './document.service.js';
 import { PrismaService } from './prisma.service.js';
 
 type ApplicationBody = {
@@ -12,7 +13,7 @@ type ApplicationBody = {
 
 @Controller('student')
 export class StudentController {
-  constructor(private readonly prisma: PrismaService, private readonly authService: AuthService) {}
+  constructor(private readonly prisma: PrismaService, private readonly authService: AuthService, private readonly documents: DocumentService) {}
 
   @Get('application')
   async application(@Headers('authorization') authorization?: string) {
@@ -62,6 +63,10 @@ export class StudentController {
     if (existing && existing.status !== RegistrationStatus.BROUILLON && existing.status !== RegistrationStatus.REFUSE) {
       throw new BadRequestException('Ce dossier a déjà été soumis.');
     }
+    const storedTypes = new Set(existing ? (await this.documents.list(existing.id)).map((document) => document.type) : []);
+    const isFirstYear = /licence\s*1|\bL1\b/i.test(fields.level);
+    const requiredTypes = await this.requiredCandidatureDocumentTypes(fields.establishment, isFirstYear);
+    if (requiredTypes.some((type) => !storedTypes.has(type))) throw new BadRequestException('Toutes les pièces obligatoires doivent être téléversées avant la soumission.');
 
     const [application] = await this.prisma.$transaction([
       this.prisma.enrollmentApplication.upsert({
@@ -75,6 +80,17 @@ export class StudentController {
     return application;
   }
 
+  private async requiredCandidatureDocumentTypes(establishment: string, isFirstYear: boolean) {
+    const fallback = ['cin', 'quitus', 'residence', ...(isFirstYear ? ['bac'] : [])];
+    if (establishment !== 'ISSTM') return fallback;
+    const configured = await this.prisma.documentRequirement.findMany({
+      where: { establishment, context: DocumentRequirementContext.CANDIDATURE, active: true },
+      select: { type: true },
+    });
+    if (!configured.length) return fallback;
+    return configured.map((item) => item.type).filter((type) => type !== 'unemployment' && (type !== 'bac' || isFirstYear));
+  }
+
   private async student(authorization?: string) {
     const user = await this.authService.requireUser(authorization);
     if (user.role !== UserRole.ETUDIANT) throw new UnauthorizedException('Accès réservé aux étudiants.');
@@ -85,6 +101,14 @@ export class StudentController {
     const establishment = this.string(body.establishment, 'L’établissement');
     const level = this.string(body.level, 'Le niveau');
     const program = this.string(body.program, 'Le parcours');
+    if (establishment === 'ISSTM') {
+      const options = await this.prisma.establishmentCurriculumOption.findMany({
+        where: { establishment, active: true, name: { in: [level, program] } },
+      });
+      const levelValid = options.some((option) => option.type === CurriculumOptionType.NIVEAU && option.name === level);
+      const programValid = options.some((option) => option.type === CurriculumOptionType.PARCOURS && option.name === program);
+      if (!levelValid || !programValid) throw new BadRequestException('Le niveau ou le parcours sélectionné n’est plus actif à l’ISSTM.');
+    }
     const quitusCode = typeof body.quitusCode === 'string' && body.quitusCode.trim() ? body.quitusCode.trim().toUpperCase() : undefined;
     if (requireQuitus && !quitusCode) throw new BadRequestException('Un quitus valide est obligatoire pour soumettre le dossier.');
 

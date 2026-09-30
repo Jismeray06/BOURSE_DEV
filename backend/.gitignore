@@ -3,6 +3,9 @@
 /node_modules
 /build
 
+# fichiers téléversés par les utilisateurs (documents, images) : jamais dans le dépôt
+/uploads
+
 # Logs
 logs
 *.log
