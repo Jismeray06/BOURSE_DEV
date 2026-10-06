@@ -132,6 +132,18 @@ const isLightColor = (hex: string) => {
   const number = parseInt(hex.slice(1), 16);
   return (0.299 * ((number >> 16) & 255) + 0.587 * ((number >> 8) & 255) + 0.114 * (number & 255)) / 255 > 0.6;
 };
+// Le rendu est-il sombre ? Une couleur de fond personnalisée prime sur le thème choisi.
+export function isDarkRendering(settings: AdminSettings, systemDark: boolean): boolean {
+  return HEX.test(settings.customBg) ? !isLightColor(settings.customBg) : resolveMode(settings, systemDark) !== 'clair';
+}
+
+// Bascule clair <-> sombre. Si la couleur de fond personnalisée empêche de changer d'aspect, on l'écarte.
+export function toggleLightDark(settings: AdminSettings, systemDark: boolean): AdminSettings {
+  const goLight = isDarkRendering(settings, systemDark);
+  const backgroundBlocks = HEX.test(settings.customBg) && isLightColor(settings.customBg) !== goLight;
+  return { ...settings, theme: goLight ? 'clair' : 'sombre', customBg: backgroundBlocks ? '' : settings.customBg };
+}
+
 const mix = (a: string, b: string, pctB: number) => `color-mix(in srgb, ${a} ${100 - pctB}%, ${b})`;
 const alpha = (color: string, percent: number) => `color-mix(in srgb, ${color} ${percent}%, transparent)`;
 const escapeClass = (value: string) => value.replace(/[:/.[\]%]/g, '\\$&');

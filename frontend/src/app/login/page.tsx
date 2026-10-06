@@ -5,6 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Eye, EyeOff, Mail, Lock, User as UserIcon, GraduationCap, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { dashboardPathForRole } from '../../components/dashboardPath';
+import { HomeThemeToggle, useHomeTheme } from '../../components/HomeThemeToggle';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const googleAuthUrl = process.env.NEXT_PUBLIC_GOOGLE_AUTH_URL ?? `${apiUrl}/auth/google`;
@@ -16,16 +18,9 @@ type LoginResponse = ApiError & {
   user?: { id?: string; fullName?: string; email?: string; role?: UserRole };
 };
 
-function dashboardPathForRole(role: string | null) {
-  if (role === 'ADMIN') return '/admin';
-  if (role === 'ETABLISSEMENT' || role === 'ADMIN_ETABLISSEMENT' || role === 'SECRETAIRE') return '/etablissement';
-  if (role === 'SCOLARITE_CENTRALE') return '/scolarite';
-  if (role === 'ETUDIANT') return '/student';
-  return null;
-}
-
 export default function AuthPage() {
   const router = useRouter();
+  const { darkMode, toggleTheme } = useHomeTheme();
   const [isRegistering, setIsRegistering] = useState(false);
 
   // Tant que cette vérification n'est pas faite, on n'affiche pas le formulaire :
@@ -152,13 +147,13 @@ export default function AuthPage() {
   };
 
   if (checkingSession) {
-    return <div className="min-h-screen w-full bg-slate-100" />;
+    return <div className="min-h-screen w-full bg-slate-100 dark:bg-slate-950" />;
   }
 
   return (
-    <div className="min-h-screen w-full bg-slate-100">
+    <div className={`min-h-screen w-full bg-slate-100 dark:bg-slate-950 ${darkMode ? 'home-dark' : ''}`}>
       {/* Écran plein : panneau décoratif + formulaire */}
-      <div className="flex min-h-screen w-full flex-col overflow-hidden bg-white md:flex-row">
+      <div className="flex min-h-screen w-full flex-col overflow-hidden bg-white dark:bg-slate-950 md:flex-row">
 
         {/* --- Panneau gauche décoratif (masqué sur mobile) --- */}
         <div className="relative hidden min-h-screen overflow-hidden md:flex md:w-1/2 md:flex-col md:justify-end px-10 pb-16 lg:px-16">
@@ -190,13 +185,14 @@ export default function AuthPage() {
         </div>
 
         {/* --- Panneau droit : formulaire --- */}
-        <div className="flex min-h-screen w-full items-center justify-center px-6 py-10 sm:px-12 lg:px-20 md:w-1/2">
-          <div className="w-full max-w-md space-y-5 rounded-2xl bg-white p-6 shadow-[0_12px_40px_rgba(15,23,42,0.05)] sm:p-8">
+        <div className="relative flex min-h-screen w-full items-center justify-center px-6 py-10 sm:px-12 lg:px-20 md:w-1/2">
+          <HomeThemeToggle darkMode={darkMode} onToggle={toggleTheme} className="absolute right-4 top-4 z-20" />
+          <div className="w-full max-w-md space-y-5 rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-[0_12px_40px_rgba(15,23,42,0.05)] sm:p-8">
 
           {/* Retour à l'accueil */}
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-[#0b3b60] transition"
+            className="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-[#0b3b60] dark:hover:text-blue-300 transition"
           >
             <ArrowLeft className="w-4 h-4" />
             Retour à l&apos;accueil
@@ -204,17 +200,17 @@ export default function AuthPage() {
 
           {/* Titre et bascule Mode Inscription / Connexion */}
           <div>
-            <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-slate-900 sm:text-3xl">
+            <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
               {isRegistering ? 'Créer un compte' : 'Heureux de vous revoir'}
             </h1>
-            <p className="text-sm text-slate-600 mt-1">
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
               {isRegistering ? (
                 <>
                   Vous avez déjà un compte ?{' '}
                   <button
                     type="button"
                     onClick={() => { setIsRegistering(false); setErrorMsg(''); }}
-                    className="text-[#0b3b60] hover:underline font-medium cursor-pointer"
+                    className="text-[#0b3b60] dark:text-blue-300 hover:underline font-medium cursor-pointer"
                   >
                     Se connecter
                   </button>
@@ -225,7 +221,7 @@ export default function AuthPage() {
                   <button
                     type="button"
                     onClick={() => { setIsRegistering(true); setErrorMsg(''); }}
-                    className="text-[#0b3b60] hover:underline font-medium cursor-pointer"
+                    className="text-[#0b3b60] dark:text-blue-300 hover:underline font-medium cursor-pointer"
                   >
                     créer un compte
                   </button>
@@ -236,12 +232,12 @@ export default function AuthPage() {
 
           {/* Message d'erreur s'il y en a un */}
           {errorMsg && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-lg font-medium">
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/30 dark:text-rose-300 text-xs rounded-lg font-medium">
               {errorMsg}
             </div>
           )}
           {successMsg && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg font-medium">
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300 text-xs rounded-lg font-medium">
               {successMsg}
             </div>
           )}
@@ -259,7 +255,7 @@ export default function AuthPage() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:bg-white text-slate-900 placeholder-slate-400 text-sm transition-all"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-200 dark:focus:ring-blue-500/40 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 text-sm transition-all"
                 />
               </div>
             )}
@@ -273,7 +269,7 @@ export default function AuthPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:bg-white text-slate-900 placeholder-slate-400 text-sm transition-all"
+                className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-200 dark:focus:ring-blue-500/40 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 text-sm transition-all"
               />
             </div>
 
@@ -286,7 +282,7 @@ export default function AuthPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:bg-white text-slate-900 placeholder-slate-400 text-sm transition-all"
+                className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-200 dark:focus:ring-blue-500/40 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 text-sm transition-all"
               />
               <button
                 type="button"
@@ -308,7 +304,7 @@ export default function AuthPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-200 focus:bg-white text-slate-900 placeholder-slate-400 text-sm transition-all"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-200 dark:focus:ring-blue-500/40 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 text-sm transition-all"
                 />
                 <button
                   type="button"
@@ -331,7 +327,7 @@ export default function AuthPage() {
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="w-4 h-4 text-[#0b3b60] border-slate-300 rounded focus:ring-0 cursor-pointer"
                 />
-                <label htmlFor="remember" className="text-sm text-slate-700 cursor-pointer select-none">
+                <label htmlFor="remember" className="text-sm text-slate-700 dark:text-slate-300 cursor-pointer select-none">
                   Se souvenir de moi
                 </label>
               </div>
@@ -351,15 +347,15 @@ export default function AuthPage() {
           </form>
 
           {verificationEmail && (
-            <button type="button" onClick={() => void resendVerificationEmail()} disabled={loading} className="text-sm text-[#0b3b60] hover:underline cursor-pointer disabled:opacity-50">
+            <button type="button" onClick={() => void resendVerificationEmail()} disabled={loading} className="text-sm text-[#0b3b60] dark:text-blue-300 hover:underline cursor-pointer disabled:opacity-50">
               Renvoyer l&apos;e-mail de vérification
             </button>
           )}
 
           {/* Séparateur « OU » */}
           <div className="relative flex items-center justify-center my-2">
-            <div className="border-t border-slate-200 w-full"></div>
-            <span className="bg-white px-3 text-xs text-slate-400 uppercase tracking-wider absolute">
+            <div className="border-t border-slate-200 dark:border-slate-700 w-full"></div>
+            <span className="bg-white dark:bg-slate-900 px-3 text-xs text-slate-400 uppercase tracking-wider absolute">
               ou
             </span>
           </div>
@@ -368,7 +364,7 @@ export default function AuthPage() {
           <button
             type="button"
             onClick={handleGoogleAuth}
-            className="w-full py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium text-sm rounded-xl flex items-center justify-center gap-3 transition cursor-pointer shadow-sm"
+            className="w-full py-2.5 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-sm rounded-xl flex items-center justify-center gap-3 transition cursor-pointer shadow-sm"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -387,7 +383,7 @@ export default function AuthPage() {
               <button
                 type="button"
                 onClick={() => setErrorMsg('Contactez le service de scolarité pour réinitialiser votre mot de passe.')}
-                className="text-sm text-[#0b3b60] hover:underline cursor-pointer"
+                className="text-sm text-[#0b3b60] dark:text-blue-300 hover:underline cursor-pointer"
               >
                 Mot de passe oublié ?
               </button>

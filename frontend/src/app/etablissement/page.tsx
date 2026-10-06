@@ -1,11 +1,18 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DossierViewer } from "../../components/DossierViewer";
 import { AdminSettingsPanel } from "../../components/AdminSettingsPanel";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { useInterfaceSettings } from "../../components/useInterfaceSettings";
+import { defaultSettings, parseSettings } from "../../components/adminSettings";
+import { useInterfaceSettings, useSystemDark } from "../../components/useInterfaceSettings";
+import { EstablishmentIdentityPanel, type EstablishmentProfile } from "../../components/EstablishmentIdentityPanel";
+import { AccountPanel } from "../../components/AccountPanel";
+import { HeaderToolbar } from "../../components/HeaderToolbar";
+import { usePolling } from "../../components/usePolling";
+import { isDarkRendering, toggleLightDark } from "../../components/adminSettings";
+import { EstablishmentIcon, logoSrc } from "../../components/establishments";
 import {
   BookOpen,
   Building2,
@@ -14,6 +21,7 @@ import {
   FilePlus2,
   FileText,
   GraduationCap,
+  LayoutDashboard,
   List,
   LogOut,
   Menu,
@@ -26,6 +34,7 @@ import {
   Settings,
   SlidersHorizontal,
   Trash2,
+  UserCog,
   UserPlus,
   Users,
   X,
@@ -34,7 +43,7 @@ import {
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 // Zone tactile confortable (44px) sur téléphone et tablette uniquement
 const touch = "max-[1024px]:min-h-[44px]";
-type View = "students" | "add" | "secretaries" | "settings";
+type View = "dashboard" | "students" | "add" | "secretaries" | "settings" | "account";
 type Cycle = "LICENCE" | "MASTER";
 type Student = {
   id: string;
@@ -69,6 +78,16 @@ type Option = {
   cycle: Cycle;
 };
 type Curriculum = { levels: Option[]; programs: Option[] };
+type DashboardData = {
+  students: { total: number; active: number; inactive: number };
+  byLevel: { level: string; count: number }[];
+  byGender: Record<string, number>;
+  byForm: Record<string, number>;
+  quitus: { issued: number; missing: number };
+  secretaries: { total: number; active: number };
+  applications: Record<string, number>;
+  recentStudents: { id: string; registrationNumber: string; fullName: string; level: string; program: string; createdAt: string }[];
+};
 type StudentForm = {
   fullName: string;
   email: string;
@@ -176,11 +195,18 @@ export default function EstablishmentPage() {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [dossierStudentId, setDossierStudentId] = useState<string | null>(null);
   const [settings, setSettings] = useInterfaceSettings("etablissement");
+  const systemDark = useSystemDark();
+  // Apparence : définie par l'administrateur de l'établissement (enregistrée côté serveur),
+  // le secrétaire l'applique sans pouvoir la modifier.
+  const [settingsSynced, setSettingsSynced] = useState(false);
+  const lastSharedSettings = useRef("");
   const [view, setView] = useState<View>("students");
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [settingsTabId, setSettingsTabId] = useState<"appearance" | "behavior" | "academic" | "documentsInscription" | "documentsCandidature">("appearance");
+  const [settingsTabId, setSettingsTabId] = useState<"appearance" | "behavior" | "establishment" | "academic" | "documentsInscription" | "documentsCandidature">("appearance");
   const [students, setStudents] = useState<Student[]>([]);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [profile, setProfile] = useState<EstablishmentProfile | null>(null);
   const [curriculum, setCurriculum] = useState<Curriculum>({
     levels: [],
     programs: [],
@@ -264,13 +290,16 @@ export default function EstablishmentPage() {
       return;
     }
     setLoading(true);
-    const [studentResponse, curriculumResponse, settingsResponse, documentRequirementsResponse, candidatureDocumentRequirementsResponse] = await Promise.all([
+    const [studentResponse, curriculumResponse, settingsResponse, documentRequirementsResponse, candidatureDocumentRequirementsResponse, interfaceSettingsResponse] = await Promise.all([
       request("/establishment/isstm/students"),
       request("/establishment/isstm/curriculum"),
       request("/establishment/isstm/settings"),
       request("/establishment/isstm/document-requirements?context=INSCRIPTION"),
       request("/establishment/isstm/document-requirements?context=CANDIDATURE"),
+      request("/establishment/isstm/interface-settings"),
     ]);
+    const profileResponse = await request("/establishment/isstm/profile");
+    if (profileResponse.ok) setProfile((await profileResponse.json()) as EstablishmentProfile);
     if (studentResponse.status === 401 || curriculumResponse.status === 401) {
       sessionStorage.clear();
       router.replace("/login");
@@ -284,6 +313,18 @@ export default function EstablishmentPage() {
     if (settingsResponse.ok) {
       const result = (await settingsResponse.json()) as { mention: string };
       setEstablishmentMention(result.mention);
+    }
+    if (interfaceSettingsResponse.ok) {
+      const shared = ((await interfaceSettingsResponse.json()) as { settings: unknown }).settings;
+      const parsed = shared ? parseSettings(JSON.stringify(shared)) : null;
+      const isAdmin = ["ETABLISSEMENT", "ADMIN_ETABLISSEMENT"].includes(sessionStorage.getItem("user_role") ?? "");
+      if (parsed) {
+        lastSharedSettings.current = JSON.stringify(parsed);
+        setSettings(parsed);
+      } else if (!isAdmin) {
+        setSettings(defaultSettings);
+      }
+      setSettingsSynced(true);
     }
     if (documentRequirementsResponse.ok) {
       setDocumentRequirements((await documentRequirementsResponse.json()) as DocumentRequirement[]);
@@ -301,14 +342,37 @@ export default function EstablishmentPage() {
       );
       if (secretaryResponse.ok)
         setSecretaries((await secretaryResponse.json()) as Secretary[]);
+      const dashboardResponse = await request("/establishment/isstm/dashboard");
+      if (dashboardResponse.ok)
+        setDashboard((await dashboardResponse.json()) as DashboardData);
     }
     if (!studentResponse.ok || !curriculumResponse.ok)
-      setMessage("Impossible de charger les données ISSTM.");
+      setMessage("Impossible de charger les données de l’établissement.");
     setLoading(false);
   };
+  // L'administrateur publie ses réglages d'apparence pour son établissement.
+  useEffect(() => {
+    if (!settingsSynced || !isEstablishmentAdmin) return;
+    const serialized = JSON.stringify(settings);
+    if (serialized === lastSharedSettings.current) return;
+    const timer = window.setTimeout(() => {
+      void request("/establishment/isstm/interface-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings }),
+      }).then((response) => {
+        if (response.ok) lastSharedSettings.current = serialized;
+      }).catch(() => undefined); // réseau indisponible : l'apparence sera republiée au prochain changement
+    }, 600);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings, settingsSynced, isEstablishmentAdmin]);
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setUserRole(sessionStorage.getItem("user_role"));
+      const role = sessionStorage.getItem("user_role");
+      setUserRole(role);
+      // Le responsable arrive sur le tableau de bord ; le secrétaire sur la liste des étudiants.
+      if (role === "ADMIN_ETABLISSEMENT" || role === "ETABLISSEMENT") setView("dashboard");
       void load();
     }, 0);
     return () => window.clearTimeout(timer);
@@ -452,7 +516,7 @@ export default function EstablishmentPage() {
     if (!response.ok) setMessage(await errorMessage(response));
     else {
       const created = (await response.json()) as Student;
-      setMessage("Étudiant ajouté dans la base ISSTM.");
+      setMessage("Étudiant ajouté dans la base de l’établissement.");
       setPendingAttestation({
         fullName: created.fullName,
         birthDatePlace: created.birthDatePlace ?? studentForm.birthDatePlace,
@@ -703,7 +767,28 @@ export default function EstablishmentPage() {
     setSaving(false);
   };
 
+  const establishmentName = profile?.name ?? "Mon établissement";
+  const sidebarLogo = logoSrc(profile?.logoUrl);
+  // Actualisation discrète des chiffres affichés (cloche et tableau de bord), sans recharger toute la page.
+  const refreshLive = async () => {
+    if (!sessionStorage.getItem("auth_token")) return;
+    try {
+      const studentResponse = await request("/establishment/isstm/students");
+      if (studentResponse.ok) setStudents((await studentResponse.json()) as Student[]);
+      if (isEstablishmentAdmin) {
+        const dashboardResponse = await request("/establishment/isstm/dashboard");
+        if (dashboardResponse.ok) setDashboard((await dashboardResponse.json()) as DashboardData);
+      }
+    } catch {
+      // réseau indisponible : nouvel essai au prochain cycle
+    }
+  };
+  usePolling(() => void refreshLive(), 30_000);
+  const studentsWithoutQuitus = students.filter((item) => item.active && !item.quitus);
   const navigation: { id: View; label: string; icon: typeof List }[] = [
+    ...(isEstablishmentAdmin
+      ? [{ id: "dashboard" as View, label: "Tableau de bord", icon: LayoutDashboard }]
+      : []),
     { id: "students", label: "Liste des étudiants", icon: List },
     ...(isEstablishmentAdmin
       ? [
@@ -718,6 +803,7 @@ export default function EstablishmentPage() {
   const settingsSections: { id: typeof settingsTabId; label: string; icon: typeof Palette }[] = [
     { id: "appearance", label: "Apparence & Affichage", icon: Palette },
     { id: "behavior", label: "Comportement", icon: SlidersHorizontal },
+    { id: "establishment", label: "Nom & logo de l’établissement", icon: Building2 },
     { id: "academic", label: "Structure académique & mentions", icon: Building2 },
     { id: "documentsInscription", label: "Pièces — Inscription", icon: FileText },
     { id: "documentsCandidature", label: "Pièces — Dépôt de dossier étudiant", icon: FileText },
@@ -759,9 +845,14 @@ export default function EstablishmentPage() {
             </button>
           </div>
           <div className="m-3 flex gap-3 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
-            <Building2 className="shrink-0 text-blue-400" />
+            {sidebarLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={sidebarLogo} alt="" className="h-10 w-10 shrink-0 rounded-xl object-contain" />
+            ) : (
+              <EstablishmentIcon name={establishmentName} className="h-10 w-10 shrink-0 text-blue-400" />
+            )}
             <div className="min-w-0">
-              <b className="text-sm">ISSTM</b>
+              <b className="block truncate text-sm">{establishmentName}</b>
               <p className="text-xs text-slate-400">
                 Gestion de l&apos;établissement
               </p>
@@ -827,6 +918,7 @@ export default function EstablishmentPage() {
                 </div>
               )}
             </div>
+            {isEstablishmentAdmin && (
             <div>
               <button
                 onClick={() => {
@@ -862,6 +954,17 @@ export default function EstablishmentPage() {
                 </div>
               )}
             </div>
+            )}
+            <button
+              onClick={() => {
+                setView("account");
+                setSidebarOpen(false);
+              }}
+              className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-xs font-bold ${view === "account" ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-slate-800"}`}
+            >
+              <UserCog className="h-4 w-4 shrink-0" />
+              Mon compte
+            </button>
           </nav>
         </div>
         <button
@@ -874,7 +977,7 @@ export default function EstablishmentPage() {
       </aside>
       {/* Contenu : marge gauche = largeur exacte de la barre latérale (w-72) */}
       <main className="w-full min-w-0 flex-1 p-4 sm:p-6 min-[1025px]:ml-72 min-[1025px]:w-auto min-[1025px]:p-8">
-        <header className="mb-5 flex items-center gap-3 sm:mb-6">
+        <header className="relative z-20 mb-5 flex items-center gap-3 sm:mb-6">
           <button
             aria-label="Ouvrir le menu"
             onClick={() => setSidebarOpen(true)}
@@ -884,31 +987,55 @@ export default function EstablishmentPage() {
           </button>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-bold sm:text-xl">
-              {view === "students"
+              {view === "dashboard"
+                ? "Tableau de bord"
+                : view === "students"
                 ? "Liste des étudiants"
                 : view === "add"
                   ? "Ajouter un étudiant"
                   : view === "secretaries"
                     ? "Comptes secrétaires"
-                    : "Paramètres ISSTM"}
+                    : view === "account"
+                      ? "Mon compte"
+                      : `Paramètres ${establishmentName}`}
             </h1>
             <p className="truncate text-xs text-slate-400">
-              Niveaux et parcours propres à l&apos;ISSTM
+              Niveaux et parcours propres à {establishmentName}
             </p>
           </div>
-          <button
-            aria-label="Actualiser"
-            onClick={() => void load()}
-            className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-800 px-3.5 text-xs"
-          >
-            <RefreshCw className="h-4 w-4" />
-            <span className="hidden sm:inline">Actualiser</span>
-          </button>
+          <HeaderToolbar
+            darkMode={isDarkRendering(settings, systemDark)}
+            onToggleTheme={() => setSettings(toggleLightDark(settings, systemDark))}
+            // L'apparence est définie par le responsable : le secrétaire ne la change pas.
+            showThemeToggle={isEstablishmentAdmin}
+            notifications={studentsWithoutQuitus.slice(0, 8).map((student) => ({
+              id: student.id,
+              title: `${student.fullName} — sans quitus`,
+              subtitle: `${student.registrationNumber} · ${student.level} · ${student.program}`,
+              onClick: () => setView("students"),
+            }))}
+            totalCount={studentsWithoutQuitus.length}
+            notificationsTitle="Étudiants sans quitus"
+            notificationsEmpty="Tous les étudiants actifs ont un quitus."
+            onSeeAllNotifications={() => setView("students")}
+            seeAllLabel="Voir la liste des étudiants"
+            roleLabel={isEstablishmentAdmin ? "Responsable d'établissement" : "Secrétaire"}
+            menuItems={[
+              { label: "Mon compte", icon: <UserCog className="h-4 w-4" />, onClick: () => setView("account") },
+              { label: loading ? "Actualisation…" : "Actualiser les données", icon: <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />, onClick: () => void load() },
+              ...(isEstablishmentAdmin ? [{ label: "Paramètres", icon: <Settings className="h-4 w-4" />, onClick: () => setView("settings") }] : []),
+              { label: "Déconnexion", icon: <LogOut className="h-4 w-4" />, onClick: () => setLogoutConfirmOpen(true), danger: true },
+            ]}
+          />
         </header>
         {message && (
           <p className="mb-5 break-words rounded-xl bg-blue-500/10 p-3 text-xs text-blue-200">
             {message}
           </p>
+        )}
+        {view === "account" && <AccountPanel />}
+        {view === "dashboard" && isEstablishmentAdmin && (
+          <DashboardView data={dashboard} loading={loading} goTo={setView} />
         )}
         {view === "students" && (
           <StudentsView
@@ -921,6 +1048,7 @@ export default function EstablishmentPage() {
             eligibleIds={eligibleIds}
             allSelected={allSelected}
             generateQuitus={generateQuitus}
+            canGenerateQuitus={isEstablishmentAdmin}
             saving={saving}
             viewDossier={setDossierStudentId}
           />
@@ -1060,7 +1188,7 @@ export default function EstablishmentPage() {
                   onPrevious={goToPreviousStep}
                   onNext={goToNextStep}
                   submitDisabled={saving || (enrollmentCycle === "MASTER" ? (!m1Level || !masterPrograms.length) : (!licenceLevelName || !licencePrograms.length))}
-                  submitLabel={saving ? "Ajout…" : "Ajouter dans la base ISSTM"}
+                  submitLabel={saving ? "Ajout…" : "Ajouter dans la base de l’établissement"}
                 />
               )}
             </>}
@@ -1077,7 +1205,7 @@ export default function EstablishmentPage() {
             updateSecretary={updateSecretary}
           />
         )}
-        {view === "settings" && (
+        {view === "settings" && isEstablishmentAdmin && (
           <section className="w-full">
             <AdminSettingsPanel
               settings={settings}
@@ -1087,6 +1215,12 @@ export default function EstablishmentPage() {
               hideNav
               activeTabId={settingsTabId}
               extraTabs={[
+                {
+                  id: "establishment",
+                  label: "Nom & logo de l’établissement",
+                  icon: <Building2 className="h-4 w-4" />,
+                  content: <EstablishmentIdentityPanel key={profile?.id ?? "none"} profile={profile} onSaved={(updated) => { setProfile(updated); void load(); }} />,
+                },
                 {
                   id: "academic",
                   label: "Structure académique & mentions",
@@ -1154,7 +1288,7 @@ export default function EstablishmentPage() {
                         </button>
                       </form>
                       <Options
-                        title="Niveaux ISSTM"
+                        title={`Niveaux ${establishmentName}`}
                         icon={<BookOpen className="h-4 w-4" />}
                         options={curriculum.levels}
                         editing={editing}
@@ -1164,7 +1298,7 @@ export default function EstablishmentPage() {
                         saving={saving}
                       />
                       <Options
-                        title="Parcours ISSTM"
+                        title={`Parcours ${establishmentName}`}
                         icon={<GraduationCap className="h-4 w-4" />}
                         options={curriculum.programs}
                         editing={editing}
@@ -1282,6 +1416,7 @@ export default function EstablishmentPage() {
         <AttestationView
           data={attestation}
           mention={establishmentMention}
+          establishment={establishmentName}
           onClose={() => setAttestation(null)}
         />
       )}
@@ -1299,6 +1434,93 @@ export default function EstablishmentPage() {
   );
 }
 
+const GENDER_LABELS: Record<string, string> = { FEMININ: "Féminin", MASCULIN: "Masculin", AUTRE: "Autre" };
+const FORM_LABELS: Record<string, string> = { LICENCE: "Licence", MASTER: "Master" };
+const APPLICATION_LABELS: [string, string, string][] = [
+  ["BROUILLON", "Brouillon", "text-slate-300"],
+  ["SOUMIS", "Soumis", "text-amber-300"],
+  ["EN_REVISION", "En révision", "text-sky-300"],
+  ["VALIDE", "Validés", "text-emerald-300"],
+  ["REFUSE", "Refusés", "text-rose-300"],
+];
+
+function DashboardView({ data, loading, goTo }: { data: DashboardData | null; loading: boolean; goTo: (view: View) => void }) {
+  if (!data) {
+    return <p className="rounded-3xl border border-slate-800 bg-slate-900 p-8 text-center text-sm text-slate-400">{loading ? "Chargement…" : "Impossible de charger le tableau de bord."}</p>;
+  }
+  const maxLevel = Math.max(1, ...data.byLevel.map((item) => item.count));
+  const applicationTotal = Object.values(data.applications).reduce((sum, value) => sum + value, 0);
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <Stat label="Étudiants inscrits" value={data.students.total} hint={`${data.students.active} actif(s) · ${data.students.inactive} inactif(s)`} />
+        <Stat label="Quitus générés" value={data.quitus.issued} hint="Reçus émis par l’établissement" />
+        <Stat label="Sans quitus" value={data.quitus.missing} hint="Étudiants actifs à traiter" tone={data.quitus.missing ? "text-amber-300" : "text-emerald-300"} />
+        <Stat label="Secrétaires" value={data.secretaries.total} hint={`${data.secretaries.active} actif(s)`} />
+      </section>
+
+      <div className="grid gap-4 sm:gap-6 xl:grid-cols-2">
+        <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+          <h2 className="mb-4 font-bold">Étudiants par niveau</h2>
+          {data.byLevel.length ? (
+            <ul className="space-y-3">
+              {data.byLevel.map((item) => (
+                <li key={item.level} className="text-xs">
+                  <div className="mb-1 flex justify-between gap-3"><span className="min-w-0 truncate text-slate-300">{item.level}</span><b>{item.count}</b></div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-950"><div className="h-full rounded-full bg-blue-600" style={{ width: `${(item.count / maxLevel) * 100}%` }} /></div>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="text-xs text-slate-500">Aucun étudiant inscrit.</p>}
+          <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-800 pt-4 text-[11px]">
+            {Object.entries(data.byForm).map(([key, count]) => <span key={key} className="rounded-full border border-slate-700 px-2.5 py-1 text-slate-300">{FORM_LABELS[key] ?? key} : <b>{count}</b></span>)}
+            {Object.entries(data.byGender).map(([key, count]) => <span key={key} className="rounded-full border border-slate-700 px-2.5 py-1 text-slate-300">{GENDER_LABELS[key] ?? key} : <b>{count}</b></span>)}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+          <h2 className="mb-1 font-bold">Dossiers de bourse</h2>
+          <p className="mb-4 text-xs text-slate-400">Dossiers déposés en ligne par les étudiants de l’établissement.</p>
+          {applicationTotal ? (
+            <ul className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">
+              {APPLICATION_LABELS.map(([key, label, tone]) => (
+                <li key={key} className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3"><p className="text-slate-400">{label}</p><p className={`mt-1 text-2xl font-bold ${tone}`}>{data.applications[key] ?? 0}</p></li>
+              ))}
+            </ul>
+          ) : <p className="text-xs text-slate-500">Aucun dossier déposé pour le moment.</p>}
+        </section>
+      </div>
+
+      <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-bold">Dernières inscriptions</h2>
+          <button type="button" onClick={() => goTo("students")} className={`text-xs font-bold text-blue-400 ${touch}`}>Voir tous les étudiants</button>
+        </div>
+        {data.recentStudents.length ? (
+          <ul className="divide-y divide-slate-800 text-xs">
+            {data.recentStudents.map((student) => (
+              <li key={student.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5">
+                <div className="min-w-0"><p className="truncate font-semibold text-white">{student.fullName}</p><p className="truncate text-slate-400">{student.registrationNumber} · {student.level} · {student.program}</p></div>
+                <span className="shrink-0 text-slate-500">{new Date(student.createdAt).toLocaleDateString("fr-FR")}</span>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="text-xs text-slate-500">Aucune inscription.</p>}
+      </section>
+    </div>
+  );
+}
+
+function Stat({ label, value, hint, tone = "text-white" }: { label: string; value: number; hint: string; tone?: string }) {
+  return (
+    <div className="min-w-0 rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
+      <p className="text-xs text-slate-400">{label}</p>
+      <p className={`mt-2 text-3xl font-bold ${tone}`}>{value}</p>
+      <p className="mt-1 truncate text-[11px] text-slate-500">{hint}</p>
+    </div>
+  );
+}
+
 function StudentsView({
   students,
   loading,
@@ -1309,6 +1531,7 @@ function StudentsView({
   eligibleIds,
   allSelected,
   generateQuitus,
+  canGenerateQuitus,
   saving,
   viewDossier,
 }: {
@@ -1321,6 +1544,7 @@ function StudentsView({
   eligibleIds: string[];
   allSelected: boolean;
   generateQuitus: (ids: string[]) => Promise<void>;
+  canGenerateQuitus: boolean;
   saving: boolean;
   viewDossier: (id: string) => void;
 }) {
@@ -1357,7 +1581,7 @@ function StudentsView({
             className="w-full rounded-xl border border-slate-700 bg-slate-950 py-2.5 pl-10 text-base sm:text-sm max-[1024px]:min-h-[44px]"
           />
         </label>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+        {canGenerateQuitus && <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <button
             onClick={() => void generateQuitus(eligibleIds)}
             disabled={!eligibleIds.length || saving}
@@ -1375,12 +1599,12 @@ function StudentsView({
             <FilePlus2 className="mr-1 inline h-4 w-4" />
             Générer la sélection
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Téléphone et tablette : une carte par étudiant */}
       <div className="space-y-3 xl:hidden">
-        {!loading && students.length > 0 && (
+        {canGenerateQuitus && !loading && students.length > 0 && (
           <label className="flex min-h-[44px] items-center gap-3 rounded-xl border border-slate-800 bg-slate-950 px-3 text-xs text-slate-300">
             <input
               type="checkbox"
@@ -1400,13 +1624,13 @@ function StudentsView({
                 key={item.id}
                 className="flex gap-3 rounded-2xl border border-slate-800 bg-slate-950 p-4 text-sm"
               >
-                <input
+                {canGenerateQuitus && <input
                   type="checkbox"
                   className="mt-1 h-5 w-5 shrink-0"
                   disabled={!!item.quitus}
                   checked={selectedIds.includes(item.id)}
                   onChange={() => toggleOne(item.id)}
-                />
+                />}
                 <div className="min-w-0 flex-1">
                   <b className="break-words">{item.fullName}</b>
                   <p className="font-mono text-xs text-slate-400">
@@ -1439,13 +1663,13 @@ function StudentsView({
         <table className="min-w-[850px] w-full text-left text-sm">
           <thead className="border-b border-slate-800 text-xs text-slate-500">
             <tr>
-              <th className="p-3">
+              {canGenerateQuitus && <th className="p-3">
                 <input
                   type="checkbox"
                   checked={allSelected}
                   onChange={toggleAll}
                 />
-              </th>
+              </th>}
               <th className="p-3">Étudiant</th>
               <th className="p-3">Formation</th>
               <th className="p-3">Contact</th>
@@ -1462,14 +1686,14 @@ function StudentsView({
             ) : (
               students.map((item) => (
                 <tr key={item.id} className="border-b border-slate-800/70">
-                  <td className="p-3">
+                  {canGenerateQuitus && <td className="p-3">
                     <input
                       type="checkbox"
                       disabled={!!item.quitus}
                       checked={selectedIds.includes(item.id)}
                       onChange={() => toggleOne(item.id)}
                     />
-                  </td>
+                  </td>}
                   <td className="p-3">
                     <b>{item.fullName}</b>
                     <p className="font-mono text-xs text-slate-400">
@@ -1946,10 +2170,12 @@ function ProgramPicker({
 function AttestationView({
   data,
   mention,
+  establishment,
   onClose,
 }: {
   data: AttestationData;
   mention: string;
+  establishment: string;
   onClose: () => void;
 }) {
   return (
@@ -1972,7 +2198,7 @@ function AttestationView({
           <p><span className="font-semibold">Parcours :</span> {data.program} <span className="ml-6 font-semibold">Niveau :</span> {data.level}</p>
           <p><span className="font-semibold">Numéro d&apos;inscription :</span> {data.registrationNumber} <span className="ml-6 font-semibold">Tél. :</span> {data.phone}</p>
           <p><span className="font-semibold">E-mail :</span> {data.email}</p>
-          <p className="pt-4">Est inscrit(e) à l&apos;ISSTM pour l&apos;Année Universitaire {academicYear()}.</p>
+          <p className="pt-4">Est inscrit(e) à {establishment} pour l&apos;Année Universitaire {academicYear()}.</p>
           <p>En foi de quoi, la présente attestation lui est délivrée pour servir et valoir ce que de droit.</p>
           <p className="pt-6">Fait à Mahajanga, le {new Date().toLocaleDateString("fr-FR")}</p>
           <p className="pt-8 text-right font-semibold">Le Service de la Scolarité</p>

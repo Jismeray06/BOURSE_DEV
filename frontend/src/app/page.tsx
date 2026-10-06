@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
+import { HomeThemeToggle, useHomeTheme } from '../components/HomeThemeToggle';
 import { HeroBackground, HeroContent } from '../components/HomepageHero';
 import { assetUrl, defaultSiteSettings, fetchSiteSettings, type SiteSettings } from '../components/siteSettings';
 
@@ -42,6 +43,7 @@ export default function HomePage() {
   const router = useRouter();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [settings, setSettings] = useState<SiteSettings>(defaultSiteSettings);
+  const { darkMode, toggleTheme } = useHomeTheme();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -77,10 +79,10 @@ export default function HomePage() {
   const logoUrl = assetUrl(settings.logoUrl);
   const showDefaultCarousel = settings.heroBackgroundType === 'IMAGE' && settings.heroBackgroundImages.length === 0;
   return (
-    <div className="min-h-screen bg-white text-slate-800 flex flex-col justify-between selection:bg-blue-100 selection:text-blue-900 relative">
+    <div className={`min-h-screen bg-white text-slate-800 dark:bg-slate-950 dark:text-slate-200 flex flex-col justify-between selection:bg-blue-100 selection:text-blue-900 relative ${darkMode ? 'home-dark' : ''}`}>
 
       {/* --- NAVBAR --- */}
-      <header className="border-b border-slate-200 bg-white/90 backdrop-blur sticky top-0 z-40">
+      <header className="border-b border-slate-200 bg-white/90 dark:border-slate-800 dark:bg-slate-950/90 backdrop-blur sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {logoUrl ? (
@@ -91,16 +93,17 @@ export default function HomePage() {
               </div>
             )}
             <div>
-              <span className="font-[family-name:var(--font-heading)] font-semibold text-lg tracking-tight text-slate-900">
+              <span className="font-[family-name:var(--font-heading)] font-semibold text-lg tracking-tight text-slate-900 dark:text-white">
                 Univ Mahajanga
               </span>
-              <span className="block text-[10px] text-slate-500 font-medium uppercase tracking-wider">
+              <span className="block text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">
                 Portail Académique
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <HomeThemeToggle darkMode={darkMode} onToggle={toggleTheme} />
             <button
               onClick={handleProceedToLogin}
               className="px-5 py-2.5 text-white font-medium text-sm rounded-lg transition flex items-center gap-2 cursor-pointer hover:brightness-110"
@@ -182,43 +185,43 @@ export default function HomePage() {
       </section>
 
       {/* --- CARACTÉRISTIQUES --- */}
-      <section className="py-14 sm:py-16 bg-white border-y border-slate-200">
+      <section className="py-14 sm:py-16 bg-white border-y border-slate-200 dark:bg-slate-950 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-slate-900">
+            <h2 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
               Une inscription en toute confiance
             </h2>
-            <p className="text-sm sm:text-base text-slate-500 mt-2">
+            <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-2">
               Trois étapes claires, du choix de la faculté au suivi de votre dossier.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6">
-            <div className="bg-white border border-slate-200 p-6 rounded-xl space-y-3 hover:border-amber-300 hover:shadow-sm transition">
-              <div className="w-11 h-11 rounded-lg bg-[#0b3b60]/5 border border-[#0b3b60]/10 flex items-center justify-center text-[#0b3b60]">
+            <div className="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-xl space-y-3 hover:border-amber-300 hover:shadow-sm transition">
+              <div className="w-11 h-11 rounded-lg bg-[#0b3b60]/5 border border-[#0b3b60]/10 dark:bg-white/5 dark:border-white/10 dark:text-blue-300 flex items-center justify-center text-[#0b3b60]">
                 <BookOpen className="w-5 h-5" />
               </div>
-              <h3 className="font-[family-name:var(--font-heading)] font-semibold text-lg text-slate-900">Parcours sur mesure</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
+              <h3 className="font-[family-name:var(--font-heading)] font-semibold text-lg text-slate-900 dark:text-white">Parcours sur mesure</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                 Choix fluide parmi les niveaux (L1 à Master) et spécialités adaptées à chaque faculté.
               </p>
             </div>
 
-            <div className="bg-white border border-slate-200 p-6 rounded-xl space-y-3 hover:border-amber-300 hover:shadow-sm transition">
-              <div className="w-11 h-11 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700">
+            <div className="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-xl space-y-3 hover:border-amber-300 hover:shadow-sm transition">
+              <div className="w-11 h-11 rounded-lg bg-emerald-50 border border-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-300 flex items-center justify-center text-emerald-700">
                 <Clock className="w-5 h-5" />
               </div>
-              <h3 className="font-[family-name:var(--font-heading)] font-semibold text-lg text-slate-900">Vérification de quitus</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
+              <h3 className="font-[family-name:var(--font-heading)] font-semibold text-lg text-slate-900 dark:text-white">Vérification de quitus</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                 Validation rapide de votre reçu de paiement pour attester votre pré-inscription administrative.
               </p>
             </div>
 
-            <div className="bg-white border border-slate-200 p-6 rounded-xl space-y-3 hover:border-amber-300 hover:shadow-sm transition">
-              <div className="w-11 h-11 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
+            <div className="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-xl space-y-3 hover:border-amber-300 hover:shadow-sm transition">
+              <div className="w-11 h-11 rounded-lg bg-slate-100 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 flex items-center justify-center text-slate-700">
                 <Users className="w-5 h-5" />
               </div>
-              <h3 className="font-[family-name:var(--font-heading)] font-semibold text-lg text-slate-900">Profil étudiant</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
+              <h3 className="font-[family-name:var(--font-heading)] font-semibold text-lg text-slate-900 dark:text-white">Profil étudiant</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                 Consultez le résumé de votre dossier à tout moment et modifiez vos choix si nécessaire.
               </p>
             </div>

@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Trash2,
+  UserCog,
   Users,
   UserPlus,
   XCircle,
@@ -34,13 +35,17 @@ import {
 import { DossierViewer } from '../../components/DossierViewer';
 import { AdminSettingsPanel } from '../../components/AdminSettingsPanel';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { EstablishmentsAdminPanel, type Institution } from '../../components/EstablishmentsAdminPanel';
+import { AccountPanel } from '../../components/AccountPanel';
+import { HeaderToolbar } from '../../components/HeaderToolbar';
+import { usePolling } from '../../components/usePolling';
 import { HomepageSettingsPanel } from '../../components/HomepageSettingsPanel';
-import { buildThemeCss, defaultSettings, loadSettings, saveSettings, type AdminSettings } from '../../components/adminSettings';
+import { buildThemeCss, defaultSettings, isDarkRendering, loadSettings, saveSettings, toggleLightDark, type AdminSettings } from '../../components/adminSettings';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const statuses = ['BROUILLON', 'SOUMIS', 'EN_REVISION', 'VALIDE', 'REFUSE'] as const;
 type Status = (typeof statuses)[number];
-type Tab = 'dashboard' | 'students' | 'accounts' | 'users' | 'settings' | 'history' | 'trash';
+type Tab = 'dashboard' | 'students' | 'establishments' | 'accounts' | 'users' | 'settings' | 'history' | 'trash' | 'account';
 type StaffRole = 'ETABLISSEMENT' | 'SCOLARITE_CENTRALE';
 type StaffAccountRole = 'ETABLISSEMENT' | 'ADMIN_ETABLISSEMENT' | 'SECRETAIRE' | 'SCOLARITE_CENTRALE';
 type AnyUserRole = 'ETUDIANT' | 'ADMIN' | StaffAccountRole;
@@ -83,8 +88,17 @@ const staffRoleLabel = (account: { role: AnyUserRole; establishment: string | nu
   return `Établissement · ${account.establishment}`;
 };
 type Establishment = { establishment: string; studentCount: number };
+type AdminDashboard = {
+  students: { total: number; unverified: number };
+  applications: Partial<Record<Status, number>>;
+  byEstablishment: { establishment: string; count: number }[];
+  staff: { total: number; inactive: number; byRole: Partial<Record<AnyUserRole, number>> };
+  trashed: number;
+  pending: { id: string; establishment: string; level: string; program: string; status: Status; submittedAt: string | null; user: { fullName: string; email: string } }[];
+  recentActions: AuditLogEntry[];
+};
 type TrashedAccount = { id: string; fullName: string; email: string; role: AnyUserRole; establishment: string | null; deletedAt: string };
-type AuditAction = 'STAFF_ACCOUNT_CREATED' | 'STAFF_ACCOUNT_STATUS_CHANGED' | 'STAFF_ACCOUNT_NAME_UPDATED' | 'STAFF_ACCOUNT_PASSWORD_RESET' | 'STAFF_ACCOUNT_TRASHED' | 'STAFF_ACCOUNT_RESTORED' | 'STAFF_ACCOUNT_PURGED';
+type AuditAction = 'STAFF_ACCOUNT_CREATED' | 'STAFF_ACCOUNT_STATUS_CHANGED' | 'STAFF_ACCOUNT_NAME_UPDATED' | 'STAFF_ACCOUNT_PASSWORD_RESET' | 'STAFF_ACCOUNT_TRASHED' | 'STAFF_ACCOUNT_RESTORED' | 'STAFF_ACCOUNT_PURGED' | 'ACCOUNT_PASSWORD_CHANGED' | 'ACCOUNT_EMAIL_CHANGED';
 type AuditLogEntry = { id: string; action: AuditAction; actorName: string; targetName: string; detail: string | null; createdAt: string };
 const auditActionLabels: Record<AuditAction, string> = {
   STAFF_ACCOUNT_CREATED: 'a créé le compte',
@@ -94,6 +108,8 @@ const auditActionLabels: Record<AuditAction, string> = {
   STAFF_ACCOUNT_TRASHED: 'a mis à la corbeille',
   STAFF_ACCOUNT_RESTORED: 'a restauré',
   STAFF_ACCOUNT_PURGED: 'a supprimé définitivement',
+  ACCOUNT_PASSWORD_CHANGED: 'a modifié le mot de passe de',
+  ACCOUNT_EMAIL_CHANGED: 'a modifié l’e-mail de',
 };
 
 const statusLabels: Record<Status, string> = {
@@ -121,6 +137,8 @@ export default function AdminPage() {
   const router = useRouter();
   const [students, setStudents] = useState<Student[]>([]);
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
+  const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [selectedEstablishment, setSelectedEstablishment] = useState('');
   const [establishmentStudents, setEstablishmentStudents] = useState<Student[]>([]);
   const [studentSearch, setStudentSearch] = useState('');
@@ -201,6 +219,26 @@ export default function AdminPage() {
       if (!silent) setLoading(false);
     }
   }, [getToken, router]);
+
+  const loadInstitutions = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const response = await fetch(`${apiUrl}/admin/institutions`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) throw new Error('Impossible de charger les établissements.');
+      setInstitutions((await response.json()) as Institution[]);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Erreur de chargement.'); }
+  }, [getToken]);
+
+  const loadDashboard = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const response = await fetch(`${apiUrl}/admin/dashboard`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) throw new Error('Impossible de charger le tableau de bord.');
+      setDashboard((await response.json()) as AdminDashboard);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Erreur de chargement.'); }
+  }, [getToken]);
 
   const loadStaffAccounts = useCallback(async () => {
     const token = getToken();
@@ -292,20 +330,22 @@ export default function AdminPage() {
       void loadStudents();
       void loadStaffAccounts();
       void loadEstablishments();
+      void loadDashboard();
+      void loadInstitutions();
       void loadTrashedAccounts();
       void loadAuditLog();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [loadAuditLog, loadEstablishments, loadStaffAccounts, loadStudents, loadTrashedAccounts]);
+  }, [loadAuditLog, loadDashboard, loadEstablishments, loadInstitutions, loadStaffAccounts, loadStudents, loadTrashedAccounts]);
 
   useEffect(() => {
     const interval = settings.autoRefresh * 1000;
     if (!interval) return undefined;
     const timer = window.setInterval(() => {
-      void loadStudents(true); void loadStaffAccounts(); void loadEstablishments();
+      void loadStudents(true); void loadStaffAccounts(); void loadEstablishments(); void loadDashboard();
     }, interval);
     return () => window.clearInterval(timer);
-  }, [loadEstablishments, loadStaffAccounts, loadStudents, settings.autoRefresh]);
+  }, [loadDashboard, loadEstablishments, loadStaffAccounts, loadStudents, settings.autoRefresh]);
 
   const createStaffAccount = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -460,9 +500,18 @@ export default function AdminPage() {
     const term = usersSearch.trim().toLowerCase();
     return allUsers.filter((user) => (!term || `${user.fullName} ${user.email}`.toLowerCase().includes(term)) && (!usersRoleFilter || user.role === usersRoleFilter));
   }, [allUsers, usersSearch, usersRoleFilter]);
+  // Tous les établissements gérés (effectif 0 s'ils n'ont encore personne), plus ceux présents
+  // en base mais pas encore enregistrés dans la liste.
+  const allEstablishments = useMemo<Establishment[]>(() => {
+    const known = institutions.map((item) => ({ establishment: item.name, studentCount: item.studentCount }));
+    const extra = establishments.filter((item) => !institutions.some((institution) => institution.name === item.establishment));
+    return [...known, ...extra];
+  }, [establishments, institutions]);
+  const establishmentNames = useMemo(() => allEstablishments.map((item) => item.establishment), [allEstablishments]);
+  const refreshAfterEstablishmentChange = () => { void loadInstitutions(); void loadEstablishments(); void loadDashboard(); void loadStudents(true); void loadStaffAccounts(); setSelectedEstablishment(''); };
+  // Notifications à jour sans recharger la page (en plus de l'actualisation automatique des réglages).
+  usePolling(() => { void loadDashboard(); void loadStudents(true); }, 30_000);
   const pendingCount = students.filter((student) => student.registrationStatus === 'SOUMIS' || student.registrationStatus === 'EN_REVISION').length;
-  const validatedCount = students.filter((student) => student.registrationStatus === 'VALIDE').length;
-  const rejectedCount = students.filter((student) => student.registrationStatus === 'REFUSE').length;
   const logout = () => setLogoutConfirmOpen(true);
   const confirmLogout = () => {
     sessionStorage.clear();
@@ -488,10 +537,12 @@ export default function AdminPage() {
           <nav className="space-y-1 px-3">
             <NavButton active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} icon={<LayoutDashboard className="h-4 w-4" />}>Tableau de bord</NavButton>
             <NavButton active={activeTab === 'students'} onClick={() => { setActiveTab('students'); setSidebarOpen(false); }} icon={<ClipboardList className="h-4 w-4" />}>Etudiants <span className="ml-auto rounded-full border border-blue-500/30 bg-blue-500/20 px-2 py-0.5 text-[10px] text-blue-300">{pendingCount}</span></NavButton>
+            <NavButton active={activeTab === 'establishments'} onClick={() => { setActiveTab('establishments'); setSidebarOpen(false); void loadInstitutions(); }} icon={<Building2 className="h-4 w-4" />}>Établissements</NavButton>
             <NavButton active={activeTab === 'accounts'} onClick={() => { setActiveTab('accounts'); setSidebarOpen(false); }} icon={<UserPlus className="h-4 w-4" />}>Gestion des comptes</NavButton>
             <NavButton active={activeTab === 'users'} onClick={() => { setActiveTab('users'); setSidebarOpen(false); void loadAllUsers(); }} icon={<Database className="h-4 w-4" />}>Tous les comptes</NavButton>
             <NavButton active={activeTab === 'history'} onClick={() => { setActiveTab('history'); setSidebarOpen(false); void loadAuditLog(); }} icon={<History className="h-4 w-4" />}>Historique</NavButton>
             <NavButton active={activeTab === 'trash'} onClick={() => { setActiveTab('trash'); setSidebarOpen(false); void loadTrashedAccounts(); }} icon={<Trash2 className="h-4 w-4" />}>Corbeille {trashedAccounts.length > 0 && <span className="ml-auto rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">{trashedAccounts.length}</span>}</NavButton>
+            <NavButton active={activeTab === 'account'} onClick={() => { setActiveTab('account'); setSidebarOpen(false); }} icon={<UserCog className="h-4 w-4" />}>Mon compte</NavButton>
             <div>
               <NavButton
                 active={activeTab === 'settings'}
@@ -535,33 +586,47 @@ export default function AdminPage() {
       {/* Contenu : marge gauche = largeur exacte de la barre latérale (w-72) sur ordinateur */}
       <div className="relative flex min-h-screen min-w-0 flex-1 flex-col overflow-hidden min-[1025px]:ml-72">
         <div className="adm-glow pointer-events-none absolute left-1/3 top-1/4 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-600/10 blur-[160px]" />
-        <header className="z-10 flex items-center gap-3 border-b border-slate-800/80 bg-slate-950/60 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-4">
+        <header className="relative z-20 flex items-center gap-3 border-b border-slate-800/80 bg-slate-950/60 px-4 py-3 backdrop-blur-md sm:px-6 sm:py-4">
           <button aria-label="Ouvrir le menu" onClick={() => setSidebarOpen(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-800 transition hover:border-blue-500/50 min-[1025px]:hidden"><Menu className="h-5 w-5" /></button>
-          <div className="min-w-0 flex-1"><h1 className="truncate text-base font-bold text-white sm:text-lg">{activeTab === 'dashboard' ? 'Vue d’ensemble' : activeTab === 'students' ? 'Dossiers des étudiants' : activeTab === 'accounts' ? 'Création des comptes' : activeTab === 'users' ? 'Tous les comptes' : activeTab === 'history' ? 'Historique des actions' : activeTab === 'trash' ? 'Corbeille' : 'Paramètres'}</h1><p className="truncate text-xs text-slate-400">Année universitaire {settings.academicYear}</p></div>
-          <button aria-label="Actualiser" onClick={() => { void loadStudents(); void loadStaffAccounts(); void loadEstablishments(); }} className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3.5 text-xs font-semibold text-slate-300 transition hover:border-blue-500/50 hover:text-white"><RefreshCw className="h-4 w-4" /><span className="hidden sm:inline">Actualiser</span></button>
+          <div className="min-w-0 flex-1"><h1 className="truncate text-base font-bold text-white sm:text-lg">{activeTab === 'dashboard' ? 'Vue d’ensemble' : activeTab === 'students' ? 'Dossiers des étudiants' : activeTab === 'establishments' ? 'Gestion des établissements' : activeTab === 'accounts' ? 'Création des comptes' : activeTab === 'users' ? 'Tous les comptes' : activeTab === 'history' ? 'Historique des actions' : activeTab === 'trash' ? 'Corbeille' : activeTab === 'account' ? 'Mon compte' : 'Paramètres'}</h1><p className="truncate text-xs text-slate-400">Année universitaire {settings.academicYear}</p></div>
+          <HeaderToolbar
+            darkMode={isDarkRendering(settings, systemDark)}
+            onToggleTheme={() => setSettings(toggleLightDark(settings, systemDark))}
+            notifications={(dashboard?.pending ?? []).map((item) => ({
+              id: item.id,
+              title: `${item.user.fullName} — dossier à traiter`,
+              subtitle: `${item.establishment} · ${item.level}${item.submittedAt ? ` · ${new Date(item.submittedAt).toLocaleDateString('fr-FR')}` : ''}`,
+              onClick: () => setActiveTab('students'),
+            }))}
+            totalCount={(dashboard?.applications.SOUMIS ?? 0) + (dashboard?.applications.EN_REVISION ?? 0)}
+            notificationsTitle="Dossiers à traiter"
+            notificationsEmpty="Aucun dossier en attente."
+            onSeeAllNotifications={() => setActiveTab('students')}
+            seeAllLabel="Voir tous les dossiers"
+            roleLabel="Administrateur"
+            menuItems={[
+              { label: 'Mon compte', icon: <UserCog className="h-4 w-4" />, onClick: () => setActiveTab('account') },
+              { label: 'Actualiser les données', icon: <RefreshCw className="h-4 w-4" />, onClick: () => { void loadStudents(); void loadStaffAccounts(); void loadEstablishments(); void loadDashboard(); void loadInstitutions(); } },
+              { label: 'Paramètres', icon: <Settings className="h-4 w-4" />, onClick: () => setActiveTab('settings') },
+              { label: 'Déconnexion', icon: <LogOut className="h-4 w-4" />, onClick: logout, danger: true },
+            ]}
+          />
         </header>
 
         <main className="z-10 min-w-0 flex-1 space-y-4 p-4 sm:space-y-6 sm:p-6 min-[1025px]:p-8">
           {error && <p className="break-words rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">{error}</p>}
 
-          {activeTab === 'dashboard' && <>
-            <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-              <StatCard label="Étudiants inscrits" value={students.length} icon={<Users className="h-5 w-5" />} color="blue" />
-              <StatCard label="À examiner" value={pendingCount} icon={<ClipboardList className="h-5 w-5" />} color="amber" />
-              <StatCard label="Dossiers validés" value={validatedCount} icon={<CheckCircle2 className="h-5 w-5" />} color="emerald" />
-              <StatCard label="Dossiers refusés" value={rejectedCount} icon={<XCircle className="h-5 w-5" />} color="rose" />
-            </section>
-            <section className="rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-6">
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2"><div className="min-w-0"><h2 className="text-base font-bold text-white">Dossiers à traiter</h2><p className="text-xs text-slate-400">Les dernières inscriptions soumises ou en révision.</p></div><button onClick={() => setActiveTab('students')} className={`text-xs font-bold text-blue-400 hover:text-blue-300 ${touch}`}>Voir tous les dossiers</button></div>
-              {loading ? <p className="py-8 text-center text-sm text-slate-400">Chargement des inscriptions…</p> : <RecentStudents students={students.filter((student) => student.registrationStatus === 'SOUMIS' || student.registrationStatus === 'EN_REVISION').slice(0, 5)} />}
-            </section>
-          </>}
+          {activeTab === 'dashboard' && <DashboardPanel data={dashboard} names={establishmentNames} loading={loading} openStudents={() => setActiveTab('students')} openHistory={() => setActiveTab('history')} />}
+
+          {activeTab === 'account' && <AccountPanel />}
+
+          {activeTab === 'establishments' && <EstablishmentsAdminPanel institutions={institutions} onChanged={refreshAfterEstablishmentChange} />}
 
           {activeTab === 'students' && !selectedEstablishment && <section className="rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-6">
             <div className="mb-5 grid gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-4 sm:grid-cols-[minmax(0,1fr)_12rem_auto_auto]"><label className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} placeholder="Rechercher partout par nom ou e-mail" className="w-full rounded-xl border border-slate-700 bg-slate-900 py-2.5 pl-10 pr-3 text-base sm:text-sm max-[1024px]:min-h-[44px]" /></label><select value={globalStatus} onChange={(event) => setGlobalStatus(event.target.value as Status | '')} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-base sm:text-sm max-[1024px]:min-h-[44px]"><option value="">Tous les statuts</option>{statuses.map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select><button onClick={exportStudentsCsv} className="min-h-[44px] rounded-xl border border-blue-500/40 px-3 text-xs font-bold text-blue-300">Exporter CSV</button><button onClick={exportStudentsPdf} className="min-h-[44px] rounded-xl border border-slate-700 px-3 text-xs font-bold">Exporter PDF</button></div>
             {(globalSearch || globalStatus) && <div className="mb-5 space-y-2"><p className="text-xs text-slate-400">{displayedGlobalStudents.length} dossier(s) trouvé(s)</p><StudentTable students={displayedGlobalStudents} updateStatus={updateStatus} viewDossier={setDossierStudentId} /></div>}
             <div className="mb-5"><h2 className="text-base font-bold text-white">Choisir un établissement</h2><p className="mt-1 text-xs text-slate-400">Accédez à la liste des étudiants classée par établissement.</p></div>
-            {loading ? <p className="py-12 text-center text-slate-400">Chargement des établissements…</p> : <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">{establishments.map((item) => <button key={item.establishment} onClick={() => void openEstablishment(item.establishment)} className="group min-w-0 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-left transition hover:border-blue-500/60 hover:bg-blue-500/10 sm:p-5"><div className="flex items-start justify-between gap-3"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10"><GraduationCap className="h-5 w-5 text-blue-400" /></div><span className="shrink-0 rounded-full border border-slate-700 px-2.5 py-1 text-[10px] font-bold text-slate-400">{item.studentCount} étudiant(s)</span></div><h3 className="mt-4 break-words text-sm font-bold text-white group-hover:text-blue-300 sm:mt-5">{item.establishment}</h3><p className="mt-1 text-xs text-slate-500">Voir les étudiants</p></button>)}{!establishments.length && <p className="col-span-full rounded-2xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-500 sm:p-10">Aucun établissement avec étudiant.</p>}</div>}
+            {loading ? <p className="py-12 text-center text-slate-400">Chargement des établissements…</p> : <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">{allEstablishments.map((item) => <button key={item.establishment} onClick={() => void openEstablishment(item.establishment)} className="group min-w-0 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-left transition hover:border-blue-500/60 hover:bg-blue-500/10 sm:p-5"><div className="flex items-start justify-between gap-3"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10"><GraduationCap className="h-5 w-5 text-blue-400" /></div><span className="shrink-0 rounded-full border border-slate-700 px-2.5 py-1 text-[10px] font-bold text-slate-400">{item.studentCount} étudiant(s)</span></div><h3 className="mt-4 break-words text-sm font-bold text-white group-hover:text-blue-300 sm:mt-5">{item.establishment}</h3><p className="mt-1 text-xs text-slate-500">Voir les étudiants</p></button>)}</div>}
           </section>}
 
           {activeTab === 'students' && selectedEstablishment && <section className="rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-6">
@@ -573,7 +638,7 @@ export default function AdminPage() {
               <select value={programFilter} onChange={(event) => setProgramFilter(event.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-base text-slate-300 outline-none focus:border-blue-500 sm:text-sm max-[1024px]:min-h-[44px]"><option value="">Tous les parcours</option>{establishmentPrograms.map((program) => <option key={program} value={program}>{program}</option>)}</select>
               <span className="flex items-center justify-center rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-xs font-semibold text-slate-400 sm:col-span-2 xl:col-span-1">{displayedEstablishmentStudents.length} étudiant(s)</span>
             </div>
-            <StudentTable students={displayedEstablishmentStudents} updateStatus={updateStatus} viewDossier={setDossierStudentId} />
+            {establishmentStudents.length === 0 ? <p className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-500">Aucun étudiant n’est encore présent pour le moment.</p> : <StudentTable students={displayedEstablishmentStudents} updateStatus={updateStatus} viewDossier={setDossierStudentId} />}
           </section>}
 
           {activeTab === 'accounts' && <section className="grid w-full gap-4 sm:gap-6 min-[1025px]:min-h-[calc(100vh-10.5rem)] min-[1025px]:grid-cols-[minmax(22rem,.85fr)_minmax(0,1.65fr)]">
@@ -585,7 +650,7 @@ export default function AdminPage() {
                 <input required type="email" value={accountForm.email} onChange={(e) => setAccountForm({ ...accountForm, email: e.target.value })} placeholder="Adresse e-mail" className={inputCls} />
                 <PasswordField value={accountForm.password} onChange={(value) => setAccountForm({ ...accountForm, password: value })} placeholder="Mot de passe (8 caractères minimum)" />
                 <select value={accountForm.role} onChange={(e) => setAccountForm({ ...accountForm, role: e.target.value as StaffRole })} className={inputCls}><option value="ETABLISSEMENT">Responsable d’établissement</option><option value="SCOLARITE_CENTRALE">Scolarité centrale</option></select>
-                {accountForm.role === 'ETABLISSEMENT' && <input required value={accountForm.establishment} onChange={(e) => setAccountForm({ ...accountForm, establishment: e.target.value })} placeholder="Nom de l’établissement" className={inputCls} />}
+                {accountForm.role === 'ETABLISSEMENT' && <select required value={accountForm.establishment} onChange={(e) => setAccountForm({ ...accountForm, establishment: e.target.value })} className={inputCls}><option value="">Choisir l’établissement…</option>{institutions.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}</select>}
                 <button disabled={creatingAccount} className="min-h-[44px] w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-500 disabled:opacity-50">{creatingAccount ? 'Création…' : 'Créer le compte'}</button>
               </div>
             </form>
@@ -793,15 +858,72 @@ function PasswordField({ value, onChange, placeholder }: { value: string; onChan
   </div>;
 }
 
-function StatCard({ label, value, icon, color }: { label: string; value: number; icon: React.ReactNode; color: 'blue' | 'amber' | 'emerald' | 'rose' }) {
+function StatCard({ label, value, icon, color, hint }: { label: string; value: number; icon: React.ReactNode; color: 'blue' | 'amber' | 'emerald' | 'rose'; hint?: string }) {
   const colors = { blue: 'border-blue-500/20 bg-blue-500/10 text-blue-400', amber: 'border-amber-500/20 bg-amber-500/10 text-amber-400', emerald: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400', rose: 'border-rose-500/20 bg-rose-500/10 text-rose-400' };
-  return <div className="min-w-0 rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-5"><div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl border sm:mb-4 ${colors[color]}`}>{icon}</div><p className="text-xs font-semibold text-slate-400">{label}</p><p className="mt-1 text-2xl font-black text-white">{value}</p></div>;
+  return <div className="min-w-0 rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-5"><div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl border sm:mb-4 ${colors[color]}`}>{icon}</div><p className="text-xs font-semibold text-slate-400">{label}</p><p className="mt-1 text-2xl font-black text-white">{value}</p>{hint && <p className="mt-1 truncate text-[11px] text-slate-500">{hint}</p>}</div>;
 }
 
-function RecentStudents({ students }: { students: Student[] }) {
-  if (!students.length) return <p className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-500">Aucun dossier en attente pour le moment.</p>;
-  return <div className="space-y-2">{students.map((student) => <div key={student.id} className="flex flex-col items-start gap-2 rounded-2xl border border-slate-800 bg-slate-950/60 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"><div className="min-w-0"><p className="break-words text-sm font-bold text-white">{student.fullName}</p><p className="break-words text-xs text-slate-400">{student.establishment ?? 'Établissement non renseigné'} · {student.email}</p></div><StatusBadge status={student.registrationStatus} /></div>)}</div>;
+function DashboardPanel({ data, names, loading, openStudents, openHistory }: { data: AdminDashboard | null; names: string[]; loading: boolean; openStudents: () => void; openHistory: () => void }) {
+  if (!data) return <p className="rounded-3xl border border-slate-800/80 bg-slate-900/90 p-8 text-center text-sm text-slate-400">{loading ? 'Chargement du tableau de bord…' : 'Impossible de charger le tableau de bord.'}</p>;
+  const applications = data.applications;
+  const pendingCount = (applications.SOUMIS ?? 0) + (applications.EN_REVISION ?? 0);
+  const counts = new Map(data.byEstablishment.map((item) => [item.establishment, item.count]));
+  const establishments = [
+    ...names.map((name) => ({ name, count: counts.get(name) ?? 0 })),
+    ...data.byEstablishment.filter((item) => !names.includes(item.establishment)).map((item) => ({ name: item.establishment, count: item.count })),
+  ];
+  const maxCount = Math.max(1, ...establishments.map((item) => item.count));
+  const card = 'min-w-0 rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-6';
+  return <>
+    <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+      <StatCard label="Étudiants inscrits" value={data.students.total} hint={data.students.unverified ? `${data.students.unverified} e-mail(s) non vérifié(s)` : 'Tous les e-mails sont vérifiés'} icon={<Users className="h-5 w-5" />} color="blue" />
+      <StatCard label="À examiner" value={pendingCount} hint="Soumis ou en révision" icon={<ClipboardList className="h-5 w-5" />} color="amber" />
+      <StatCard label="Dossiers validés" value={applications.VALIDE ?? 0} icon={<CheckCircle2 className="h-5 w-5" />} color="emerald" />
+      <StatCard label="Dossiers refusés" value={applications.REFUSE ?? 0} icon={<XCircle className="h-5 w-5" />} color="rose" />
+    </section>
+
+    <div className="grid gap-4 sm:gap-6 xl:grid-cols-2">
+      <section className={card}>
+        <h2 className="mb-4 text-base font-bold text-white">Étudiants par établissement</h2>
+        <ul className="space-y-3">
+          {establishments.map((item) => <li key={item.name} className="text-xs">
+            <div className="mb-1 flex justify-between gap-3"><span className="min-w-0 truncate text-slate-300">{item.name}</span><b className="text-white">{item.count}</b></div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-950"><div className="h-full rounded-full bg-blue-600" style={{ width: `${(item.count / maxCount) * 100}%` }} /></div>
+          </li>)}
+        </ul>
+      </section>
+
+      <div className="space-y-4 sm:space-y-6">
+        <section className={card}>
+          <h2 className="mb-1 text-base font-bold text-white">Dossiers de bourse</h2>
+          <p className="mb-4 text-xs text-slate-400">Répartition par statut des dossiers déposés.</p>
+          <ul className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">
+            {statuses.map((status) => <li key={status} className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3"><p className="text-slate-400">{statusLabels[status]}</p><p className="mt-1 text-2xl font-bold text-white">{applications[status] ?? 0}</p></li>)}
+          </ul>
+        </section>
+        <section className={card}>
+          <h2 className="mb-1 text-base font-bold text-white">Comptes du personnel</h2>
+          <p className="mb-4 text-xs text-slate-400">{data.staff.total} compte(s) · {data.staff.inactive} désactivé(s) · {data.trashed} dans la corbeille</p>
+          <ul className="flex flex-wrap gap-2 text-[11px]">
+            {(Object.entries(data.staff.byRole) as [AnyUserRole, number][]).map(([role, count]) => <li key={role} className="rounded-full border border-slate-700 px-2.5 py-1 text-slate-300">{roleLabels[role] ?? role} : <b>{count}</b></li>)}
+            {!data.staff.total && <li className="text-slate-500">Aucun compte du personnel.</li>}
+          </ul>
+        </section>
+      </div>
+    </div>
+
+    <section className={card}>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2"><div className="min-w-0"><h2 className="text-base font-bold text-white">Dossiers à traiter</h2><p className="text-xs text-slate-400">Les derniers dossiers soumis ou en révision.</p></div><button onClick={openStudents} className={`text-xs font-bold text-blue-400 hover:text-blue-300 ${touch}`}>Voir tous les dossiers</button></div>
+      {data.pending.length ? <div className="space-y-2">{data.pending.map((item) => <div key={item.id} className="flex flex-col items-start gap-2 rounded-2xl border border-slate-800 bg-slate-950/60 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"><div className="min-w-0"><p className="break-words text-sm font-bold text-white">{item.user.fullName}</p><p className="break-words text-xs text-slate-400">{item.establishment} · {item.level} · {item.user.email}</p></div><StatusBadge status={item.status} /></div>)}</div> : <p className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-500">Aucun dossier en attente pour le moment.</p>}
+    </section>
+
+    <section className={card}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><h2 className="text-base font-bold text-white">Dernières actions</h2><button onClick={openHistory} className={`text-xs font-bold text-blue-400 hover:text-blue-300 ${touch}`}>Voir l’historique</button></div>
+      {data.recentActions.length ? <ul className="divide-y divide-slate-800 text-xs">{data.recentActions.map((entry) => <li key={entry.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5"><p className="min-w-0 break-words text-slate-300"><b className="text-white">{entry.actorName}</b> {auditActionLabels[entry.action] ?? entry.action} <b className="text-white">{entry.targetName}</b></p><span className="shrink-0 text-slate-500">{new Date(entry.createdAt).toLocaleString('fr-FR')}</span></li>)}</ul> : <p className="text-xs text-slate-500">Aucune action enregistrée.</p>}
+    </section>
+  </>;
 }
+
 
 function StudentTable({ students, updateStatus, viewDossier }: { students: Student[]; updateStatus: (id: string, status: Status) => Promise<void>; viewDossier: (id: string) => void }) {
   return <>

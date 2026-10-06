@@ -12,7 +12,11 @@ import { useRouter } from "next/navigation";
 import { DossierViewer } from "../../components/DossierViewer";
 import { AdminSettingsPanel } from "../../components/AdminSettingsPanel";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { useInterfaceSettings } from "../../components/useInterfaceSettings";
+import { AccountPanel } from "../../components/AccountPanel";
+import { HeaderToolbar } from "../../components/HeaderToolbar";
+import { usePolling } from "../../components/usePolling";
+import { useInterfaceSettings, useSystemDark } from "../../components/useInterfaceSettings";
+import { isDarkRendering, toggleLightDark } from "../../components/adminSettings";
 import {
   Building2,
   CheckCircle2,
@@ -27,6 +31,7 @@ import {
   RefreshCw,
   Search,
   Settings,
+  UserCog,
   ShieldCheck,
   SlidersHorizontal,
   X,
@@ -37,7 +42,7 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 // Zone tactile confortable (44px) sur téléphone et tablette uniquement
 const touch = "max-[1024px]:min-h-[44px]";
 type Status = "SOUMIS" | "EN_REVISION" | "VALIDE" | "REFUSE";
-type Tab = "dashboard" | "applications" | "history" | "settings";
+type Tab = "dashboard" | "applications" | "history" | "account" | "settings";
 type Application = {
   id: string;
   establishment: string;
@@ -77,6 +82,7 @@ export default function ScolaritePage() {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [settings, setSettings] = useInterfaceSettings("scolarite");
+  const systemDark = useSystemDark();
   const [notes, setNotes] = useState<Record<string, string>>({});
   const request = (path: string, options: RequestInit = {}) => {
     const headers = new Headers(options.headers);
@@ -86,7 +92,8 @@ export default function ScolaritePage() {
     );
     return fetch(`${apiUrl}${path}`, { ...options, headers });
   };
-  const load = async () => {
+  // `silent` : actualisation en arrière-plan, sans message ni indicateur de chargement.
+  const load = async (silent = false) => {
     if (
       !sessionStorage.getItem("auth_token") ||
       sessionStorage.getItem("user_role") !== "SCOLARITE_CENTRALE"
@@ -94,8 +101,10 @@ export default function ScolaritePage() {
       router.replace("/login");
       return;
     }
-    setLoading(true);
-    setMessage("");
+    if (!silent) {
+      setLoading(true);
+      setMessage("");
+    }
     try {
       const response = await request("/scolarite/applications");
       if (response.status === 401) {
@@ -106,13 +115,13 @@ export default function ScolaritePage() {
       if (!response.ok) throw new Error("Impossible de charger les dossiers.");
       setApplications((await response.json()) as Application[]);
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Erreur de chargement.",
-      );
+      if (!silent) setMessage(error instanceof Error ? error.message : "Erreur de chargement.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+  // Les nouveaux dossiers apparaissent dans la cloche sans recharger la page.
+  usePolling(() => void load(true), 30_000);
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void load();
@@ -192,7 +201,9 @@ export default function ScolaritePage() {
         ? "Dossiers à examiner"
         : activeTab === "history"
           ? "Historique des décisions"
-          : "Paramètres";
+          : activeTab === "account"
+            ? "Mon compte"
+            : "Paramètres";
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-950 text-slate-100 selection:bg-blue-600 selection:text-white">
       {sidebarOpen && <button aria-label="Fermer le menu" onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-30 bg-slate-950/70 min-[1025px]:hidden" />}
@@ -251,6 +262,13 @@ export default function ScolaritePage() {
             >
               Historique
             </NavButton>
+            <NavButton
+              active={activeTab === "account"}
+              onClick={() => { setActiveTab("account"); setSidebarOpen(false); }}
+              icon={<UserCog className="h-4 w-4" />}
+            >
+              Mon compte
+            </NavButton>
             <div>
               <NavButton
                 active={activeTab === "settings"}
@@ -300,7 +318,7 @@ export default function ScolaritePage() {
       {/* Contenu : marge gauche = largeur exacte de la barre latérale (w-72) */}
       <div className="relative flex min-h-screen min-w-0 flex-1 flex-col overflow-hidden min-[1025px]:ml-72">
         <div className="pointer-events-none absolute left-1/3 top-1/4 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-600/10 blur-[160px]" />
-        <header className="z-10 flex items-center gap-3 border-b border-slate-800/80 bg-slate-950/60 px-4 py-3 sm:px-6 sm:py-4">
+        <header className="relative z-20 flex items-center gap-3 border-b border-slate-800/80 bg-slate-950/60 px-4 py-3 sm:px-6 sm:py-4">
           <button aria-label="Ouvrir le menu" onClick={() => setSidebarOpen(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-800 transition hover:border-blue-500/50 min-[1025px]:hidden"><Menu className="h-5 w-5" /></button>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base font-bold text-white sm:text-lg">{title}</h1>
@@ -308,13 +326,28 @@ export default function ScolaritePage() {
               Attribution et suivi des dossiers de bourse
             </p>
           </div>
-          <button
-            aria-label="Actualiser"
-            onClick={() => void load()}
-            className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3.5 text-xs"
-          >
-            <RefreshCw className="h-4 w-4" /><span className="hidden sm:inline">Actualiser</span>
-          </button>
+          <HeaderToolbar
+            darkMode={isDarkRendering(settings, systemDark)}
+            onToggleTheme={() => setSettings(toggleLightDark(settings, systemDark))}
+            notifications={pending.slice(0, 8).map((item) => ({
+              id: item.id,
+              title: `${item.user.fullName} — nouveau dossier`,
+              subtitle: `${item.establishment} · ${item.level}${item.submittedAt ? ` · ${new Date(item.submittedAt).toLocaleDateString("fr-FR")}` : ""}`,
+              onClick: () => setActiveTab("applications"),
+            }))}
+            totalCount={pending.length}
+            notificationsTitle="Dossiers à traiter"
+            notificationsEmpty="Aucun dossier en attente."
+            onSeeAllNotifications={() => setActiveTab("applications")}
+            seeAllLabel="Voir tous les dossiers à traiter"
+            roleLabel="Scolarité centrale"
+            menuItems={[
+              { label: "Mon compte", icon: <UserCog className="h-4 w-4" />, onClick: () => setActiveTab("account") },
+              { label: loading ? "Actualisation…" : "Actualiser les données", icon: <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />, onClick: () => void load() },
+              { label: "Paramètres", icon: <Settings className="h-4 w-4" />, onClick: () => setActiveTab("settings") },
+              { label: "Déconnexion", icon: <LogOut className="h-4 w-4" />, onClick: () => setLogoutConfirmOpen(true), danger: true },
+            ]}
+          />
         </header>
         <main className="z-10 min-w-0 flex-1 space-y-4 p-4 sm:space-y-6 sm:p-6 min-[1025px]:p-8">
           {message && (
@@ -407,6 +440,7 @@ export default function ScolaritePage() {
               viewDossier={setDossierApplicationId}
             />
           )}
+          {activeTab === "account" && <AccountPanel />}
           {activeTab === "settings" && (
             <section className="space-y-4 sm:space-y-6">
               <AdminSettingsPanel settings={settings} onChange={setSettings} tabbed hideNav activeTabId={settingsTabId} />

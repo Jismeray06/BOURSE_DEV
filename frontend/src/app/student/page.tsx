@@ -4,7 +4,11 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AdminSettingsPanel } from '../../components/AdminSettingsPanel';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { useInterfaceSettings } from '../../components/useInterfaceSettings';
+import { useInterfaceSettings, useSystemDark } from '../../components/useInterfaceSettings';
+import { EstablishmentIcon, logoSrc, useEstablishments } from '../../components/establishments';
+import { HeaderToolbar } from '../../components/HeaderToolbar';
+import { useNotifications, type AppNotification } from '../../components/useNotifications';
+import { isDarkRendering, toggleLightDark } from '../../components/adminSettings';
 import { 
   GraduationCap, 
   LogOut, 
@@ -24,35 +28,13 @@ import {
   Search,
   Layers,
   BookOpen,
-  Stethoscope,
-  FlaskConical,
-  Waves,
-  Languages,
-  Code2,
-  ChartNoAxesCombined,
-  Wrench,
-  Landmark,
-  Pill,
-  LibraryBig,
   Menu,
   X,
   Printer,
   FolderOpen,
+  XCircle,
+  Send,
 } from 'lucide-react';
-
-const ETABLISSEMENTS = [
-  { id: 'ens', name: 'ENS', fullName: 'ENS', icon: GraduationCap },
-  { id: 'medecine', name: 'Faculté de Médecine', fullName: 'Faculté de Médecine', icon: Stethoscope },
-  { id: 'fste', name: 'FSTE', fullName: 'FSTE', icon: FlaskConical },
-  { id: 'iostm', name: 'IOSTM', fullName: 'IOSTM', icon: Waves },
-  { id: 'ilc-ss', name: 'ILC-SS', fullName: 'ILC-SS', icon: Languages },
-  { id: 'isstm', name: 'ISSTM', fullName: 'ISSTM', icon: Code2 },
-  { id: 'iugm', name: 'IUGM', fullName: 'IUGM', icon: ChartNoAxesCombined },
-  { id: 'iutam', name: 'IUTAM', fullName: 'IUTAM', icon: Wrench },
-  { id: 'edsp', name: 'EDSP', fullName: 'EDSP', icon: Landmark },
-  { id: 'ecole-pharmacie', name: 'École de Pharmacie', fullName: 'École de Pharmacie', icon: Pill },
-  { id: 'elci', name: 'ELCI', fullName: 'ELCI', icon: LibraryBig },
-];
 
 const NIVEAUX = ['Licence 1 (L1)', 'Licence 2 (L2)', 'Licence 3 (L3)', 'Master 1 (M1)', 'Master 2 (M2)'];
 
@@ -107,6 +89,8 @@ export default function StudentPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [settings, setSettings] = useInterfaceSettings('student');
+  const systemDark = useSystemDark();
+  const notifications = useNotifications();
 
   // Gestion de l'état du formulaire par étapes
   const [currentStep, setCurrentStep] = useState(1);
@@ -114,11 +98,15 @@ export default function StudentPage() {
   const [quitusVerified, setQuitusVerified] = useState(false);
   const [quitusError, setQuitusError] = useState('');
   const [quitusLoading, setQuitusLoading] = useState(false);
+  // Étape « code reçu par e-mail » : adresse masquée de la fiche et code saisi.
+  const [otpMaskedEmail, setOtpMaskedEmail] = useState<string | null>(null);
+  const [otpValue, setOtpValue] = useState('');
   const [applicationLoading, setApplicationLoading] = useState(true);
   const [submittingApplication, setSubmittingApplication] = useState(false);
   const [applicationStatus, setApplicationStatus] = useState<SavedApplication['status'] | null>(null);
   const [applicationReviewNote, setApplicationReviewNote] = useState<string | null>(null);
-  const [isstmCurriculum, setIsstmCurriculum] = useState<IsstmCurriculum>({ levels: [], programs: [] });
+  // Curriculum de l'établissement choisi (vide si l'établissement n'en a pas configuré : listes par défaut).
+  const [curriculumState, setCurriculumState] = useState<{ name: string; data: IsstmCurriculum }>({ name: '', data: { levels: [], programs: [] } });
   const [establishmentSearch, setEstablishmentSearch] = useState('');
   const [parcoursSearch, setParcoursSearch] = useState('');
   const [showAttestation, setShowAttestation] = useState(false);
@@ -127,12 +115,15 @@ export default function StudentPage() {
     nom: 'RAKOTO',
     prenom: 'Jean',
     email: 'etudiant@gmail.com',
-    etablissement: ETABLISSEMENTS[0].fullName,
+    etablissement: '',
     niveau: NIVEAUX[0],
     parcours: PARCOURS_LIST[0],
     quitusNumero: '',
     dateInscription: '11 Septembre 2026',
   });
+
+  // Liste gérée par l'administrateur : le premier établissement est présélectionné tant que rien n'est choisi.
+  const { establishments } = useEstablishments((list) => setStudentData((current) => (current.etablissement ? current : { ...current, etablissement: list[0]?.name ?? '' })));
 
   const [candidatureDocumentTypes, setCandidatureDocumentTypes] = useState<DocumentType[]>(DEFAULT_CANDIDATURE_DOCUMENTS);
   const [uploadState, setUploadState] = useState<Record<string, { file: File | null; stored: boolean }>>({});
@@ -187,42 +178,48 @@ export default function StudentPage() {
     return () => window.clearInterval(refreshInterval);
   }, [router]);
 
-  useEffect(() => {
-    const loadIsstmCurriculum = async () => {
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'}/establishments/isstm/curriculum`);
-        if (!response.ok) return;
-        setIsstmCurriculum(await response.json() as IsstmCurriculum);
-      } catch {
-        // Les listes statiques restent disponibles si l'API est temporairement indisponible.
-      }
-    };
-    void loadIsstmCurriculum();
-  }, []);
+  const cycleLevels = (data: IsstmCurriculum) => (data.levels.length ? data.levels.map((item) => item.name) : NIVEAUX);
+  const cyclePrograms = (data: IsstmCurriculum, niveau: string) => (data.programs.length ? data.programs.filter((item) => item.cycle === cycleForNiveau(niveau)).map((item) => item.name) : PARCOURS_LIST);
 
-  const availableLevels = studentData.etablissement === 'ISSTM' && isstmCurriculum.levels.length ? isstmCurriculum.levels.map((item) => item.name) : NIVEAUX;
-  const availablePrograms = studentData.etablissement === 'ISSTM' && isstmCurriculum.programs.length
-    ? isstmCurriculum.programs.filter((item) => item.cycle === cycleForNiveau(studentData.niveau)).map((item) => item.name)
-    : PARCOURS_LIST;
-  const filteredEtablissements = ETABLISSEMENTS.filter((item) =>
-    item.name.toLowerCase().includes(establishmentSearch.trim().toLowerCase()) || item.fullName.toLowerCase().includes(establishmentSearch.trim().toLowerCase())
-  );
+  // Charge le curriculum de l'établissement choisi, puis ajuste niveau et parcours s'ils n'y figurent pas.
+  useEffect(() => {
+    const name = studentData.etablissement;
+    if (!name) return;
+    const load = async () => {
+      let data: IsstmCurriculum = { levels: [], programs: [] };
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'}/establishments/${encodeURIComponent(name)}/curriculum`);
+        if (response.ok) data = await response.json() as IsstmCurriculum;
+      } catch {
+        // Les listes par défaut restent disponibles si l'API est temporairement indisponible.
+      }
+      setCurriculumState({ name, data });
+      setStudentData((current) => {
+        if (current.etablissement !== name) return current;
+        const levels = cycleLevels(data);
+        const niveau = levels.includes(current.niveau) ? current.niveau : levels[0] ?? '';
+        const programs = cyclePrograms(data, niveau);
+        return { ...current, niveau, parcours: programs.includes(current.parcours) ? current.parcours : programs[0] ?? '' };
+      });
+    };
+    void load();
+  }, [studentData.etablissement]);
+
+  const curriculum = curriculumState.name === studentData.etablissement ? curriculumState.data : { levels: [], programs: [] };
+  const availableLevels = cycleLevels(curriculum);
+  const availablePrograms = cyclePrograms(curriculum, studentData.niveau);
+  const filteredEtablissements = establishments.filter((item) => item.name.toLowerCase().includes(establishmentSearch.trim().toLowerCase()));
   const filteredPrograms = availablePrograms.filter((parcours) => parcours.toLowerCase().includes(parcoursSearch.trim().toLowerCase()));
   const chooseEstablishment = (establishment: string) => {
-    const levels = establishment === 'ISSTM' && isstmCurriculum.levels.length ? isstmCurriculum.levels.map((item) => item.name) : NIVEAUX;
-    const niveau = levels.includes(studentData.niveau) ? studentData.niveau : levels[0] ?? '';
-    const programs = establishment === 'ISSTM' && isstmCurriculum.programs.length
-      ? isstmCurriculum.programs.filter((item) => item.cycle === cycleForNiveau(niveau)).map((item) => item.name)
-      : PARCOURS_LIST;
-    setStudentData((current) => ({ ...current, etablissement: establishment, niveau, parcours: programs.includes(current.parcours) ? current.parcours : programs[0] ?? '', quitusNumero: '' }));
+    setStudentData((current) => ({ ...current, etablissement: establishment, quitusNumero: '' }));
     setQuitusVerified(false);
   };
 
   useEffect(() => {
     const loadDocumentTypes = async () => {
-      if (studentData.etablissement !== 'ISSTM') { setCandidatureDocumentTypes(DEFAULT_CANDIDATURE_DOCUMENTS); return; }
+      if (!studentData.etablissement) { setCandidatureDocumentTypes(DEFAULT_CANDIDATURE_DOCUMENTS); return; }
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'}/establishments/isstm/document-requirements`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'}/establishments/${encodeURIComponent(studentData.etablissement)}/document-requirements`);
         if (!response.ok) { setCandidatureDocumentTypes(DEFAULT_CANDIDATURE_DOCUMENTS); return; }
         const data = await response.json() as DocumentType[];
         setCandidatureDocumentTypes(data.length ? data : DEFAULT_CANDIDATURE_DOCUMENTS);
@@ -298,24 +295,56 @@ export default function StudentPage() {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
 
+  const callQuitus = async (path: 'verify' | 'confirm', extra: Record<string, string> = {}) => {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'}/quitus/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem('auth_token') ?? ''}` },
+      body: JSON.stringify({ code: studentData.quitusNumero, establishment: studentData.etablissement, ...extra }),
+    });
+    const result = await response.json().catch(() => ({})) as { message?: string | string[]; verified?: boolean; requiresCode?: boolean; maskedEmail?: string };
+    if (!response.ok) throw new Error((Array.isArray(result.message) ? result.message[0] : result.message) ?? 'Quitus invalide.');
+    return result;
+  };
+
+  // Quitus reconnu : on l'enregistre dans le dossier puis on passe à l'étape des pièces.
+  const quitusAccepted = async () => {
+    await persistApplication(false, { quitusNumero: studentData.quitusNumero.trim().toUpperCase() });
+    setOtpMaskedEmail(null);
+    setOtpValue('');
+    setQuitusVerified(true);
+    setCurrentStep(5);
+  };
+
   const handleVerifyQuitus = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentData.quitusNumero.trim()) return;
+    if (otpMaskedEmail && !/^\d{6}$/.test(otpValue.trim())) { setQuitusError('Saisissez le code à 6 chiffres reçu par e-mail.'); return; }
     setQuitusError('');
     setQuitusLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'}/quitus/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem('auth_token') ?? ''}` },
-        body: JSON.stringify({ code: studentData.quitusNumero, establishment: studentData.etablissement }),
-      });
-      const result = await response.json().catch(() => ({})) as { message?: string };
-      if (!response.ok) throw new Error(result.message ?? 'Quitus invalide.');
-      await persistApplication(false, { quitusNumero: studentData.quitusNumero.trim().toUpperCase() });
-      setQuitusVerified(true);
-      setCurrentStep(5);
+      const result = otpMaskedEmail ? await callQuitus('confirm', { otp: otpValue.trim() }) : await callQuitus('verify');
+      if (result.requiresCode) {
+        setOtpMaskedEmail(result.maskedEmail ?? 'votre adresse e-mail');
+        setOtpValue('');
+        return;
+      }
+      await quitusAccepted();
     } catch (error) {
       setQuitusError(error instanceof Error ? error.message : 'Impossible de vérifier le quitus.');
+    } finally {
+      setQuitusLoading(false);
+    }
+  };
+
+  const resendQuitusCode = async () => {
+    setQuitusError('');
+    setQuitusLoading(true);
+    try {
+      const result = await callQuitus('verify');
+      if (result.requiresCode) setOtpMaskedEmail(result.maskedEmail ?? 'votre adresse e-mail');
+      else await quitusAccepted();
+    } catch (error) {
+      setQuitusError(error instanceof Error ? error.message : 'Impossible de renvoyer le code.');
     } finally {
       setQuitusLoading(false);
     }
@@ -404,24 +433,22 @@ export default function StudentPage() {
             </button>
 
             <button
-              disabled={!isSubmitted}
-              onClick={() => { if (!isSubmitted) return; setActiveTab('notifications'); setSidebarOpen(false); }}
-              title={!isSubmitted ? 'Disponible après le dépôt de votre dossier' : undefined}
-              className={`w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
-                !isSubmitted
-                  ? 'text-slate-600 opacity-50 cursor-not-allowed'
-                  : activeTab === 'notifications'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 cursor-pointer'
-                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 cursor-pointer'
+              onClick={() => { setActiveTab('notifications'); setSidebarOpen(false); }}
+              className={`w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                activeTab === 'notifications'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
               }`}
             >
               <div className="flex items-center gap-3">
                 <Bell className="w-4 h-4" />
                 <span>Notifications</span>
               </div>
-              <span className="bg-blue-500/20 text-blue-400 text-[10px] px-2 py-0.5 rounded-full font-bold border border-blue-500/30">
-                1
-              </span>
+              {notifications.unread > 0 && (
+                <span className="bg-blue-500/20 text-blue-400 text-[10px] px-2 py-0.5 rounded-full font-bold border border-blue-500/30">
+                  {notifications.unread}
+                </span>
+              )}
             </button>
 
             <button
@@ -456,12 +483,35 @@ export default function StudentPage() {
       {/* --- CONTENU PRINCIPAL : marge gauche = largeur exacte de la barre latérale (w-72) --- */}
       <div className="flex min-w-0 flex-1 flex-col min-h-screen relative z-10 min-[1025px]:ml-72">
         
-        <header className="border-b border-slate-800/80 bg-slate-950/60 backdrop-blur-md px-4 py-3 sm:px-6 sm:py-4 flex flex-wrap items-center gap-3">
+        <header className="relative z-20 border-b border-slate-800/80 bg-slate-950/60 backdrop-blur-md px-4 py-3 sm:px-6 sm:py-4 flex flex-wrap items-center gap-3">
           <button aria-label="Ouvrir le menu" onClick={() => setSidebarOpen(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-800 transition hover:border-blue-500/50 min-[1025px]:hidden"><Menu className="w-5 h-5" /></button>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base font-bold text-white sm:text-lg">Bienvenue, {studentData.prenom}</h1>
             <p className="truncate text-xs text-slate-400">Année universitaire 2025-2026</p>
           </div>
+
+          <HeaderToolbar
+            darkMode={isDarkRendering(settings, systemDark)}
+            onToggleTheme={() => setSettings(toggleLightDark(settings, systemDark))}
+            notifications={notifications.items.slice(0, 8).map((item) => ({
+              id: item.id,
+              title: item.title,
+              subtitle: item.message,
+              read: Boolean(item.readAt),
+              onClick: () => { notifications.markRead(item.id); setActiveTab('notifications'); },
+            }))}
+            totalCount={notifications.unread}
+            notificationsTitle="Notifications"
+            notificationsEmpty="Aucune notification pour le moment."
+            onMarkAllRead={notifications.markAllRead}
+            onSeeAllNotifications={() => setActiveTab('notifications')}
+            seeAllLabel="Voir toutes les notifications"
+            roleLabel="Étudiant"
+            menuItems={[
+              { label: 'Notifications', icon: <Bell className="h-4 w-4" />, onClick: () => setActiveTab('notifications') },
+              { label: 'Déconnexion', icon: <LogOut className="h-4 w-4" />, onClick: () => setLogoutConfirmOpen(true), danger: true },
+            ]}
+          />
 
           {/* Le statut passe sur sa propre ligne sur téléphone */}
           <span className={`order-last sm:order-none w-fit max-w-full px-3 py-1 text-xs font-bold rounded-full flex items-center gap-1.5 border ${
@@ -530,18 +580,18 @@ export default function StudentPage() {
 
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5">
                     {filteredEtablissements.map((item) => {
-                      const isSelected = studentData.etablissement === item.fullName;
-                      const EstablishmentIcon = item.icon;
+                      const isSelected = studentData.etablissement === item.name;
+                      const logo = logoSrc(item.logoUrl);
                       return (
                         <button
                           type="button"
                           key={item.id}
-                          onClick={() => chooseEstablishment(item.fullName)}
+                          onClick={() => chooseEstablishment(item.name)}
                           className={`min-w-0 min-h-[44px] p-2.5 rounded-xl border text-left transition cursor-pointer flex items-center gap-2 ${
                             isSelected ? 'bg-blue-600/10 border-blue-500' : 'bg-slate-950 border-slate-800 hover:border-slate-700'
                           }`}
                         >
-                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${isSelected ? 'border-blue-400/40 bg-blue-500/20 text-blue-200' : 'border-slate-700 bg-slate-900 text-slate-400'}`}><EstablishmentIcon className="h-4 w-4" /></span>
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${isSelected ? 'border-blue-400/40 bg-blue-500/20 text-blue-200' : 'border-slate-700 bg-slate-900 text-slate-400'}`}> {logo ? <img src={logo} alt="" className="h-full w-full rounded-lg object-contain" /> : <EstablishmentIcon name={item.name} className="h-4 w-4" />}</span>
                           <span className="min-w-0 flex-1 text-xs font-semibold text-white break-words">{item.name}</span>
                           {isSelected && <Check className="w-3.5 h-3.5 shrink-0 text-blue-400 stroke-[3]" />}
                         </button>
@@ -577,9 +627,7 @@ export default function StudentPage() {
                           type="button"
                           key={lvl}
                           onClick={() => {
-                            const programs = studentData.etablissement === 'ISSTM' && isstmCurriculum.programs.length
-                              ? isstmCurriculum.programs.filter((item) => item.cycle === cycleForNiveau(lvl)).map((item) => item.name)
-                              : PARCOURS_LIST;
+                            const programs = cyclePrograms(curriculum, lvl);
                             setStudentData({ ...studentData, niveau: lvl, parcours: programs.includes(studentData.parcours) ? studentData.parcours : programs[0] ?? '' });
                           }}
                           className={`min-w-0 min-h-[44px] p-2.5 rounded-xl border text-left transition cursor-pointer flex items-center gap-2 ${
@@ -683,13 +731,31 @@ export default function StudentPage() {
                       required
                       placeholder="Ex: ISSTM-2026-DEMO-001"
                       value={studentData.quitusNumero}
-                      onChange={(e) => setStudentData({ ...studentData, quitusNumero: e.target.value })}
+                      onChange={(e) => { setStudentData({ ...studentData, quitusNumero: e.target.value }); setOtpMaskedEmail(null); setOtpValue(''); }}
                       className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-base sm:text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 transition font-medium tracking-wide max-[1024px]:min-h-[44px]"
                     />
                     <p className="text-[11px] text-slate-500 flex items-start gap-1.5 pt-1">
                       <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-px text-emerald-400" />
-                      <span>Vérification instantanée dans la base de l&apos;établissement sélectionné.</span>
+                      <span>Vérification dans la base de l&apos;établissement sélectionné : le quitus doit être le vôtre.</span>
                     </p>
+                    {otpMaskedEmail && (
+                      <div className="mt-3 space-y-2 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
+                        <p className="text-xs text-slate-300">Un code de vérification à 6 chiffres vient d&apos;être envoyé à l&apos;adresse enregistrée par votre établissement : <strong className="text-white">{otpMaskedEmail}</strong>. Il est valable 10 minutes.</p>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          maxLength={6}
+                          autoFocus
+                          aria-label="Code de vérification à 6 chiffres"
+                          placeholder="000000"
+                          value={otpValue}
+                          onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
+                          className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-base text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 transition font-bold tracking-[0.5em] text-center max-[1024px]:min-h-[44px]"
+                        />
+                        <button type="button" disabled={quitusLoading} onClick={() => void resendQuitusCode()} className="text-[11px] font-semibold text-blue-400 hover:text-blue-300 disabled:opacity-50 cursor-pointer">Renvoyer le code</button>
+                      </div>
+                    )}
                     {quitusError && <p className="break-words text-xs text-rose-400">{quitusError}</p>}
                   </div>
 
@@ -701,7 +767,7 @@ export default function StudentPage() {
 
                     <button type="submit" disabled={quitusLoading || !studentData.quitusNumero.trim()} className={`px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed ${touch}`}>
                       <Search className="w-4 h-4" />
-                      <span>{quitusLoading ? 'Vérification...' : quitusVerified ? 'Quitus Validé...' : 'Vérifier le quitus'}</span>
+                      <span>{quitusLoading ? 'Vérification...' : quitusVerified ? 'Quitus Validé...' : otpMaskedEmail ? 'Valider le code' : 'Vérifier le quitus'}</span>
                     </button>
                   </div>
                 </form>
@@ -881,14 +947,21 @@ export default function StudentPage() {
           {/* ONGLET NOTIFICATIONS */}
           {activeTab === 'notifications' && (
             <div className="bg-slate-900/90 border border-slate-800/80 p-4 sm:p-6 rounded-3xl space-y-4">
-              <h2 className="text-base font-bold text-white">Vos Notifications</h2>
-              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-start gap-3">
-                <Bell className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
-                <div className="min-w-0 text-xs space-y-1">
-                  <p className="font-semibold text-white">Ouverture des inscriptions 2025-2026</p>
-                  <p className="text-slate-400">Pensez à finaliser les 5 étapes d&apos;inscription et à téléverser l&apos;ensemble de vos pièces justificatives.</p>
-                </div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-base font-bold text-white">Vos notifications</h2>
+                {notifications.unread > 0 && (
+                  <button type="button" onClick={notifications.markAllRead} className={`rounded-xl border border-blue-500/40 px-3 py-2 text-xs font-bold text-blue-300 transition hover:bg-blue-500/10 cursor-pointer ${touch}`}>
+                    Tout marquer comme lu ({notifications.unread})
+                  </button>
+                )}
               </div>
+              {notifications.items.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-xs text-slate-500">Aucune notification pour le moment. Vous serez prévenu ici de l&apos;avancement de votre dossier.</p>
+              ) : (
+                <ul className="space-y-2.5">
+                  {notifications.items.map((item) => <NotificationCard key={item.id} item={item} onRead={notifications.markRead} />)}
+                </ul>
+              )}
             </div>
           )}
 
@@ -957,6 +1030,32 @@ export default function StudentPage() {
       />
 
     </div>
+  );
+}
+
+const NOTIFICATION_STYLES: Record<string, { icon: React.ReactNode; tone: string }> = {
+  APPLICATION_VALIDATED: { icon: <CheckCircle2 className="w-5 h-5" />, tone: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' },
+  APPLICATION_REFUSED: { icon: <XCircle className="w-5 h-5" />, tone: 'border-rose-500/20 bg-rose-500/10 text-rose-400' },
+  APPLICATION_SUBMITTED: { icon: <Send className="w-5 h-5" />, tone: 'border-blue-500/20 bg-blue-500/10 text-blue-400' },
+};
+
+function NotificationCard({ item, onRead }: { item: AppNotification; onRead: (id: string) => void }) {
+  const style = NOTIFICATION_STYLES[item.type] ?? { icon: <Bell className="w-5 h-5" />, tone: 'border-slate-700 bg-slate-800 text-slate-300' };
+  const unread = !item.readAt;
+  return (
+    <li>
+      <button type="button" onClick={() => { if (unread) onRead(item.id); }} className={`w-full min-h-[44px] flex items-start gap-3 rounded-2xl border p-4 text-left transition ${unread ? 'border-blue-500/30 bg-blue-500/5 cursor-pointer' : 'border-slate-800 bg-slate-950/50 cursor-default'}`}>
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${style.tone}`}>{style.icon}</span>
+        <span className="min-w-0 flex-1 text-xs">
+          <span className="flex items-center gap-2">
+            <span className={`block truncate text-white ${unread ? 'font-bold' : 'font-semibold'}`}>{item.title}</span>
+            {unread && <span aria-label="Non lue" className="h-2 w-2 shrink-0 rounded-full bg-blue-500" />}
+          </span>
+          <span className="mt-1 block break-words text-slate-400">{item.message}</span>
+          <span className="mt-1.5 block text-[11px] text-slate-500">{new Date(item.createdAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+        </span>
+      </button>
+    </li>
   );
 }
 

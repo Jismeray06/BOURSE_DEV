@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { defaultSettings, loadSettings, saveSettings, type AdminSettings, type SettingsScope } from './adminSettings';
 
 export function useInterfaceSettings(scope: SettingsScope) {
@@ -23,4 +23,15 @@ export function useInterfaceSettings(scope: SettingsScope) {
   }, [ready, scope, settings]);
 
   return [settings, setSettings] as const;
+}
+
+const darkQuery = '(prefers-color-scheme: dark)';
+const subscribeSystemTheme = (onChange: () => void) => {
+  const query = window.matchMedia(darkQuery);
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+};
+// Préférence claire/sombre du système (utile quand le thème de l'interface est « Auto »).
+export function useSystemDark() {
+  return useSyncExternalStore(subscribeSystemTheme, () => window.matchMedia(darkQuery).matches, () => true);
 }

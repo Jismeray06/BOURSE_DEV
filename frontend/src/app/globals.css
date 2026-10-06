@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Mode sombre de la page d'accueil : actif sous un ancêtre .home-dark */
+@custom-variant dark (&:where(.home-dark, .home-dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
