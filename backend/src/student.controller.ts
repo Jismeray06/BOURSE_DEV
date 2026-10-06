@@ -3,6 +3,7 @@ import { CurriculumOptionType, DocumentRequirementContext, RegistrationStatus, U
 import { AuthService } from './auth.service.js';
 import { DocumentService } from './document.service.js';
 import { PrismaService } from './prisma.service.js';
+import { QuitusService } from './quitus.service.js';
 
 type ApplicationBody = {
   establishment?: unknown;
@@ -13,7 +14,7 @@ type ApplicationBody = {
 
 @Controller('student')
 export class StudentController {
-  constructor(private readonly prisma: PrismaService, private readonly authService: AuthService, private readonly documents: DocumentService) {}
+  constructor(private readonly prisma: PrismaService, private readonly authService: AuthService, private readonly documents: DocumentService, private readonly quitusService: QuitusService) {}
 
   @Get('application')
   async application(@Headers('authorization') authorization?: string) {
@@ -39,8 +40,8 @@ export class StudentController {
   @Put('application')
   async save(@Body() body: ApplicationBody, @Headers('authorization') authorization?: string) {
     const user = await this.student(authorization);
-    const fields = await this.fields(body);
     const existing = await this.prisma.enrollmentApplication.findUnique({ where: { userId: user.id } });
+    const fields = await this.fields(body, user, existing);
     if (existing && existing.status !== RegistrationStatus.BROUILLON && existing.status !== RegistrationStatus.REFUSE) {
       throw new BadRequestException('Ce dossier est déjà soumis et ne peut plus être modifié.');
     }
@@ -58,8 +59,8 @@ export class StudentController {
   @Post('application/submit')
   async submit(@Body() body: ApplicationBody, @Headers('authorization') authorization?: string) {
     const user = await this.student(authorization);
-    const fields = await this.fields(body, true);
     const existing = await this.prisma.enrollmentApplication.findUnique({ where: { userId: user.id } });
+    const fields = await this.fields(body, user, existing, true);
     if (existing && existing.status !== RegistrationStatus.BROUILLON && existing.status !== RegistrationStatus.REFUSE) {
       throw new BadRequestException('Ce dossier a déjà été soumis.');
     }
@@ -76,13 +77,13 @@ export class StudentController {
         include: { quitus: { select: { code: true } } },
       }),
       this.prisma.user.update({ where: { id: user.id }, data: { establishment: fields.establishment, level: fields.level, program: fields.program, registrationStatus: RegistrationStatus.SOUMIS } }),
+      this.prisma.notification.create({ data: { userId: user.id, type: 'APPLICATION_SUBMITTED', title: 'Dossier soumis', message: `Votre dossier de bourse (${fields.establishment} · ${fields.level}) a été transmis à la scolarité centrale. Vous serez prévenu de la décision.` } }),
     ]);
     return application;
   }
 
   private async requiredCandidatureDocumentTypes(establishment: string, isFirstYear: boolean) {
     const fallback = ['cin', 'quitus', 'residence', ...(isFirstYear ? ['bac'] : [])];
-    if (establishment !== 'ISSTM') return fallback;
     const configured = await this.prisma.documentRequirement.findMany({
       where: { establishment, context: DocumentRequirementContext.CANDIDATURE, active: true },
       select: { type: true },
@@ -97,29 +98,26 @@ export class StudentController {
     return user;
   }
 
-  private async fields(body: ApplicationBody, requireQuitus = false) {
+  private async fields(body: ApplicationBody, user: { id: string; email: string }, existing: { establishment: string; quitusId: string | null } | null, requireQuitus = false) {
     const establishment = this.string(body.establishment, 'L’établissement');
     const level = this.string(body.level, 'Le niveau');
     const program = this.string(body.program, 'Le parcours');
-    if (establishment === 'ISSTM') {
+    // Un établissement qui a configuré son curriculum voit niveau et parcours contrôlés.
+    const hasCurriculum = (await this.prisma.establishmentCurriculumOption.count({ where: { establishment } })) > 0;
+    if (hasCurriculum) {
       const options = await this.prisma.establishmentCurriculumOption.findMany({
         where: { establishment, active: true, name: { in: [level, program] } },
       });
       const levelValid = options.some((option) => option.type === CurriculumOptionType.NIVEAU && option.name === level);
       const programValid = options.some((option) => option.type === CurriculumOptionType.PARCOURS && option.name === program);
-      if (!levelValid || !programValid) throw new BadRequestException('Le niveau ou le parcours sélectionné n’est plus actif à l’ISSTM.');
+      if (!levelValid || !programValid) throw new BadRequestException('Le niveau ou le parcours sélectionné n’est plus actif dans cet établissement.');
     }
     const quitusCode = typeof body.quitusCode === 'string' && body.quitusCode.trim() ? body.quitusCode.trim().toUpperCase() : undefined;
     if (requireQuitus && !quitusCode) throw new BadRequestException('Un quitus valide est obligatoire pour soumettre le dossier.');
 
-    let quitusId: string | null = null;
-    if (quitusCode) {
-      const quitus = await this.prisma.quitus.findUnique({ where: { code: quitusCode } });
-      if (!quitus || quitus.establishment !== establishment) {
-        throw new BadRequestException('Le quitus ne correspond pas à l’établissement sélectionné.');
-      }
-      quitusId = quitus.id;
-    }
+    // Sans code envoyé, le quitus déjà rattaché est conservé tant que l'établissement ne change pas.
+    let quitusId: string | null = existing && existing.establishment === establishment ? existing.quitusId : null;
+    if (quitusCode) quitusId = await this.quitusService.assertUsable(user, quitusCode, establishment, existing?.quitusId);
     return { establishment, level, program, quitusId };
   }
 

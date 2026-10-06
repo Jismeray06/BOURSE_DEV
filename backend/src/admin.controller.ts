@@ -15,6 +15,7 @@ import { AuthService } from './auth.service.js';
 import { PrismaService } from './prisma.service.js';
 
 type StatusBody = { status?: unknown };
+const STATUS_LABELS: Record<RegistrationStatus, string> = { BROUILLON: 'Brouillon', SOUMIS: 'Soumis', EN_REVISION: 'En révision', VALIDE: 'Validé', REFUSE: 'Refusé' };
 type CreateStaffBody = { fullName?: unknown; email?: unknown; password?: unknown; role?: unknown; establishment?: unknown };
 type AccountStatusBody = { active?: unknown };
 type ResetPasswordBody = { password?: unknown };
@@ -47,6 +48,38 @@ export class AdminController {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  // Statistiques du tableau de bord (comptes, dossiers de bourse, établissements, dernières actions).
+  @Get('dashboard')
+  async dashboard(@Headers('authorization') authorization?: string) {
+    await this.authService.requireAdmin(authorization);
+    const staffRoles = [UserRole.ETABLISSEMENT, UserRole.ADMIN_ETABLISSEMENT, UserRole.SECRETAIRE, UserRole.SCOLARITE_CENTRALE];
+    const [students, unverifiedStudents, applications, byEstablishment, staff, inactiveStaff, trashed, pending, audit] = await Promise.all([
+      this.prisma.user.count({ where: { role: UserRole.ETUDIANT, deletedAt: null } }),
+      this.prisma.user.count({ where: { role: UserRole.ETUDIANT, deletedAt: null, emailVerified: false } }),
+      this.prisma.enrollmentApplication.groupBy({ by: ['status'], _count: { _all: true } }),
+      this.prisma.user.groupBy({ by: ['establishment'], where: { role: UserRole.ETUDIANT, deletedAt: null, establishment: { not: null } }, _count: { _all: true }, orderBy: { establishment: 'asc' } }),
+      this.prisma.user.groupBy({ by: ['role'], where: { role: { in: staffRoles }, deletedAt: null }, _count: { _all: true } }),
+      this.prisma.user.count({ where: { role: { in: staffRoles }, deletedAt: null, active: false } }),
+      this.prisma.user.count({ where: { deletedAt: { not: null } } }),
+      this.prisma.enrollmentApplication.findMany({
+        where: { status: { in: [RegistrationStatus.SOUMIS, RegistrationStatus.EN_REVISION] } },
+        orderBy: { submittedAt: 'desc' },
+        take: 5,
+        select: { id: true, establishment: true, level: true, program: true, status: true, submittedAt: true, user: { select: { fullName: true, email: true } } },
+      }),
+      this.prisma.auditLogEntry.findMany({ orderBy: { createdAt: 'desc' }, take: 5 }),
+    ]);
+    return {
+      students: { total: students, unverified: unverifiedStudents },
+      applications: Object.fromEntries(applications.map((row) => [row.status, row._count._all])),
+      byEstablishment: byEstablishment.flatMap((row) => (row.establishment ? [{ establishment: row.establishment, count: row._count._all }] : [])),
+      staff: { total: staff.reduce((sum, row) => sum + row._count._all, 0), inactive: inactiveStaff, byRole: Object.fromEntries(staff.map((row) => [row.role, row._count._all])) },
+      trashed,
+      pending,
+      recentActions: audit,
+    };
   }
 
   @Patch('users/:id/status')
@@ -163,6 +196,9 @@ export class AdminController {
     }
     const role = body.role === UserRole.ETABLISSEMENT ? UserRole.ADMIN_ETABLISSEMENT : body.role;
     const establishment = role === UserRole.ADMIN_ETABLISSEMENT ? this.requiredText(body.establishment, 'L’établissement') : undefined;
+    if (establishment && !(await this.prisma.establishment.findUnique({ where: { name: establishment }, select: { id: true } }))) {
+      throw new BadRequestException('Cet établissement n’existe pas : créez-le d’abord dans l’onglet Établissements.');
+    }
     return this.authService.createStaffAccount(admin, fullName, email, password, role, establishment);
   }
 
@@ -229,6 +265,7 @@ export class AdminController {
         where: { userId: id },
         data: { status },
       }),
+      this.prisma.notification.create({ data: { userId: id, type: 'APPLICATION_STATUS', title: 'Statut de votre dossier modifié', message: `L'administration a passé votre dossier au statut « ${STATUS_LABELS[status]} ».` } }),
     ]);
     return student;
   }

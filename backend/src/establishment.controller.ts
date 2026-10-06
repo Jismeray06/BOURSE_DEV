@@ -1,8 +1,9 @@
-import { BadRequestException, Body, Controller, Delete, Get, Headers, Param, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Headers, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
-import { CurriculumCycle, CurriculumOptionType, DocumentRequirementContext, EnrollmentQuality, Gender, UserRole } from '@prisma/client';
+import { CurriculumCycle, CurriculumOptionType, DocumentRequirementContext, EnrollmentQuality, Gender, Prisma, UserRole } from '@prisma/client';
 import { AuthService } from './auth.service.js';
 import { PrismaService } from './prisma.service.js';
+import { QuitusService } from './quitus.service.js';
 
 type VerifyQuitusBody = { code?: unknown; establishment?: unknown };
 type DocumentRequirementBody = { cycle?: unknown; type?: unknown; label?: unknown; active?: unknown; context?: unknown };
@@ -43,14 +44,14 @@ type CurriculumBody = { type?: unknown; name?: unknown; active?: unknown; cycle?
 type SecretaryBody = { fullName?: unknown; email?: unknown; password?: unknown };
 type SecretaryUpdateBody = { fullName?: unknown; password?: unknown };
 type SettingsBody = { mention?: unknown };
-const ISSTM = 'ISSTM';
+type InterfaceSettingsBody = { settings?: unknown };
 
 @Controller()
 export class EstablishmentController {
-  constructor(private readonly prisma: PrismaService, private readonly authService: AuthService) {}
+  constructor(private readonly prisma: PrismaService, private readonly authService: AuthService, private readonly quitusService: QuitusService) {}
 
-  @Get('establishments/isstm/curriculum')
-  async publicCurriculum() { return this.curriculum(true); }
+  @Get('establishments/:name/curriculum')
+  async publicCurriculum(@Param('name') name: string) { return this.curriculum(true, name); }
 
   @Get('establishment/isstm/curriculum')
   async managerCurriculum(@Headers('authorization') authorization?: string) {
@@ -59,7 +60,7 @@ export class EstablishmentController {
 
   @Post('establishment/isstm/curriculum')
   async addCurriculumOption(@Body() body: CurriculumBody, @Headers('authorization') authorization?: string) {
-    const establishment = await this.managerEstablishment(authorization);
+    const establishment = await this.adminEstablishment(authorization);
     const type = this.curriculumType(body.type);
     const name = this.required(body.name, 'Le libellé');
     const cycle = this.curriculumCycle(body.cycle);
@@ -68,7 +69,7 @@ export class EstablishmentController {
 
   @Patch('establishment/isstm/curriculum/:id')
   async updateCurriculumOption(@Param('id') id: string, @Body() body: CurriculumBody, @Headers('authorization') authorization?: string) {
-    const establishment = await this.managerEstablishment(authorization);
+    const establishment = await this.adminEstablishment(authorization);
     const existing = await this.prisma.establishmentCurriculumOption.findFirst({ where: { id, establishment } });
     if (!existing) throw new BadRequestException('Option introuvable.');
     const data = {
@@ -82,16 +83,16 @@ export class EstablishmentController {
 
   @Delete('establishment/isstm/curriculum/:id')
   async removeCurriculumOption(@Param('id') id: string, @Headers('authorization') authorization?: string) {
-    const establishment = await this.managerEstablishment(authorization);
+    const establishment = await this.adminEstablishment(authorization);
     const result = await this.prisma.establishmentCurriculumOption.deleteMany({ where: { id, establishment } });
     if (!result.count) throw new BadRequestException('Option introuvable.');
     return { deleted: true };
   }
 
-  @Get('establishments/isstm/document-requirements')
-  async publicDocumentRequirements() {
+  @Get('establishments/:name/document-requirements')
+  async publicDocumentRequirements(@Param('name') name: string) {
     return this.prisma.documentRequirement.findMany({
-      where: { establishment: ISSTM, context: DocumentRequirementContext.CANDIDATURE, active: true },
+      where: { establishment: name, context: DocumentRequirementContext.CANDIDATURE, active: true },
       orderBy: { label: 'asc' },
     });
   }
@@ -107,7 +108,7 @@ export class EstablishmentController {
 
   @Post('establishment/isstm/document-requirements')
   async addDocumentRequirement(@Body() body: DocumentRequirementBody, @Headers('authorization') authorization?: string) {
-    const establishment = await this.managerEstablishment(authorization);
+    const establishment = await this.adminEstablishment(authorization);
     const cycle = this.curriculumCycle(body.cycle);
     const context = this.documentContext(body.context);
     const label = this.required(body.label, 'Le libellé');
@@ -117,7 +118,7 @@ export class EstablishmentController {
 
   @Patch('establishment/isstm/document-requirements/:id')
   async updateDocumentRequirement(@Param('id') id: string, @Body() body: DocumentRequirementBody, @Headers('authorization') authorization?: string) {
-    const establishment = await this.managerEstablishment(authorization);
+    const establishment = await this.adminEstablishment(authorization);
     const existing = await this.prisma.documentRequirement.findFirst({ where: { id, establishment } });
     if (!existing) throw new BadRequestException('Pièce introuvable.');
     const data = {
@@ -131,7 +132,7 @@ export class EstablishmentController {
 
   @Delete('establishment/isstm/document-requirements/:id')
   async removeDocumentRequirement(@Param('id') id: string, @Headers('authorization') authorization?: string) {
-    const establishment = await this.managerEstablishment(authorization);
+    const establishment = await this.adminEstablishment(authorization);
     const result = await this.prisma.documentRequirement.deleteMany({ where: { id, establishment } });
     if (!result.count) throw new BadRequestException('Pièce introuvable.');
     return { deleted: true };
@@ -144,6 +145,35 @@ export class EstablishmentController {
       where: { establishment, ...(gender ? { gender: gender as never } : {}), ...(level ? { level } : {}), ...(search ? { OR: [{ fullName: { contains: search, mode: 'insensitive' } }, { registrationNumber: { contains: search, mode: 'insensitive' } }, { phone: { contains: search } }] } : {}) },
       include: { quitus: true }, orderBy: { registrationNumber: 'asc' },
     });
+  }
+
+  // Statistiques de l'établissement : réservées au responsable (le secrétaire n'a pas de tableau de bord).
+  @Get('establishment/isstm/dashboard')
+  async dashboard(@Headers('authorization') authorization?: string) {
+    const establishment = await this.adminEstablishment(authorization);
+    const [students, active, byLevel, byGender, byForm, quitusIssued, withoutQuitus, secretaries, activeSecretaries, applications, recent] = await Promise.all([
+      this.prisma.enrolledStudent.count({ where: { establishment } }),
+      this.prisma.enrolledStudent.count({ where: { establishment, active: true } }),
+      this.prisma.enrolledStudent.groupBy({ by: ['level'], where: { establishment }, _count: { _all: true }, orderBy: { level: 'asc' } }),
+      this.prisma.enrolledStudent.groupBy({ by: ['gender'], where: { establishment }, _count: { _all: true } }),
+      this.prisma.enrolledStudent.groupBy({ by: ['registrationForm'], where: { establishment }, _count: { _all: true } }),
+      this.prisma.quitus.count({ where: { establishment } }),
+      this.prisma.enrolledStudent.count({ where: { establishment, active: true, quitus: { is: null } } }),
+      this.prisma.user.count({ where: { role: UserRole.SECRETAIRE, establishment, deletedAt: null } }),
+      this.prisma.user.count({ where: { role: UserRole.SECRETAIRE, establishment, deletedAt: null, active: true } }),
+      this.prisma.enrollmentApplication.groupBy({ by: ['status'], where: { establishment }, _count: { _all: true } }),
+      this.prisma.enrolledStudent.findMany({ where: { establishment }, orderBy: { createdAt: 'desc' }, take: 5, select: { id: true, registrationNumber: true, fullName: true, level: true, program: true, createdAt: true } }),
+    ]);
+    return {
+      students: { total: students, active, inactive: students - active },
+      byLevel: byLevel.map((row) => ({ level: row.level, count: row._count._all })),
+      byGender: Object.fromEntries(byGender.map((row) => [row.gender, row._count._all])),
+      byForm: Object.fromEntries(byForm.map((row) => [row.registrationForm, row._count._all])),
+      quitus: { issued: quitusIssued, missing: withoutQuitus },
+      secretaries: { total: secretaries, active: activeSecretaries },
+      applications: Object.fromEntries(applications.map((row) => [row.status, row._count._all])),
+      recentStudents: recent,
+    };
   }
 
   @Get('establishment/isstm/secretaries')
@@ -274,9 +304,32 @@ export class EstablishmentController {
     return { mention: settings.mention ?? '' };
   }
 
+  // Réglages d'apparence définis par l'administrateur de l'établissement ; le secrétaire les applique en lecture seule.
+  @Get('establishment/isstm/interface-settings')
+  async getInterfaceSettings(@Headers('authorization') authorization?: string) {
+    const establishment = await this.managerEstablishment(authorization);
+    const settings = await this.prisma.establishmentSettings.findUnique({ where: { establishment } });
+    return { settings: settings?.interfaceSettings ?? null };
+  }
+
+  @Put('establishment/isstm/interface-settings')
+  async updateInterfaceSettings(@Body() body: InterfaceSettingsBody, @Headers('authorization') authorization?: string) {
+    const establishment = await this.adminEstablishment(authorization);
+    const value = body.settings;
+    if (typeof value !== 'object' || value === null || Array.isArray(value) || JSON.stringify(value).length > 5000) {
+      throw new BadRequestException('Réglages d’interface invalides.');
+    }
+    await this.prisma.establishmentSettings.upsert({
+      where: { establishment },
+      update: { interfaceSettings: value as Prisma.InputJsonObject },
+      create: { establishment, interfaceSettings: value as Prisma.InputJsonObject },
+    });
+    return { settings: value };
+  }
+
   @Post('establishment/isstm/quitus/generate')
   async generate(@Body() body: GenerateBody, @Headers('authorization') authorization?: string) {
-    const manager = await this.authService.requireEstablishmentManager(authorization);
+    const manager = await this.authService.requireEstablishmentAdmin(authorization);
     const establishment = this.establishmentOf(manager.establishment);
     const ids = Array.isArray(body.studentIds) ? body.studentIds.filter((id): id is string => typeof id === 'string') : undefined;
     if (ids && !ids.length) throw new BadRequestException('Sélectionnez au moins un étudiant.');
@@ -286,25 +339,21 @@ export class EstablishmentController {
     return { created: missing.length, alreadyGenerated: students.length - missing.length };
   }
 
+  // Étape 1 : vérifie que le quitus est celui du demandeur (ou envoie un code à l'e-mail de la fiche).
   @Post('quitus/verify')
   async verify(@Body() body: VerifyQuitusBody, @Headers('authorization') authorization?: string) {
-    await this.authService.requireUser(authorization);
-    if (typeof body.code !== 'string' || typeof body.establishment !== 'string') throw new BadRequestException('Quitus ou établissement invalide.');
-    const quitus = await this.prisma.quitus.findUnique({
-      where: { code: body.code.trim().toUpperCase() },
-    });
-    if (
-      !quitus ||
-      quitus.establishment !== body.establishment.trim()
-    ) {
-      throw new BadRequestException('Ce quitus ne correspond pas à l’établissement sélectionné.');
-    }
-    return {
-      valid: true,
-      code: quitus.code,
-      studentName: quitus.studentName,
-      establishment: quitus.establishment,
-    };
+    const user = await this.authService.requireUser(authorization);
+    if (typeof body.code !== 'string' || !body.code.trim() || typeof body.establishment !== 'string') throw new BadRequestException('Quitus ou établissement invalide.');
+    return this.quitusService.start(user, body.code, body.establishment.trim());
+  }
+
+  // Étape 2 : valide le code à 6 chiffres reçu par e-mail.
+  @Post('quitus/confirm')
+  async confirmQuitus(@Body() body: VerifyQuitusBody & { otp?: unknown }, @Headers('authorization') authorization?: string) {
+    const user = await this.authService.requireUser(authorization);
+    if (typeof body.code !== 'string' || !body.code.trim() || typeof body.establishment !== 'string') throw new BadRequestException('Quitus ou établissement invalide.');
+    if (typeof body.otp !== 'string' || !/^\d{6}$/.test(body.otp.trim())) throw new BadRequestException('Le code de vérification comporte 6 chiffres.');
+    return this.quitusService.confirm(user, body.code, body.establishment.trim(), body.otp);
   }
 
   private code() {
@@ -317,7 +366,7 @@ export class EstablishmentController {
     return `${prefix}-${new Date().getFullYear()}-${randomBytes(4).toString('hex').toUpperCase()}`;
   }
 
-  private async curriculum(activeOnly: boolean, establishment = ISSTM) {
+  private async curriculum(activeOnly: boolean, establishment: string) {
     const options = await this.prisma.establishmentCurriculumOption.findMany({
       where: { establishment, ...(activeOnly ? { active: true } : {}) },
       orderBy: { name: 'asc' },
@@ -368,6 +417,10 @@ export class EstablishmentController {
   }
   private optional(value: unknown) {
     return typeof value === 'string' && value.trim() ? value.trim() : null;
+  }
+  private async adminEstablishment(authorization?: string) {
+    const admin = await this.authService.requireEstablishmentAdmin(authorization);
+    return this.establishmentOf(admin.establishment);
   }
   private async managerEstablishment(authorization?: string) {
     const manager = await this.authService.requireEstablishmentManager(authorization);

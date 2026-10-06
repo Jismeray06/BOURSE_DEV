@@ -17,6 +17,7 @@ import { GoogleAuthService } from './google-auth.service.js';
 type Credentials = { email?: unknown; password?: unknown };
 type Registration = Credentials & { fullName?: unknown };
 type Verification = { token?: unknown };
+type GoogleExchange = { code?: unknown };
 
 @Controller('auth')
 export class AuthController {
@@ -80,8 +81,13 @@ export class AuthController {
 
     const profile = await this.googleAuthService.getVerifiedProfile(code);
     const result = await this.authService.loginWithGoogle(profile.fullName, profile.email);
-    const destination = result.user.role === 'ADMIN' ? '/admin' : ['ETABLISSEMENT', 'ADMIN_ETABLISSEMENT', 'SECRETAIRE'].includes(result.user.role) ? '/etablissement' : '/student';
-    response.redirect(`${process.env.FRONTEND_URL ?? 'http://localhost:3000'}${destination}`);
+    const loginCode = this.authService.createGoogleLoginCode(result);
+    response.redirect(`${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/login/google?code=${encodeURIComponent(loginCode)}`);
+  }
+
+  @Post('google/exchange')
+  googleExchange(@Body() body: GoogleExchange) {
+    return this.authService.exchangeGoogleLoginCode(this.requiredString(body.code, 'Le code de connexion'));
   }
 
   private requiredString(value: unknown, field: string) {

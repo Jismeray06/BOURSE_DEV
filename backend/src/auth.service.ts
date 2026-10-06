@@ -8,12 +8,17 @@ import { PrismaService } from './prisma.service.js';
 const scrypt = promisify(scryptCallback);
 const tokenLifetimeInSeconds = 8 * 60 * 60;
 const emailVerificationLifetimeInHours = 24;
+const googleLoginCodeLifetimeInMs = 60 * 1000;
 const STAFF_ROLES = [UserRole.ETABLISSEMENT, UserRole.ADMIN_ETABLISSEMENT, UserRole.SECRETAIRE, UserRole.SCOLARITE_CENTRALE];
 type TokenPayload = { sub: string; role: UserRole; exp: number };
 type Actor = { id: string; fullName: string };
+type LoginResponse = ReturnType<AuthService['loginResponse']>;
 
 @Injectable()
 export class AuthService {
+  // Codes à usage unique remis au navigateur après Google, à échanger contre la session (en mémoire : 60 s de validité).
+  private readonly googleLoginCodes = new Map<string, { response: LoginResponse; expiresAt: number }>();
+
   constructor(private readonly prisma: PrismaService, private readonly mailService: MailService) {}
 
   async register(fullName: string, email: string, password: string) {
@@ -81,8 +86,24 @@ export class AuthService {
         data: { fullName: fullName.trim(), email: normalizedEmail, emailVerified: true },
       });
     }
+    if (!user.active) throw new UnauthorizedException('Ce compte est désactivé. Contactez un administrateur.');
     if (!user.emailVerified) user = await this.prisma.user.update({ where: { id: user.id }, data: { emailVerified: true } });
     return this.loginResponse(user);
+  }
+
+  createGoogleLoginCode(response: LoginResponse) {
+    const now = Date.now();
+    for (const [code, entry] of this.googleLoginCodes) if (entry.expiresAt <= now) this.googleLoginCodes.delete(code);
+    const code = randomBytes(32).toString('base64url');
+    this.googleLoginCodes.set(code, { response, expiresAt: now + googleLoginCodeLifetimeInMs });
+    return code;
+  }
+
+  exchangeGoogleLoginCode(code: string) {
+    const entry = this.googleLoginCodes.get(code);
+    this.googleLoginCodes.delete(code);
+    if (!entry || entry.expiresAt <= Date.now()) throw new UnauthorizedException('Le code de connexion Google est invalide ou a expiré.');
+    return entry.response;
   }
 
   async requireAdmin(authorization?: string) {
@@ -309,11 +330,11 @@ export class AuthService {
     await this.mailService.sendVerificationEmail(user.email, user.fullName, token);
   }
   private hashVerificationToken(token: string) { return createHash('sha256').update(token).digest('hex'); }
-  private async hashPassword(password: string) {
+  async hashPassword(password: string) {
     const salt = randomBytes(16).toString('hex'); const key = (await scrypt(password, salt, 64)) as Buffer;
     return `${salt}:${key.toString('hex')}`;
   }
-  private async passwordMatches(password: string, storedHash: string) {
+  async passwordMatches(password: string, storedHash: string) {
     const [salt, hash] = storedHash.split(':'); if (!salt || !hash) return false;
     const key = (await scrypt(password, salt, 64)) as Buffer; const expected = Buffer.from(hash, 'hex');
     return expected.length === key.length && timingSafeEqual(expected, key);
