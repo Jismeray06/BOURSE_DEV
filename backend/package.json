@@ -22,7 +22,9 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "prisma db seed"
+    "prisma:seed": "prisma db seed",
+    "prisma:seed:demo": "node prisma/seed-demo.mjs",
+    "prisma:curriculum:isstm": "node prisma/sync-isstm-curriculum.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

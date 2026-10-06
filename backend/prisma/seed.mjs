@@ -1,6 +1,7 @@
 import { CurriculumCycle, CurriculumOptionType, DocumentRequirementContext, PrismaClient, RegistrationStatus, UserRole } from '@prisma/client';
 import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
 import { promisify } from 'node:util';
+import { ISSTM_PARCOURS } from './isstm-curriculum.mjs';
 
 const prisma = new PrismaClient();
 const scrypt = promisify(scryptCallback);
@@ -44,9 +45,8 @@ async function main() {
   const curriculum = [
     ...['Licence 1 (L1)', 'Licence 2 (L2)', 'Licence 3 (L3)'].map((name) => [CurriculumOptionType.NIVEAU, name, CurriculumCycle.LICENCE]),
     ...['Master 1 (M1)', 'Master 2 (M2)'].map((name) => [CurriculumOptionType.NIVEAU, name, CurriculumCycle.MASTER]),
-    // Parcours réels de l'ISSTM (fiches d'inscription papier), par cycle
-    ...['GI', 'GC', 'GT', 'GE', 'GInfo', 'GEI', 'GBM', 'GH', 'GArch'].map((name) => [CurriculumOptionType.PARCOURS, name, CurriculumCycle.LICENCE]),
-    ...['GE (ISEA)', 'GAOH', 'G.Logiciel', 'GC', 'EII', 'TR', 'GI', 'GBM'].map((name) => [CurriculumOptionType.PARCOURS, name, CurriculumCycle.MASTER]),
+    // Parcours réels de l'ISSTM (voir isstm-curriculum.mjs) : un parcours par cycle où il est proposé.
+    ...ISSTM_PARCOURS.flatMap((parcours) => parcours.cycles.map((cycle) => [CurriculumOptionType.PARCOURS, parcours.name, CurriculumCycle[cycle]])),
   ];
   for (const [type, name, cycle] of curriculum) {
     await prisma.establishmentCurriculumOption.upsert({
@@ -91,26 +91,26 @@ async function main() {
   });
 
   const enrolledStudents = [
-    ['ISSTM-2026-001', 'RASOLO Marie', 'marie.rasolo@isstm.mg', '034 12 345 01', 'FEMININ', 'Licence 1 (L1)', 'GInfo'],
-    ['ISSTM-2026-002', 'ANDRIAMBOLOLONA Tiana', 'tiana.andriambololona@isstm.mg', '034 12 345 02', 'FEMININ', 'Licence 1 (L1)', "GC"],
-    ['ISSTM-2026-003', 'RAKOTO Andry', 'andry.rakoto@isstm.mg', '034 12 345 03', 'MASCULIN', 'Licence 1 (L1)', 'GInfo'],
-    ['ISSTM-2026-004', 'RAVELO Hanta', 'hanta.ravelo@isstm.mg', '034 12 345 04', 'FEMININ', 'Licence 2 (L2)', "GC"],
-    ['ISSTM-2026-005', 'RANDRIANARISOA Feno', 'feno.randrianarisoa@isstm.mg', '034 12 345 05', 'MASCULIN', 'Licence 2 (L2)', 'GInfo'],
-    ['ISSTM-2026-006', 'RAZAFINDRAKOTO Miora', 'miora.razafindrakoto@isstm.mg', '034 12 345 06', 'FEMININ', 'Licence 2 (L2)', "GC"],
-    ['ISSTM-2026-007', 'ANDRIANJAFY Tojo', 'tojo.andrianjafy@isstm.mg', '034 12 345 07', 'MASCULIN', 'Licence 3 (L3)', 'GInfo'],
-    ['ISSTM-2026-008', 'RABEARIMANANA Soa', 'soa.rabearimanana@isstm.mg', '034 12 345 08', 'FEMININ', 'Licence 3 (L3)', "GC"],
-    ['ISSTM-2026-009', 'RAKOTONDRABE Lova', 'lova.rakotondrabe@isstm.mg', '034 12 345 09', 'MASCULIN', 'Licence 3 (L3)', 'GInfo'],
-    ['ISSTM-2026-010', 'RAZANAKOTO Noro', 'noro.razanakoto@isstm.mg', '034 12 345 10', 'FEMININ', 'Master 1 (M1)', 'G.Logiciel'],
-    ['ISSTM-2026-011', 'RANDRIAMBOLOLONA Kanto', 'kanto.randriambololona@isstm.mg', '034 12 345 11', 'MASCULIN', 'Master 1 (M1)', "GAOH"],
-    ['ISSTM-2026-012', 'RAMAROSON Zo', 'zo.ramaroson@isstm.mg', '034 12 345 12', 'FEMININ', 'Master 1 (M1)', 'G.Logiciel'],
-    ['ISSTM-2026-013', 'RAKOTOARISOA Faly', 'faly.rakotoarisoa@isstm.mg', '034 12 345 13', 'MASCULIN', 'Master 2 (M2)', "GAOH"],
-    ['ISSTM-2026-014', 'ANDRIANASOLO Mamy', 'mamy.andrianasolo@isstm.mg', '034 12 345 14', 'FEMININ', 'Master 2 (M2)', 'G.Logiciel'],
-    ['ISSTM-2026-015', 'RABENJA Bodo', 'bodo.rabenja@isstm.mg', '034 12 345 15', 'FEMININ', 'Licence 1 (L1)', 'GInfo'],
-    ['ISSTM-2026-016', 'RATSIMBA Hery', 'hery.ratsimba@isstm.mg', '034 12 345 16', 'MASCULIN', 'Licence 1 (L1)', "GC"],
-    ['ISSTM-2026-017', 'RANAIVOSON Tovo', 'tovo.ranaivoson@isstm.mg', '034 12 345 17', 'MASCULIN', 'Licence 2 (L2)', 'GInfo'],
-    ['ISSTM-2026-018', 'RAKOTONIAINA Saholy', 'saholy.rakotoniaina@isstm.mg', '034 12 345 18', 'FEMININ', 'Licence 2 (L2)', "GC"],
-    ['ISSTM-2026-019', 'RABEARISOA Aina', 'aina.rabearisoa@isstm.mg', '034 12 345 19', 'FEMININ', 'Licence 3 (L3)', 'GInfo'],
-    ['ISSTM-2026-020', 'ANDRIAMIHARISOA Solo', 'solo.andriamiharisoa@isstm.mg', '034 12 345 20', 'MASCULIN', 'Master 2 (M2)', "GAOH"],
+    ['ISSTM-2026-001', 'RASOLO Marie', 'marie.rasolo@isstm.mg', '034 12 345 01', 'FEMININ', 'Licence 1 (L1)', 'Génie Informatique (GI)'],
+    ['ISSTM-2026-002', 'ANDRIAMBOLOLONA Tiana', 'tiana.andriambololona@isstm.mg', '034 12 345 02', 'FEMININ', 'Licence 1 (L1)', 'Génie Civil (GCIVIL)'],
+    ['ISSTM-2026-003', 'RAKOTO Andry', 'andry.rakoto@isstm.mg', '034 12 345 03', 'MASCULIN', 'Licence 1 (L1)', 'Génie Informatique (GI)'],
+    ['ISSTM-2026-004', 'RAVELO Hanta', 'hanta.ravelo@isstm.mg', '034 12 345 04', 'FEMININ', 'Licence 2 (L2)', 'Génie Civil (GCIVIL)'],
+    ['ISSTM-2026-005', 'RANDRIANARISOA Feno', 'feno.randrianarisoa@isstm.mg', '034 12 345 05', 'MASCULIN', 'Licence 2 (L2)', 'Génie Informatique (GI)'],
+    ['ISSTM-2026-006', 'RAZAFINDRAKOTO Miora', 'miora.razafindrakoto@isstm.mg', '034 12 345 06', 'FEMININ', 'Licence 2 (L2)', 'Génie Civil (GCIVIL)'],
+    ['ISSTM-2026-007', 'ANDRIANJAFY Tojo', 'tojo.andrianjafy@isstm.mg', '034 12 345 07', 'MASCULIN', 'Licence 3 (L3)', 'Génie Informatique (GI)'],
+    ['ISSTM-2026-008', 'RABEARIMANANA Soa', 'soa.rabearimanana@isstm.mg', '034 12 345 08', 'FEMININ', 'Licence 3 (L3)', 'Génie Civil (GCIVIL)'],
+    ['ISSTM-2026-009', 'RAKOTONDRABE Lova', 'lova.rakotondrabe@isstm.mg', '034 12 345 09', 'MASCULIN', 'Licence 3 (L3)', 'Génie Informatique (GI)'],
+    ['ISSTM-2026-010', 'RAZANAKOTO Noro', 'noro.razanakoto@isstm.mg', '034 12 345 10', 'FEMININ', 'Master 1 (M1)', 'Génie Industriel (GIND)'],
+    ['ISSTM-2026-011', 'RANDRIAMBOLOLONA Kanto', 'kanto.randriambololona@isstm.mg', '034 12 345 11', 'MASCULIN', 'Master 1 (M1)', 'Génie Biomédical (GB)'],
+    ['ISSTM-2026-012', 'RAMAROSON Zo', 'zo.ramaroson@isstm.mg', '034 12 345 12', 'FEMININ', 'Master 1 (M1)', 'Génie Industriel (GIND)'],
+    ['ISSTM-2026-013', 'RAKOTOARISOA Faly', 'faly.rakotoarisoa@isstm.mg', '034 12 345 13', 'MASCULIN', 'Master 2 (M2)', 'Génie Biomédical (GB)'],
+    ['ISSTM-2026-014', 'ANDRIANASOLO Mamy', 'mamy.andrianasolo@isstm.mg', '034 12 345 14', 'FEMININ', 'Master 2 (M2)', 'Génie Industriel (GIND)'],
+    ['ISSTM-2026-015', 'RABENJA Bodo', 'bodo.rabenja@isstm.mg', '034 12 345 15', 'FEMININ', 'Licence 1 (L1)', 'Génie Informatique (GI)'],
+    ['ISSTM-2026-016', 'RATSIMBA Hery', 'hery.ratsimba@isstm.mg', '034 12 345 16', 'MASCULIN', 'Licence 1 (L1)', 'Génie Civil (GCIVIL)'],
+    ['ISSTM-2026-017', 'RANAIVOSON Tovo', 'tovo.ranaivoson@isstm.mg', '034 12 345 17', 'MASCULIN', 'Licence 2 (L2)', 'Génie Informatique (GI)'],
+    ['ISSTM-2026-018', 'RAKOTONIAINA Saholy', 'saholy.rakotoniaina@isstm.mg', '034 12 345 18', 'FEMININ', 'Licence 2 (L2)', 'Génie Civil (GCIVIL)'],
+    ['ISSTM-2026-019', 'RABEARISOA Aina', 'aina.rabearisoa@isstm.mg', '034 12 345 19', 'FEMININ', 'Licence 3 (L3)', 'Génie Informatique (GI)'],
+    ['ISSTM-2026-020', 'ANDRIAMIHARISOA Solo', 'solo.andriamiharisoa@isstm.mg', '034 12 345 20', 'MASCULIN', 'Master 2 (M2)', 'Génie Biomédical (GB)'],
   ];
   const studentsByRegistrationNumber = new Map();
   const usersByRegistrationNumber = new Map();

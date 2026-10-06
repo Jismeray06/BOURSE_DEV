@@ -62,6 +62,7 @@ model User {
   establishment      String?
   level              String?
   program            String?
+  avatarUrl          String?
   deletedAt          DateTime?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
@@ -70,6 +71,9 @@ model User {
   enrolledStudent    EnrolledStudent?
   reviewedApplications EnrollmentApplication[] @relation("ApplicationReviewer")
   emailVerificationTokens EmailVerificationToken[]
+  quitusChallenges   QuitusChallenge[]
+  emailChangeRequests EmailChangeRequest[]
+  notifications      Notification[]
 }
 
 enum AuditAction {
@@ -80,6 +84,8 @@ enum AuditAction {
   STAFF_ACCOUNT_TRASHED
   STAFF_ACCOUNT_RESTORED
   STAFF_ACCOUNT_PURGED
+  ACCOUNT_PASSWORD_CHANGED
+  ACCOUNT_EMAIL_CHANGED
 }
 
 model AuditLogEntry {
@@ -107,6 +113,35 @@ model EmailVerificationToken {
   @@index([expiresAt])
 }
 
+// Demande de changement d'adresse e-mail : appliquée seulement après clic sur le lien reçu à la nouvelle adresse.
+model EmailChangeRequest {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  newEmail  String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Notification affichée dans la cloche de l'utilisateur (ex. : décision sur son dossier de bourse).
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  message   String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
 model Quitus {
   id            String   @id @default(cuid())
   code          String   @unique
@@ -119,6 +154,24 @@ model Quitus {
   enrollmentId  String?  @unique
   enrollment    EnrolledStudent? @relation(fields: [enrollmentId], references: [id])
   application  EnrollmentApplication?
+  challenges   QuitusChallenge[]
+}
+
+// Code à 6 chiffres envoyé à l'e-mail enregistré par l'établissement pour prouver
+// que le demandeur est bien le titulaire du quitus.
+model QuitusChallenge {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quitusId  String
+  quitus    Quitus   @relation(fields: [quitusId], references: [id], onDelete: Cascade)
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, quitusId])
+  @@index([expiresAt])
 }
 
 model EnrollmentApplication {
@@ -244,9 +297,22 @@ model DocumentRequirement {
   @@index([establishment, context, cycle, active])
 }
 
+// Établissements proposés aux étudiants. Le nom est la valeur stockée partout ailleurs
+// (comptes, dossiers, quitus…) : le renommer met à jour toutes ces tables.
+model Establishment {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  logoUrl   String?
+  active    Boolean  @default(true)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model EstablishmentSettings {
   establishment String   @id
   mention       String?
+  interfaceSettings Json?
   updatedAt     DateTime @updatedAt
 }
 
