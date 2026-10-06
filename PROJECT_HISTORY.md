@@ -189,6 +189,38 @@ En parallèle, côté établissement : un responsable ou secrétaire inscrit/ré
 
 ---
 
+## 6 bis. Règles — modification du compte (e-mail et mot de passe)
+
+Un utilisateur connecté modifie **son propre** e-mail et **son propre** mot de passe depuis l'onglet « Mon compte ». L'onglet existe dans les espaces **scolarité centrale** (`frontend/src/app/scolarite/page.tsx`), **administrateur** (`admin/page.tsx`) et **établissement** (`etablissement/page.tsx`, pour le responsable comme pour le secrétaire). Il n'existe pas encore dans l'espace étudiant. Tous utilisent le même composant `AccountPanel` (`frontend/src/components/AccountPanel.tsx`). Côté serveur : `backend/src/account.controller.ts` (routes `/account/*`) et `backend/src/account.service.ts` (règles).
+
+### Mot de passe (`PATCH /account/password`)
+1. L'utilisateur doit être connecté.
+2. Le **mot de passe actuel est obligatoire** et doit être correct (sinon 401 « Le mot de passe actuel est incorrect »).
+3. Le nouveau mot de passe fait **8 caractères minimum** et doit être **différent** de l'actuel.
+4. Le champ de confirmation du nouveau mot de passe est contrôlé côté interface.
+5. **Protection contre les essais répétés** : après **5 mots de passe actuels faux en 15 minutes**, l'action est bloquée (429), même avec le bon mot de passe. Le compteur est en mémoire du serveur : il repart à zéro au redémarrage.
+6. Un compte sans mot de passe (connexion Google uniquement) ne peut pas utiliser cette action : message explicatif.
+7. Le mot de passe est haché (scrypt avec sel), jamais stocké ni renvoyé en clair.
+8. L'action est inscrite dans le **journal d'audit** (`ACCOUNT_PASSWORD_CHANGED`).
+
+### Adresse e-mail (`POST /account/email`, puis `POST /account/email/confirm`)
+1. Il faut saisir la **nouvelle adresse** et le **mot de passe actuel** (mêmes contrôles et même blocage que ci-dessus).
+2. La nouvelle adresse doit avoir un format valide, être différente de l'adresse actuelle et **ne pas être déjà utilisée** par un autre compte (409).
+3. Rien ne change à ce stade : l'**ancienne adresse reste active** tant que le lien n'est pas confirmé.
+4. Un **lien de confirmation** est envoyé à la **nouvelle** adresse. Il est valable **1 heure**, à **usage unique**, stocké haché (SHA-256). Une nouvelle demande remplace la précédente.
+5. Le clic sur le lien (page `/confirm-email-change`) applique le changement : la nouvelle adresse devient celle du compte et est marquée **vérifiée**. Cette confirmation est publique : le jeton reçu à la nouvelle adresse fait office de preuve.
+6. Un lien invalide, expiré ou déjà utilisé est refusé. Si l'adresse a été prise entre-temps par un autre compte, le changement est refusé (409).
+7. Après confirmation, une **alerte de sécurité** est envoyée à l'**ancienne** adresse (envoi non bloquant : un échec est seulement journalisé).
+8. Les sessions en cours ne sont pas coupées : le jeton de session repose sur l'identifiant du compte, pas sur l'e-mail. Il faut utiliser la nouvelle adresse à la prochaine connexion.
+9. L'action est inscrite dans le **journal d'audit** (`ACCOUNT_EMAIL_CHANGED`, avec « ancien e-mail → nouvel e-mail »).
+10. **En développement** (`NODE_ENV` différent de `production`), le lien de confirmation est aussi écrit dans la console du backend et un échec d'envoi d'e-mail n'empêche pas la demande. **En production**, l'échec d'envoi renvoie une erreur et le lien n'est jamais journalisé.
+
+### Limites connues
+- Ne couvre pas un mot de passe **oublié** (voir section 7) : il faut connaître le mot de passe actuel.
+- L'e-mail d'une **fiche d'étudiant inscrit** (`EnrolledStudent`) n'est pas modifié par ce mécanisme : il reste géré par l'établissement.
+- L'envoi réel dépend de la configuration SMTP (`SMTP_*` dans `.env`) et de la remise par le fournisseur d'e-mail (expéditeur validé, courrier indésirable).
+- Les anciennes adresses ne sont pas conservées au-delà du journal d'audit.
+
 ## 7. Points d'attention connus (dette technique)
 
 - **Incohérence de nommage** : le dépôt s'appelle "plateforme-inscription-mahajanga" et les textes de l'interface (page d'accueil, attestations) parlent encore d'"inscription universitaire", alors que la fonction réelle et validée par le porteur du projet est la **demande de bourse**. Les futurs textes/écrans devraient être alignés sur "dossier de bourse" plutôt que "dossier d'inscription".
