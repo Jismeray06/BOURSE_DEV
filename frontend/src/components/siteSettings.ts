@@ -26,11 +26,11 @@ export const defaultSiteSettings: SiteSettings = {
   heroBackgroundType: 'IMAGE',
   heroBackgroundImages: [],
   heroOverlayOpacity: 60,
-  heroTitle: 'Votre inscription universitaire, simple et accessible.',
-  heroSubtitle: "Déposez votre dossier d'inscription en ligne en quelques étapes. Sélectionnez votre établissement, validez votre quitus et suivez l'avancement de votre dossier.",
+  heroTitle: 'Votre demande de bourse nationale, désormais en ligne',
+  heroSubtitle: "La plateforme numérique de l'Université de Mahajanga vous permet de déposer votre demande de bourse, transmettre les informations et pièces nécessaires et suivre l'évolution de votre dossier en ligne.",
   ctaPrimaryLabel: 'Se connecter',
   ctaPrimaryLink: '/login',
-  ctaSecondaryLabel: 'Commencer mon inscription',
+  ctaSecondaryLabel: 'Faire une demande de bourse',
   ctaSecondaryLink: '/login',
 };
 

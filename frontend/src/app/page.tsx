@@ -3,17 +3,21 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import {
-  GraduationCap,
-  ArrowRight,
-  Clock,
-  BookOpen,
-  Users,
-  ChevronLeft,
-  ChevronRight
-} from 'lucide-react';
-import { HomeThemeToggle, useHomeTheme } from '../components/HomeThemeToggle';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useHomeTheme } from '../components/HomeThemeToggle';
 import { HeroBackground, HeroContent } from '../components/HomepageHero';
+import { HomeNavbar } from '../components/home/HomeNavbar';
+import { BourseSection } from '../components/home/BourseSection';
+import { StepsSection } from '../components/home/StepsSection';
+import { PrepareSection } from '../components/home/PrepareSection';
+import { BenefitsSection } from '../components/home/BenefitsSection';
+import { EstablishmentsSection } from '../components/home/EstablishmentsSection';
+import { StatusesSection } from '../components/home/StatusesSection';
+import { FaqSection } from '../components/home/FaqSection';
+import { HelpSection } from '../components/home/HelpSection';
+import { FinalCta } from '../components/home/FinalCta';
+import { HomeFooter } from '../components/home/HomeFooter';
+import { LOGIN_PATH, useDashboardPath } from '../components/home/useHomeSession';
 import { assetUrl, defaultSiteSettings, fetchSiteSettings, type SiteSettings } from '../components/siteSettings';
 
 const CAMPUS_IMAGES = [
@@ -44,8 +48,10 @@ export default function HomePage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [settings, setSettings] = useState<SiteSettings>(defaultSiteSettings);
   const { darkMode, toggleTheme } = useHomeTheme();
+  const dashboardPath = useDashboardPath();
 
   useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const timer = setInterval(() => {
       setCurrentImageIndex((prevIndex) => (prevIndex + 1) % CAMPUS_IMAGES.length);
     }, 4000);
@@ -75,49 +81,14 @@ export default function HomePage() {
     if (/^https?:\/\//.test(link)) window.location.assign(link);
     else router.push(link);
   };
-  const handleProceedToLogin = () => goToLogin(settings.ctaPrimaryLink);
-  const logoUrl = assetUrl(settings.logoUrl);
   const showDefaultCarousel = settings.heroBackgroundType === 'IMAGE' && settings.heroBackgroundImages.length === 0;
   return (
-    <div className={`min-h-screen bg-white text-slate-800 dark:bg-slate-950 dark:text-slate-200 flex flex-col justify-between selection:bg-blue-100 selection:text-blue-900 relative ${darkMode ? 'home-dark' : ''}`}>
+    <div className={`min-h-screen bg-white text-slate-800 dark:bg-slate-950 dark:text-slate-200 flex flex-col selection:bg-blue-100 selection:text-blue-900 relative ${darkMode ? 'home-dark' : ''}`}>
 
-      {/* --- NAVBAR --- */}
-      <header className="border-b border-slate-200 bg-white/90 dark:border-slate-800 dark:bg-slate-950/90 backdrop-blur sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {logoUrl ? (
-              <img src={logoUrl} alt="Logo" className="h-11 w-11 rounded-xl object-contain" />
-            ) : (
-              <div className="p-2.5 rounded-xl ring-1 ring-amber-400/40" style={{ backgroundColor: settings.primaryColor }}>
-                <GraduationCap className="w-6 h-6" style={{ color: settings.secondaryColor }} />
-              </div>
-            )}
-            <div>
-              <span className="font-[family-name:var(--font-heading)] font-semibold text-lg tracking-tight text-slate-900 dark:text-white">
-                Univ Mahajanga
-              </span>
-              <span className="block text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">
-                Portail Académique
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <HomeThemeToggle darkMode={darkMode} onToggle={toggleTheme} />
-            <button
-              onClick={handleProceedToLogin}
-              className="px-5 py-2.5 text-white font-medium text-sm rounded-lg transition flex items-center gap-2 cursor-pointer hover:brightness-110"
-              style={{ backgroundColor: settings.primaryColor }}
-            >
-              <span>{settings.ctaPrimaryLabel}</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </header>
+      <HomeNavbar settings={settings} darkMode={darkMode} onToggleTheme={toggleTheme} />
 
       {/* --- HERO SECTION --- */}
-      <section className="relative flex min-h-[calc(100vh-5rem)] items-center overflow-hidden bg-[#06233b]">
+      <section id="accueil" className="relative flex min-h-[calc(100svh-4rem)] scroll-mt-16 lg:min-h-[calc(100svh-5rem)] items-center overflow-hidden bg-[#06233b]">
         {showDefaultCarousel ? (
           <div className="absolute inset-0">
             {CAMPUS_IMAGES.map((item, index) => (
@@ -146,7 +117,15 @@ export default function HomePage() {
         )}
 
         <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 relative z-10 w-full py-16 sm:py-20 lg:py-24">
-          <HeroContent settings={settings} onCtaClick={() => goToLogin(settings.ctaSecondaryLink)} />
+          <HeroContent
+            settings={settings}
+            primary={
+              dashboardPath
+                ? { label: 'Mon espace', onClick: () => router.push(dashboardPath) }
+                : { label: settings.ctaSecondaryLabel, onClick: () => goToLogin(settings.ctaSecondaryLink) }
+            }
+            secondary={dashboardPath ? undefined : { label: 'Suivre ma demande', onClick: () => router.push(LOGIN_PATH) }}
+          />
         </div>
 
         {/* Contrôles du diaporama (uniquement quand le carrousel par défaut est actif) */}
@@ -184,62 +163,17 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* --- CARACTÉRISTIQUES --- */}
-      <section className="py-14 sm:py-16 bg-white border-y border-slate-200 dark:bg-slate-950 dark:border-slate-800">
-        <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <h2 className="font-[family-name:var(--font-heading)] text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
-              Une inscription en toute confiance
-            </h2>
-            <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-2">
-              Trois étapes claires, du choix de la faculté au suivi de votre dossier.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6">
-            <div className="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-xl space-y-3 hover:border-amber-300 hover:shadow-sm transition">
-              <div className="w-11 h-11 rounded-lg bg-[#0b3b60]/5 border border-[#0b3b60]/10 dark:bg-white/5 dark:border-white/10 dark:text-blue-300 flex items-center justify-center text-[#0b3b60]">
-                <BookOpen className="w-5 h-5" />
-              </div>
-              <h3 className="font-[family-name:var(--font-heading)] font-semibold text-lg text-slate-900 dark:text-white">Parcours sur mesure</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                Choix fluide parmi les niveaux (L1 à Master) et spécialités adaptées à chaque faculté.
-              </p>
-            </div>
-
-            <div className="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-xl space-y-3 hover:border-amber-300 hover:shadow-sm transition">
-              <div className="w-11 h-11 rounded-lg bg-emerald-50 border border-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-300 flex items-center justify-center text-emerald-700">
-                <Clock className="w-5 h-5" />
-              </div>
-              <h3 className="font-[family-name:var(--font-heading)] font-semibold text-lg text-slate-900 dark:text-white">Vérification de quitus</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                Validation rapide de votre reçu de paiement pour attester votre pré-inscription administrative.
-              </p>
-            </div>
-
-            <div className="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-xl space-y-3 hover:border-amber-300 hover:shadow-sm transition">
-              <div className="w-11 h-11 rounded-lg bg-slate-100 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 flex items-center justify-center text-slate-700">
-                <Users className="w-5 h-5" />
-              </div>
-              <h3 className="font-[family-name:var(--font-heading)] font-semibold text-lg text-slate-900 dark:text-white">Profil étudiant</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                Consultez le résumé de votre dossier à tout moment et modifiez vos choix si nécessaire.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* --- FOOTER --- */}
-      <footer className="border-t border-slate-200 py-8 bg-[#0b3b60] text-center">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <GraduationCap className="w-4 h-4 text-amber-400" />
-          <span className="font-[family-name:var(--font-heading)] text-sm font-semibold text-white">Université de Mahajanga</span>
-        </div>
-        <p className="text-xs text-slate-300">
-          © 2026 — Plateforme Numérique d&apos;Inscription Académique
-        </p>
-      </footer>
-
+      <BourseSection settings={settings} />
+      <StepsSection settings={settings} />
+      <PrepareSection settings={settings} />
+      <BenefitsSection />
+      <EstablishmentsSection />
+      <StatusesSection />
+      {/* Prévu pour une future API : <AnnouncementsList announcements={…} /> (masqué tant qu'il n'y a aucune annonce) */}
+      <FaqSection />
+      <HelpSection />
+      <FinalCta settings={settings} />
+      <HomeFooter settings={settings} />
     </div>
   );
 }

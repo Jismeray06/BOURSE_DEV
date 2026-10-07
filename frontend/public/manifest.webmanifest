@@ -1,7 +1,7 @@
 {
-  "name": "Université de Mahajanga - Portail d'inscription",
+  "name": "Université de Mahajanga - Demande de bourse nationale",
   "short_name": "Inscription UM",
-  "description": "Plateforme numérique d'inscription académique de l'Université de Mahajanga.",
+  "description": "Plateforme de dématérialisation des demandes de bourse nationale de l'Université de Mahajanga.",
   "lang": "fr-FR",
   "start_url": "/",
   "scope": "/",

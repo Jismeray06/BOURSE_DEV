@@ -230,7 +230,7 @@ export function HomepageSettingsPanel() {
             </div>
           )}
           <div className="relative z-10 flex h-full items-center py-10">
-            <HeroContent settings={draft} />
+            <HeroContent settings={draft} primary={{ label: draft.ctaSecondaryLabel, onClick: () => undefined }} secondary={{ label: 'Suivre ma demande', onClick: () => undefined }} />
           </div>
         </section>
       </div>

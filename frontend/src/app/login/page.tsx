@@ -6,7 +6,9 @@ import Link from 'next/link';
 import { Eye, EyeOff, Mail, Lock, User as UserIcon, GraduationCap, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { dashboardPathForRole } from '../../components/dashboardPath';
-import { HomeThemeToggle, useHomeTheme } from '../../components/HomeThemeToggle';
+import { useHomeTheme } from '../../components/HomeThemeToggle';
+import { HomeNavbar } from '../../components/home/HomeNavbar';
+import { defaultSiteSettings, fetchSiteSettings, type SiteSettings } from '../../components/siteSettings';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const googleAuthUrl = process.env.NEXT_PUBLIC_GOOGLE_AUTH_URL ?? `${apiUrl}/auth/google`;
@@ -22,6 +24,11 @@ export default function AuthPage() {
   const router = useRouter();
   const { darkMode, toggleTheme } = useHomeTheme();
   const [isRegistering, setIsRegistering] = useState(false);
+  const [settings, setSettings] = useState<SiteSettings>(defaultSiteSettings);
+
+  useEffect(() => {
+    fetchSiteSettings().then(setSettings).catch(() => undefined);
+  }, []);
 
   // Tant que cette vérification n'est pas faite, on n'affiche pas le formulaire :
   // ça évite qu'un utilisateur déjà connecté voie l'écran de connexion s'afficher
@@ -35,6 +42,8 @@ export default function AuthPage() {
         router.replace(dashboardPath);
         return;
       }
+      // Le bouton « Créer mon compte » de l'accueil arrive ici avec ?mode=register.
+      if (new URLSearchParams(window.location.search).get('mode') === 'register') setIsRegistering(true);
       setCheckingSession(false);
     };
     checkSession();
@@ -151,12 +160,18 @@ export default function AuthPage() {
   }
 
   return (
-    <div className={`min-h-screen w-full bg-slate-100 dark:bg-slate-950 ${darkMode ? 'home-dark' : ''}`}>
+    <div className={`flex min-h-screen w-full flex-col bg-slate-100 dark:bg-slate-950 ${darkMode ? 'home-dark' : ''}`}>
+      <HomeNavbar
+        settings={settings}
+        darkMode={darkMode}
+        onToggleTheme={toggleTheme}
+        onSelectAuth={(mode) => { setIsRegistering(mode === 'register'); setErrorMsg(''); setSuccessMsg(''); }}
+      />
       {/* Écran plein : panneau décoratif + formulaire */}
-      <div className="flex min-h-screen w-full flex-col overflow-hidden bg-white dark:bg-slate-950 md:flex-row">
+      <div className="flex w-full flex-1 flex-col overflow-hidden bg-white dark:bg-slate-950 md:flex-row">
 
         {/* --- Panneau gauche décoratif (masqué sur mobile) --- */}
-        <div className="relative hidden min-h-screen overflow-hidden md:flex md:w-1/2 md:flex-col md:justify-end px-10 pb-16 lg:px-16">
+        <div className="relative hidden overflow-hidden md:flex md:w-1/2 md:flex-col md:justify-end px-10 pb-16 lg:px-16">
           <Image
             src="/images/campus-2.jpg"
             alt="Étudiants de l'Université de Mahajanga"
@@ -178,15 +193,14 @@ export default function AuthPage() {
             </h2>
             <p className="text-sm text-slate-200 mt-3 leading-relaxed max-w-xs">
               {isRegistering
-                ? "Créez votre compte pour déposer votre dossier d'inscription et suivre chaque étape depuis chez vous."
-                : "Retrouvez votre dossier, vos documents et l'avancement de votre inscription en un instant."}
+                ? "Créez votre compte pour déposer votre demande de bourse et suivre chaque étape depuis chez vous."
+                : "Retrouvez votre dossier, vos documents et l'avancement de votre demande de bourse en un instant."}
             </p>
           </div>
         </div>
 
         {/* --- Panneau droit : formulaire --- */}
-        <div className="relative flex min-h-screen w-full items-center justify-center px-6 py-10 sm:px-12 lg:px-20 md:w-1/2">
-          <HomeThemeToggle darkMode={darkMode} onToggle={toggleTheme} className="absolute right-4 top-4 z-20" />
+        <div className="relative flex w-full flex-1 items-center justify-center px-6 py-10 sm:px-12 lg:px-20 md:w-1/2">
           <div className="w-full max-w-md space-y-5 rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-[0_12px_40px_rgba(15,23,42,0.05)] sm:p-8">
 
           {/* Retour à l'accueil */}

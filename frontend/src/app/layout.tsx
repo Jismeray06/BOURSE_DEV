@@ -10,8 +10,8 @@ const playfairDisplay = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Université de Mahajanga — Portail d'inscription",
-  description: "Plateforme numérique d'inscription académique.",
+  title: "Université de Mahajanga — Demande de bourse nationale",
+  description: "Plateforme de dématérialisation des demandes de bourse nationale de l'Université de Mahajanga.",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
