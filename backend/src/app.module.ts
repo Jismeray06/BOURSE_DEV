@@ -15,6 +15,8 @@ import { DocumentService } from './document.service.js';
 import { DocumentController } from './document.controller.js';
 import { SiteSettingsService } from './site-settings.service.js';
 import { SiteSettingsController } from './site-settings.controller.js';
+import { HomepageService } from './homepage.service.js';
+import { HomepageController } from './homepage.controller.js';
 import { EstablishmentsService } from './establishments.service.js';
 import { QuitusService } from './quitus.service.js';
 import { AccountService } from './account.service.js';
@@ -40,7 +42,7 @@ const observeImports =
     ...observeImports,
     // controllers...
   ],
-  controllers: [AppController, AuthController, AdminController, EstablishmentController, StudentController, CentralRegistrarController, DocumentController, SiteSettingsController, EstablishmentsController, AccountController, NotificationsController],
-  providers: [AppService, AuthService, GoogleAuthService, PrismaService, MailService, DocumentService, SiteSettingsService, EstablishmentsService, QuitusService, AccountService],
+  controllers: [AppController, AuthController, AdminController, EstablishmentController, StudentController, CentralRegistrarController, DocumentController, SiteSettingsController, HomepageController, EstablishmentsController, AccountController, NotificationsController],
+  providers: [AppService, AuthService, GoogleAuthService, PrismaService, MailService, DocumentService, SiteSettingsService, HomepageService, EstablishmentsService, QuitusService, AccountService],
 })
 export class AppModule {}

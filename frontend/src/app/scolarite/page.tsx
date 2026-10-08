@@ -426,17 +426,11 @@ export default function ScolaritePage() {
             />
           )}
           {activeTab === "history" && (
-            <ApplicationList
+            <HistoryList
               applications={displayedHistory}
               search={search}
               setSearch={setSearch}
               loading={loading}
-              notes={notes}
-              setNotes={setNotes}
-              processingId={processingId}
-              decide={decide}
-              title="Historique des décisions"
-              description="Dossiers déjà validés ou refusés par la scolarité centrale."
               viewDossier={setDossierApplicationId}
             />
           )}
@@ -542,6 +536,97 @@ function RecentApplications({ applications }: { applications: Application[] }) {
         </div>
       ))}
     </div>
+  );
+}
+function HistoryList({
+  applications,
+  search,
+  setSearch,
+  loading,
+  viewDossier,
+}: {
+  applications: Application[];
+  search: string;
+  setSearch: (value: string) => void;
+  loading: boolean;
+  viewDossier: (id: string) => void;
+}) {
+  return (
+    <section className="rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-6">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base font-bold">Historique des décisions</h2>
+          <p className="text-xs text-slate-400">
+            Dossiers déjà validés ou refusés par la scolarité centrale.
+          </p>
+        </div>
+        <label className="relative w-full sm:w-auto">
+          <span className="sr-only">Rechercher un dossier dans l’historique</span>
+          <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Rechercher un étudiant…"
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 py-2 pl-9 pr-3 text-base sm:w-64 sm:text-xs max-[1024px]:min-h-[44px]"
+          />
+        </label>
+      </div>
+      {loading ? (
+        <p role="status" className="py-12 text-center text-slate-400">Chargement…</p>
+      ) : !applications.length ? (
+        <p className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-500">
+          {search.trim() ? "Aucun dossier ne correspond à votre recherche." : "Aucun dossier dans l’historique."}
+        </p>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-slate-800">
+          <div aria-hidden="true" className="hidden grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.5fr)_auto] gap-4 bg-slate-950/60 px-4 py-3 text-xs font-semibold text-slate-400 xl:grid">
+            <span>Étudiant</span>
+            <span>Établissement / Formation</span>
+            <span>Dépôt / Quitus</span>
+            <span>Décision</span>
+            <span className="w-28 text-center">Dossier</span>
+          </div>
+          <ul aria-label="Historique des décisions" className="divide-y divide-slate-800 xl:border-t xl:border-slate-800">
+            {applications.map((item) => (
+              <li key={item.id} className="grid grid-cols-1 items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-800/30 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.5fr)_auto] xl:gap-4">
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-bold">{item.user.fullName}</p>
+                  <p className="break-all text-xs text-slate-400">{item.user.email}</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="break-words text-sm text-slate-200">{item.establishment}</p>
+                  <p className="break-words text-xs text-slate-400">{item.level} · {item.program}</p>
+                </div>
+                <div className="min-w-0 space-y-1 text-xs">
+                  <p className="text-slate-300">
+                    <span className="xl:sr-only">Dépôt : </span>
+                    {item.submittedAt ? new Date(item.submittedAt).toLocaleDateString("fr-FR") : "—"}
+                  </p>
+                  <p className="break-all font-mono text-emerald-300">
+                    <span className="font-sans text-slate-500 xl:sr-only">Quitus : </span>
+                    {item.quitus?.code ?? "—"}
+                  </p>
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <StatusBadge status={item.status} />
+                  <p className="break-words text-xs text-slate-400">Par {item.reviewedBy?.fullName ?? "Scolarité centrale"}</p>
+                  {item.reviewNote && <p className="break-words text-xs text-slate-300">{item.reviewNote}</p>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => viewDossier(item.id)}
+                  aria-label={`Voir le dossier de ${item.user.fullName}`}
+                  className="min-h-[44px] rounded-lg border border-blue-500/40 px-3 text-xs font-bold text-blue-300 transition-colors hover:bg-blue-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 sm:col-span-2 xl:col-span-1 xl:w-28"
+                >
+                  Voir le dossier
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }
 function ApplicationList({

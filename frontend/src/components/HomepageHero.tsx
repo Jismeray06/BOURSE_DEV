@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { SiteSettings } from './siteSettings';
 import { assetUrl } from './siteSettings';
+import { EditPencil, useHomeEdit } from './home/HomepageEditor';
 
 /**
  * Fond du hero pour les modes pilotés par les réglages (couleur unie, dégradé, une ou plusieurs images).
@@ -60,28 +61,35 @@ export function HeroContent({
   secondary,
 }: {
   settings: SiteSettings;
-  primary: { label: string; onClick: () => void };
-  secondary?: { label: string; onClick: () => void };
+  primary: { label: ReactNode; onClick: () => void; editable?: boolean };
+  secondary?: { label: ReactNode; onClick: () => void };
 }) {
+  const { editMode, editHero } = useHomeEdit();
   return (
     <div className="max-w-2xl space-y-7 text-center lg:text-left">
       <h1 className="font-[family-name:var(--font-heading)] text-4xl font-bold leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-6xl">
         {settings.heroTitle}
+        <EditPencil label="Modifier le titre" onClick={() => editHero('heroTitle')} className="ml-2" />
       </h1>
 
       <p className="mx-auto max-w-xl text-base leading-relaxed text-slate-200 sm:text-lg lg:mx-0">
         {settings.heroSubtitle}
+        <EditPencil label="Modifier le sous-titre" onClick={() => editHero('heroSubtitle')} className="ml-2" />
       </p>
 
       <div className="flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start">
-        <button
-          type="button"
-          onClick={primary.onClick}
-          className="flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold text-[#0b3b60] shadow-sm transition hover:brightness-95"
-          style={{ backgroundColor: settings.secondaryColor }}
-        >
-          <span>{primary.label}</span>
-        </button>
+        {/* En mode personnalisation, le crayon reste sur la même ligne que le bouton (y compris sur téléphone). */}
+        <div className={editMode && primary.editable ? 'flex items-center justify-center gap-2' : 'contents'}>
+          <button
+            type="button"
+            onClick={primary.onClick}
+            className={`flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold text-[#0b3b60] shadow-sm transition hover:brightness-95 ${editMode && primary.editable ? 'flex-1 sm:flex-none' : ''}`}
+            style={{ backgroundColor: settings.secondaryColor }}
+          >
+            <span>{primary.label}</span>
+          </button>
+          {primary.editable && <EditPencil label="Modifier le texte du bouton" onClick={() => editHero('ctaSecondaryLabel')} />}
+        </div>
         {secondary && (
           <button
             type="button"

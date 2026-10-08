@@ -1,6 +1,7 @@
 'use client';
 
 import { EstablishmentIcon, logoSrc, useEstablishments } from '../establishments';
+import { HomeText } from './HomepageEditor';
 import { SectionShell } from './SectionShell';
 
 // Les établissements viennent de l'API publique (GET /establishments) : la base reste la source de vérité.
@@ -10,8 +11,8 @@ export function EstablishmentsSection() {
   return (
     <SectionShell
       id="etablissements"
-      title="Les établissements de l'Université de Mahajanga"
-      description="Sélectionnez votre établissement lors de votre demande afin que votre dossier soit associé au service compétent."
+      title={<HomeText contentKey="establishments.1" />}
+      description={<HomeText contentKey="establishments.2" />}
       tone="muted"
     >
       {!loaded ? (
@@ -21,9 +22,7 @@ export function EstablishmentsSection() {
           ))}
         </div>
       ) : establishments.length === 0 ? (
-        <p className="text-center text-sm text-slate-500 dark:text-slate-400">
-          La liste des établissements est momentanément indisponible. Elle s&apos;affichera dans votre espace lors du dépôt de la demande.
-        </p>
+        <p className="text-center text-sm text-slate-500 dark:text-slate-400"><HomeText contentKey="establishments.3" /></p>
       ) : (
         <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
           {establishments.map((establishment) => {

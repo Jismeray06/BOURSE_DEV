@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { Bell, ChevronDown, Moon, Sun } from 'lucide-react';
+import { Bell, ChevronDown, Moon, Pencil, Sun } from 'lucide-react';
 import { avatarSrc, useProfile } from './useProfile';
 
 export type ToolbarNotification = { id: string; title: string; subtitle: string; onClick: () => void; /** Faux = non lue (mise en évidence). Absent = pas de notion de lecture. */ read?: boolean };
@@ -15,6 +15,8 @@ type Props = {
   totalCount?: number;
   /** Masque la bascule clair/sombre (ex. apparence imposée par le responsable). Par défaut : visible. */
   showThemeToggle?: boolean;
+  /** Administrateur : ouvre la page d'accueil en mode personnalisation (icône crayon à côté de la bascule de thème). */
+  onEditHomepage?: () => void;
   notificationsTitle: string;
   notificationsEmpty: string;
   onSeeAllNotifications?: () => void;
@@ -41,7 +43,7 @@ function useSessionUser() {
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('') || '?';
 
 // Barre d'outils de l'en-tête : bascule clair/sombre, notifications, menu de l'utilisateur.
-export function HeaderToolbar({ darkMode, onToggleTheme, notifications, totalCount, showThemeToggle = true, notificationsTitle, notificationsEmpty, onSeeAllNotifications, onMarkAllRead, seeAllLabel = 'Voir tout', roleLabel, menuItems }: Props) {
+export function HeaderToolbar({ darkMode, onToggleTheme, notifications, totalCount, showThemeToggle = true, onEditHomepage, notificationsTitle, notificationsEmpty, onSeeAllNotifications, onMarkAllRead, seeAllLabel = 'Voir tout', roleLabel, menuItems }: Props) {
   const count = totalCount ?? notifications.length;
   const user = useSessionUser();
   const profile = useProfile();
@@ -76,6 +78,12 @@ export function HeaderToolbar({ darkMode, onToggleTheme, notifications, totalCou
           {darkMode ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
         </span>
       </button>}
+
+      {onEditHomepage && (
+        <button type="button" aria-label="Personnaliser la page d’accueil" title="Personnaliser la page d’accueil" onClick={onEditHomepage} className={iconButton}>
+          <Pencil className="h-5 w-5" />
+        </button>
+      )}
 
       <div className="relative">
         <button type="button" aria-label={`Notifications (${count})`} aria-expanded={open === 'notifications'} onClick={() => setOpen(open === 'notifications' ? null : 'notifications')} className={iconButton}>

@@ -221,6 +221,17 @@ Un utilisateur connecté modifie **son propre** e-mail et **son propre** mot de 
 - L'envoi réel dépend de la configuration SMTP (`SMTP_*` dans `.env`) et de la remise par le fournisseur d'e-mail (expéditeur validé, courrier indésirable).
 - Les anciennes adresses ne sont pas conservées au-delà du journal d'audit.
 
+## 6 ter. Personnalisation de la page d'accueil (administrateur)
+
+L'**administrateur** (`ADMIN`, plus haut rôle du projet) modifie la page d'accueil publique sans toucher au code.
+
+- **Accès** : icône crayon dans l'en-tête de `/admin`, à côté de la bascule clair/sombre → ouvre `/?mode=personnalisation`. Le mode n'est actif que si la session est `ADMIN` **et** confirmée par le serveur (`GET /admin/homepage`) ; sinon redirection vers `/`. Sans ce mode, la page est identique à celle des visiteurs (aucun crayon, bouton ou barre).
+- **Ce qui est modifiable** : tous les textes (clés `section.N` de `homepage-defaults.json`), titre / sous-titre / bouton du bandeau, coordonnées (e-mail, téléphone, horaires, adresse, assistance), logo, images du carrousel (4 max), actualités (ajout, modification, suppression). En mode personnalisation, la barre du bas propose une bascule « Vue : visiteur / utilisateur connecté » pour atteindre aussi les textes réservés aux connectés.
+- **Stockage** : table `SiteSettings` existante — `homepageContent` (JSON : seulement les textes modifiés, le reste vient de `homepage-defaults.json`), `homepageNews` (JSON), plus les champs `hero*` et `logoUrl` déjà présents. Images dans `uploads/site-settings/` (PNG/JPG, SVG pour le logo, 5 Mo max ; l'ancienne image est supprimée).
+- **API** (`backend/src/homepage.controller.ts`) : `GET /homepage` (public) ; `GET /admin/homepage`, `PATCH /admin/homepage/content`, `PATCH /admin/homepage/hero`, `POST|PATCH|DELETE /admin/homepage/news[/:id]` ; images via `POST|DELETE /admin/site-settings/hero-images`, `POST /admin/site-settings/upload/logo`. Toutes les écritures passent par `requireAdmin` (contrôle serveur).
+- **Audit** : actions `HOMEPAGE_CONTENT_UPDATED`, `HOMEPAGE_IMAGE_UPDATED`, `HOMEPAGE_CAROUSEL_UPDATED`, `HOMEPAGE_NEWS_CREATED|UPDATED|DELETED`, visibles dans l'onglet « Historique des actions ».
+- **Ajouter un texte modifiable** : ajouter la clé dans **les deux** `homepage-defaults.json` (`backend/src/` pour la validation, `frontend/src/components/home/` pour l'affichage) et utiliser `<HomeText contentKey="…" />`.
+
 ## 7. Points d'attention connus (dette technique)
 
 - **Incohérence de nommage** : le dépôt s'appelle "plateforme-inscription-mahajanga" et les textes de l'interface (page d'accueil, attestations) parlent encore d'"inscription universitaire", alors que la fonction réelle et validée par le porteur du projet est la **demande de bourse**. Les futurs textes/écrans devraient être alignés sur "dossier de bourse" plutôt que "dossier d'inscription".

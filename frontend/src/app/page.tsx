@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { useHomeTheme } from '../components/HomeThemeToggle';
 import { HeroBackground, HeroContent } from '../components/HomepageHero';
+import { HomeEditProvider, HomeText, useHomeEdit } from '../components/home/HomepageEditor';
 import { HomeNavbar } from '../components/home/HomeNavbar';
 import { BourseSection } from '../components/home/BourseSection';
 import { StepsSection } from '../components/home/StepsSection';
@@ -13,6 +14,7 @@ import { PrepareSection } from '../components/home/PrepareSection';
 import { BenefitsSection } from '../components/home/BenefitsSection';
 import { EstablishmentsSection } from '../components/home/EstablishmentsSection';
 import { StatusesSection } from '../components/home/StatusesSection';
+import { AnnouncementsList } from '../components/home/AnnouncementsList';
 import { FaqSection } from '../components/home/FaqSection';
 import { HelpSection } from '../components/home/HelpSection';
 import { FinalCta } from '../components/home/FinalCta';
@@ -44,20 +46,8 @@ const CAMPUS_IMAGES = [
 ];
 
 export default function HomePage() {
-  const router = useRouter();
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [settings, setSettings] = useState<SiteSettings>(defaultSiteSettings);
   const { darkMode, toggleTheme } = useHomeTheme();
-  const dashboardPath = useDashboardPath();
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const timer = setInterval(() => {
-      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % CAMPUS_IMAGES.length);
-    }, 4000);
-
-    return () => clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     fetchSiteSettings().then(setSettings).catch(() => undefined);
@@ -68,6 +58,31 @@ export default function HomePage() {
     const link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
     if (link) link.href = assetUrl(settings.faviconUrl) ?? link.href;
   }, [settings.faviconUrl]);
+
+  return (
+    <div className={`min-h-screen bg-white text-slate-800 dark:bg-slate-950 dark:text-slate-200 flex flex-col selection:bg-blue-100 selection:text-blue-900 relative ${darkMode ? 'home-dark' : ''}`}>
+      {/* Mode personnalisation (administrateur uniquement, via /?mode=personnalisation) : sans lui, la page est inchangée. */}
+      <HomeEditProvider settings={settings} onSettingsChange={setSettings}>
+        <HomeBody settings={settings} darkMode={darkMode} onToggleTheme={toggleTheme} />
+      </HomeEditProvider>
+    </div>
+  );
+}
+
+function HomeBody({ settings, darkMode, onToggleTheme }: { settings: SiteSettings; darkMode: boolean; onToggleTheme: () => void }) {
+  const router = useRouter();
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const dashboardPath = useDashboardPath();
+  const { editMode, editCarousel } = useHomeEdit();
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = setInterval(() => {
+      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % CAMPUS_IMAGES.length);
+    }, 4000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const handleNextImage = () => {
     setCurrentImageIndex((prevIndex) => (prevIndex + 1) % CAMPUS_IMAGES.length);
@@ -83,9 +98,8 @@ export default function HomePage() {
   };
   const showDefaultCarousel = settings.heroBackgroundType === 'IMAGE' && settings.heroBackgroundImages.length === 0;
   return (
-    <div className={`min-h-screen bg-white text-slate-800 dark:bg-slate-950 dark:text-slate-200 flex flex-col selection:bg-blue-100 selection:text-blue-900 relative ${darkMode ? 'home-dark' : ''}`}>
-
-      <HomeNavbar settings={settings} darkMode={darkMode} onToggleTheme={toggleTheme} />
+    <>
+      <HomeNavbar settings={settings} darkMode={darkMode} onToggleTheme={onToggleTheme} />
 
       {/* --- HERO SECTION --- */}
       <section id="accueil" className="relative flex min-h-[calc(100svh-4rem)] scroll-mt-16 lg:min-h-[calc(100svh-5rem)] items-center overflow-hidden bg-[#06233b]">
@@ -121,12 +135,22 @@ export default function HomePage() {
             settings={settings}
             primary={
               dashboardPath
-                ? { label: 'Mon espace', onClick: () => router.push(dashboardPath) }
-                : { label: settings.ctaSecondaryLabel, onClick: () => goToLogin(settings.ctaSecondaryLink) }
+                ? { label: <HomeText contentKey="navbar.1" />, onClick: () => router.push(dashboardPath) }
+                : { label: settings.ctaSecondaryLabel, onClick: () => goToLogin(settings.ctaSecondaryLink), editable: true }
             }
-            secondary={dashboardPath ? undefined : { label: 'Suivre ma demande', onClick: () => router.push(LOGIN_PATH) }}
+            secondary={dashboardPath ? undefined : { label: <HomeText contentKey="hero.trackingLabel" />, onClick: () => router.push(LOGIN_PATH) }}
           />
         </div>
+
+        {editMode && (
+          <button
+            type="button"
+            onClick={editCarousel}
+            className="absolute right-3 top-3 z-30 inline-flex min-h-[40px] items-center gap-2 rounded-lg border border-white/40 bg-slate-900/80 px-3 text-xs font-semibold text-white backdrop-blur transition hover:bg-blue-600 sm:right-5 sm:top-5"
+          >
+            <Pencil className="h-3.5 w-3.5" aria-hidden />Modifier le carrousel
+          </button>
+        )}
 
         {/* Contrôles du diaporama (uniquement quand le carrousel par défaut est actif) */}
         {showDefaultCarousel && (
@@ -169,11 +193,11 @@ export default function HomePage() {
       <BenefitsSection />
       <EstablishmentsSection />
       <StatusesSection />
-      {/* Prévu pour une future API : <AnnouncementsList announcements={…} /> (masqué tant qu'il n'y a aucune annonce) */}
+      <AnnouncementsList />
       <FaqSection />
       <HelpSection />
       <FinalCta settings={settings} />
       <HomeFooter settings={settings} />
-    </div>
+    </>
   );
 }

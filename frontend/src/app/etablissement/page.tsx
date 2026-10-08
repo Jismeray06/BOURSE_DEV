@@ -365,7 +365,7 @@ export default function EstablishmentPage() {
       }).catch(() => undefined); // réseau indisponible : l'apparence sera republiée au prochain changement
     }, 600);
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [settings, settingsSynced, isEstablishmentAdmin]);
   useEffect(() => {
     const timer = window.setTimeout(() => {

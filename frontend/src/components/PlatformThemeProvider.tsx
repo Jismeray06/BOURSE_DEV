@@ -2,30 +2,28 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { useSystemDark } from './useInterfaceSettings';
 import { buildThemeCss, defaultSettings, loadSettings, type AdminSettings, type SettingsScope } from './adminSettings';
 
 export function PlatformThemeProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AdminSettings>(defaultSettings);
-  const [systemDark, setSystemDark] = useState(true);
+  const systemDark = useSystemDark();
   const pathname = usePathname();
   const scope: SettingsScope | null = pathname.startsWith('/admin') ? 'admin' : pathname.startsWith('/etablissement') ? 'etablissement' : pathname.startsWith('/scolarite') ? 'scolarite' : pathname.startsWith('/student') ? 'student' : null;
 
   useEffect(() => {
     if (!scope) return;
+    // Lecture de localStorage uniquement après l'hydratation (évite un décalage serveur/client).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettings(loadSettings(scope));
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    setSystemDark(mediaQuery.matches);
-    const onSystemChange = (event: MediaQueryListEvent) => setSystemDark(event.matches);
     const onSettingsChange = (event: Event) => {
       const detail = (event as CustomEvent<{ scope: SettingsScope; settings: AdminSettings }>).detail;
       if (detail?.scope === scope) setSettings(detail.settings);
       else if (!detail) setSettings(loadSettings(scope));
     };
-    mediaQuery.addEventListener('change', onSystemChange);
     window.addEventListener('interface-settings-change', onSettingsChange);
     window.addEventListener('storage', onSettingsChange);
     return () => {
-      mediaQuery.removeEventListener('change', onSystemChange);
       window.removeEventListener('interface-settings-change', onSettingsChange);
       window.removeEventListener('storage', onSettingsChange);
     };

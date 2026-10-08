@@ -86,6 +86,12 @@ enum AuditAction {
   STAFF_ACCOUNT_PURGED
   ACCOUNT_PASSWORD_CHANGED
   ACCOUNT_EMAIL_CHANGED
+  HOMEPAGE_CONTENT_UPDATED
+  HOMEPAGE_IMAGE_UPDATED
+  HOMEPAGE_CAROUSEL_UPDATED
+  HOMEPAGE_NEWS_CREATED
+  HOMEPAGE_NEWS_UPDATED
+  HOMEPAGE_NEWS_DELETED
 }
 
 model AuditLogEntry {
@@ -338,5 +344,7 @@ model SiteSettings {
   ctaPrimaryLink      String             @default("/login")
   ctaSecondaryLabel   String             @default("Commencer mon inscription")
   ctaSecondaryLink    String             @default("/login")
+  homepageContent     Json               @default("{}")
+  homepageNews        Json               @default("[]")
   updatedAt           DateTime           @updatedAt
 }

@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
-import { Eye, EyeOff, Mail, Lock, User as UserIcon, GraduationCap, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User as UserIcon, GraduationCap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { dashboardPathForRole } from '../../components/dashboardPath';
 import { useHomeTheme } from '../../components/HomeThemeToggle';
@@ -203,45 +202,11 @@ export default function AuthPage() {
         <div className="relative flex w-full flex-1 items-center justify-center px-6 py-10 sm:px-12 lg:px-20 md:w-1/2">
           <div className="w-full max-w-md space-y-5 rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-[0_12px_40px_rgba(15,23,42,0.05)] sm:p-8">
 
-          {/* Retour à l'accueil */}
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-[#0b3b60] dark:hover:text-blue-300 transition"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Retour à l&apos;accueil
-          </Link>
-
-          {/* Titre et bascule Mode Inscription / Connexion */}
+          {/* Titre */}
           <div>
             <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
               {isRegistering ? 'Créer un compte' : 'Heureux de vous revoir'}
             </h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-              {isRegistering ? (
-                <>
-                  Vous avez déjà un compte ?{' '}
-                  <button
-                    type="button"
-                    onClick={() => { setIsRegistering(false); setErrorMsg(''); }}
-                    className="text-[#0b3b60] dark:text-blue-300 hover:underline font-medium cursor-pointer"
-                  >
-                    Se connecter
-                  </button>
-                </>
-              ) : (
-                <>
-                  ou{' '}
-                  <button
-                    type="button"
-                    onClick={() => { setIsRegistering(true); setErrorMsg(''); }}
-                    className="text-[#0b3b60] dark:text-blue-300 hover:underline font-medium cursor-pointer"
-                  >
-                    créer un compte
-                  </button>
-                </>
-              )}
-            </p>
           </div>
 
           {/* Message d'erreur s'il y en a un */}
@@ -403,6 +368,33 @@ export default function AuthPage() {
               </button>
             </div>
           ) : null}
+
+          {/* Bascule Connexion / Inscription, en bas du formulaire */}
+          <p className="border-t border-slate-200 dark:border-slate-700 pt-4 text-center text-sm text-slate-600 dark:text-slate-400">
+            {isRegistering ? (
+              <>
+                Vous avez déjà un compte ?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setIsRegistering(false); setErrorMsg(''); setSuccessMsg(''); }}
+                  className="text-[#0b3b60] dark:text-blue-300 hover:underline font-medium cursor-pointer"
+                >
+                  Se connecter
+                </button>
+              </>
+            ) : (
+              <>
+                Vous n&apos;avez pas encore de compte ?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setIsRegistering(true); setErrorMsg(''); setSuccessMsg(''); }}
+                  className="text-[#0b3b60] dark:text-blue-300 hover:underline font-medium cursor-pointer"
+                >
+                  Créer un compte
+                </button>
+              </>
+            )}
+          </p>
 
           </div>
 

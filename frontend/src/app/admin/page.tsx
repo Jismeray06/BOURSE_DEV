@@ -40,7 +40,9 @@ import { AccountPanel } from '../../components/AccountPanel';
 import { HeaderToolbar } from '../../components/HeaderToolbar';
 import { usePolling } from '../../components/usePolling';
 import { HomepageSettingsPanel } from '../../components/HomepageSettingsPanel';
+import { EDIT_MODE_PATH } from '../../components/home/HomepageEditor';
 import { buildThemeCss, defaultSettings, isDarkRendering, loadSettings, saveSettings, toggleLightDark, type AdminSettings } from '../../components/adminSettings';
+import { useSystemDark } from '../../components/useInterfaceSettings';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const statuses = ['BROUILLON', 'SOUMIS', 'EN_REVISION', 'VALIDE', 'REFUSE'] as const;
@@ -98,7 +100,7 @@ type AdminDashboard = {
   recentActions: AuditLogEntry[];
 };
 type TrashedAccount = { id: string; fullName: string; email: string; role: AnyUserRole; establishment: string | null; deletedAt: string };
-type AuditAction = 'STAFF_ACCOUNT_CREATED' | 'STAFF_ACCOUNT_STATUS_CHANGED' | 'STAFF_ACCOUNT_NAME_UPDATED' | 'STAFF_ACCOUNT_PASSWORD_RESET' | 'STAFF_ACCOUNT_TRASHED' | 'STAFF_ACCOUNT_RESTORED' | 'STAFF_ACCOUNT_PURGED' | 'ACCOUNT_PASSWORD_CHANGED' | 'ACCOUNT_EMAIL_CHANGED';
+type AuditAction = 'STAFF_ACCOUNT_CREATED' | 'STAFF_ACCOUNT_STATUS_CHANGED' | 'STAFF_ACCOUNT_NAME_UPDATED' | 'STAFF_ACCOUNT_PASSWORD_RESET' | 'STAFF_ACCOUNT_TRASHED' | 'STAFF_ACCOUNT_RESTORED' | 'STAFF_ACCOUNT_PURGED' | 'ACCOUNT_PASSWORD_CHANGED' | 'ACCOUNT_EMAIL_CHANGED' | 'HOMEPAGE_CONTENT_UPDATED' | 'HOMEPAGE_IMAGE_UPDATED' | 'HOMEPAGE_CAROUSEL_UPDATED' | 'HOMEPAGE_NEWS_CREATED' | 'HOMEPAGE_NEWS_UPDATED' | 'HOMEPAGE_NEWS_DELETED';
 type AuditLogEntry = { id: string; action: AuditAction; actorName: string; targetName: string; detail: string | null; createdAt: string };
 const auditActionLabels: Record<AuditAction, string> = {
   STAFF_ACCOUNT_CREATED: 'a créé le compte',
@@ -110,6 +112,12 @@ const auditActionLabels: Record<AuditAction, string> = {
   STAFF_ACCOUNT_PURGED: 'a supprimé définitivement',
   ACCOUNT_PASSWORD_CHANGED: 'a modifié le mot de passe de',
   ACCOUNT_EMAIL_CHANGED: 'a modifié l’e-mail de',
+  HOMEPAGE_CONTENT_UPDATED: 'a modifié le contenu de la page d’accueil :',
+  HOMEPAGE_IMAGE_UPDATED: 'a modifié une image de la page d’accueil :',
+  HOMEPAGE_CAROUSEL_UPDATED: 'a modifié le carrousel :',
+  HOMEPAGE_NEWS_CREATED: 'a ajouté une actualité :',
+  HOMEPAGE_NEWS_UPDATED: 'a modifié une actualité :',
+  HOMEPAGE_NEWS_DELETED: 'a supprimé une actualité :',
 };
 
 const statusLabels: Record<Status, string> = {
@@ -171,16 +179,13 @@ export default function AdminPage() {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [dossierStudentId, setDossierStudentId] = useState<string | null>(null);
   const [settings, setSettings] = useState<AdminSettings>(defaultSettings);
-  const [systemDark, setSystemDark] = useState(true);
+  const systemDark = useSystemDark();
   const settingsLoadedRef = useRef(false);
 
   useEffect(() => {
+    // Lecture de localStorage uniquement après l'hydratation (évite un décalage serveur/client).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSettings(loadSettings());
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    setSystemDark(mediaQuery.matches);
-    const onChange = (event: MediaQueryListEvent) => setSystemDark(event.matches);
-    mediaQuery.addEventListener('change', onChange);
-    return () => mediaQuery.removeEventListener('change', onChange);
   }, []);
 
   useEffect(() => {
@@ -592,6 +597,7 @@ export default function AdminPage() {
           <HeaderToolbar
             darkMode={isDarkRendering(settings, systemDark)}
             onToggleTheme={() => setSettings(toggleLightDark(settings, systemDark))}
+            onEditHomepage={() => router.push(EDIT_MODE_PATH)}
             notifications={(dashboard?.pending ?? []).map((item) => ({
               id: item.id,
               title: `${item.user.fullName} — dossier à traiter`,
@@ -773,7 +779,7 @@ export default function AdminPage() {
 
           {activeTab === 'history' && <section className="rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-6">
             <h2 className="text-base font-bold text-white">Historique des actions</h2>
-            <p className="mt-1 text-xs text-slate-400">Actions effectuées sur les comptes du personnel, les plus récentes en premier.</p>
+            <p className="mt-1 text-xs text-slate-400">Actions effectuées sur les comptes du personnel et sur la page d’accueil, les plus récentes en premier.</p>
             <div className="mt-5 space-y-2">
               {auditLog.map((entry) => <div key={entry.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
                 <p className="break-words text-sm text-slate-200"><span className="font-bold text-white">{entry.actorName}</span> {auditActionLabels[entry.action]} <span className="font-bold text-blue-300">{entry.targetName}</span></p>

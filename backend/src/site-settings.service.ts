@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { HeroBackgroundType } from '@prisma/client';
+import { AuditAction, HeroBackgroundType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -37,6 +37,11 @@ export class SiteSettingsService {
   private readonly directory = join(process.cwd(), 'uploads', 'site-settings');
 
   constructor(private readonly prisma: PrismaService) {}
+
+  /** Inscrit une modification de la page d'accueil dans le journal d'audit. */
+  async audit(actor: { id: string; fullName: string }, action: AuditAction, targetName: string, detail?: string, targetId?: string) {
+    await this.prisma.auditLogEntry.create({ data: { action, actorId: actor.id, actorName: actor.fullName, targetId: targetId ?? settingsId, targetName, detail } });
+  }
 
   async get() {
     return this.prisma.siteSettings.upsert({

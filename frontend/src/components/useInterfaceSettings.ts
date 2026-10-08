@@ -8,8 +8,11 @@ export function useInterfaceSettings(scope: SettingsScope) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    // Lecture de localStorage uniquement après l'hydratation (évite un décalage serveur/client).
+    /* eslint-disable react-hooks/set-state-in-effect */
     setSettings(loadSettings(scope));
     setReady(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
     const onChange = (event: Event) => {
       const detail = (event as CustomEvent<{ scope: SettingsScope; settings: AdminSettings }>).detail;
       if (detail?.scope === scope) setSettings(detail.settings);

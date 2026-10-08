@@ -47,6 +47,26 @@ L’administrateur se connecte sur la même page `/login` avec l’e-mail config
 Il est ensuite dirigé vers `/admin`, où il peut consulter les étudiants et mettre
 leurs dossiers en brouillon, révision, validé ou refusé.
 
+### Dossiers de démonstration
+
+Les scripts `prisma:seed` et `prisma:seed:demo` ne créent aucun dossier à traiter.
+Cette liste est alimentée par la soumission des dossiers depuis l'espace étudiant.
+Le script de démonstration peut toujours créer des brouillons et des décisions fictives
+pour les autres tableaux de bord.
+
+Pour retirer les anciens dossiers fictifs encore soumis ou en révision :
+
+```bash
+# Aperçu du nettoyage
+$ npm run prisma:clean:pending-demo
+
+# Nettoyage avec sauvegarde locale dans .local-backups/
+$ npm run prisma:clean:pending-demo -- --apply
+```
+
+Les comptes étudiants, les quitus et les dossiers déjà validés ou refusés sont
+conservés. Le nettoyage s'arrête si un dossier fictif contient des pièces téléversées.
+
 ## Compile and run the project
 
 ```bash

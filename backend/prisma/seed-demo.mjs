@@ -1,5 +1,6 @@
-// Données fictives pour rendre les tableaux de bord vivants (étudiants et dossiers de bourse
-// répartis sur tous les établissements). N'écrase aucun compte existant.
+// Données fictives pour les tableaux de bord : brouillons et historique des décisions,
+// répartis sur tous les établissements. Aucun dossier à traiter n'est créé.
+// N'écrase aucun compte existant.
 //   npm run prisma:seed:demo           → ajoute les données (relançable sans doublons)
 //   npm run prisma:seed:demo -- --clean → supprime uniquement ces données fictives
 import { PrismaClient, RegistrationStatus, UserRole } from '@prisma/client';
@@ -31,12 +32,10 @@ let state = 20261001;
 const random = () => ((state = (state * 1664525 + 1013904223) % 4294967296) / 4294967296);
 const pick = (items) => items[Math.floor(random() * items.length)];
 
-// Répartition des statuts : surtout des dossiers traités, quelques-uns en attente.
+// La liste à traiter est réservée aux dossiers réellement soumis par les étudiants.
 function pickStatus() {
   const value = random();
-  if (value < 0.2) return RegistrationStatus.BROUILLON;
-  if (value < 0.42) return RegistrationStatus.SOUMIS;
-  if (value < 0.5) return RegistrationStatus.EN_REVISION;
+  if (value < 0.5) return RegistrationStatus.BROUILLON;
   if (value < 0.82) return RegistrationStatus.VALIDE;
   return RegistrationStatus.REFUSE;
 }

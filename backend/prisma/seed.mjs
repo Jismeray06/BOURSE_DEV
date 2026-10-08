@@ -1,4 +1,4 @@
-import { CurriculumCycle, CurriculumOptionType, DocumentRequirementContext, PrismaClient, RegistrationStatus, UserRole } from '@prisma/client';
+import { CurriculumCycle, CurriculumOptionType, DocumentRequirementContext, PrismaClient, UserRole } from '@prisma/client';
 import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
 import { promisify } from 'node:util';
 import { ISSTM_PARCOURS } from './isstm-curriculum.mjs';
@@ -113,7 +113,6 @@ async function main() {
     ['ISSTM-2026-020', 'ANDRIAMIHARISOA Solo', 'solo.andriamiharisoa@isstm.mg', '034 12 345 20', 'MASCULIN', 'Master 2 (M2)', 'Génie Biomédical (GB)'],
   ];
   const studentsByRegistrationNumber = new Map();
-  const usersByRegistrationNumber = new Map();
   for (const [registrationNumber, fullName, studentEmail, phone, gender, level, program] of enrolledStudents) {
     const student = await prisma.enrolledStudent.upsert({
       where: { registrationNumber },
@@ -144,7 +143,6 @@ async function main() {
       },
     });
     await prisma.enrolledStudent.update({ where: { id: student.id }, data: { userId: user.id } });
-    usersByRegistrationNumber.set(registrationNumber, user);
   }
 
   // Quitus de démonstration : ils permettent de tester immédiatement la
@@ -187,27 +185,13 @@ async function main() {
     createdQuitus += 1;
   }
 
-  // Dossiers déjà finalisés, uniquement pour démontrer l'espace scolarité centrale.
-  for (const registrationNumber of ['ISSTM-2026-001', 'ISSTM-2026-002', 'ISSTM-2026-003']) {
-    const student = studentsByRegistrationNumber.get(registrationNumber);
-    const user = usersByRegistrationNumber.get(registrationNumber);
-    const quitus = await prisma.quitus.findUnique({ where: { enrollmentId: student.id } });
-    if (!quitus) continue;
-    await prisma.enrollmentApplication.upsert({
-      where: { userId: user.id },
-      update: {},
-      create: { userId: user.id, establishment: student.establishment, level: student.level, program: student.program, quitusId: quitus.id, status: RegistrationStatus.SOUMIS, submittedAt: new Date() },
-    });
-    await prisma.user.update({ where: { id: user.id }, data: { registrationStatus: RegistrationStatus.SOUMIS } });
-  }
-
   console.log(`Compte administrateur prêt : ${email}`);
   console.log(`Compte responsable ISSTM prêt : ${managerEmail}`);
   console.log(`Compte scolarité centrale prêt : ${centralEmail}`);
   console.log(`${enrolledStudents.length} étudiants fictifs ISSTM prêts.`);
   console.log(`Comptes étudiants fictifs : [e-mail ISSTM] / ${process.env.ISSTM_STUDENT_PASSWORD ?? 'ISSTM-2026!'}`);
   console.log(`${createdQuitus} quitus fictif(s) ISSTM ajouté(s).`);
-  console.log('3 dossiers fictifs finalisés sont prêts pour la scolarité centrale.');
+  console.log('Aucun dossier à traiter créé : seuls les dépôts effectués par les étudiants alimentent cette liste.');
 }
 
 main().finally(() => prisma.$disconnect());
