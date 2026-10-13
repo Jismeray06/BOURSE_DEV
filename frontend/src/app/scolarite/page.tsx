@@ -22,11 +22,15 @@ import {
   Building2,
   CheckCircle2,
   ChevronDown,
+  Check,
   ClipboardCheck,
+  Eye,
   FileSearch,
   FileText,
   GraduationCap,
   LayoutDashboard,
+  LayoutGrid,
+  List,
   LogOut,
   Menu,
   Palette,
@@ -241,79 +245,85 @@ export default function ScolaritePage() {
               </p>
             </div>
           </div>
-          <nav className="space-y-1 px-3">
-            <NavButton
-              active={activeTab === "dashboard"}
-              onClick={() => { setActiveTab("dashboard"); setSidebarOpen(false); }}
-              icon={<LayoutDashboard className="h-4 w-4" />}
-            >
-              Tableau de bord
-            </NavButton>
-            <NavButton
-              active={activeTab === "applications"}
-              onClick={() => { setActiveTab("applications"); setSidebarOpen(false); }}
-              icon={<ClipboardCheck className="h-4 w-4" />}
-            >
-              Dossiers à traiter{" "}
-              <span className="ml-auto rounded-full border border-blue-500/30 bg-blue-500/20 px-2 py-0.5 text-[10px] text-blue-300">
-                {pending.length}
-              </span>
-            </NavButton>
-            <NavButton
-              active={activeTab === "history"}
-              onClick={() => { setActiveTab("history"); setSidebarOpen(false); }}
-              icon={<FileSearch className="h-4 w-4" />}
-            >
-              Historique
-            </NavButton>
-            <NavButton
-              active={activeTab === "documents"}
-              onClick={() => { setActiveTab("documents"); setSidebarOpen(false); }}
-              icon={<FileText className="h-4 w-4" />}
-            >
-              Pièces à téléverser
-            </NavButton>
-            <NavButton
-              active={activeTab === "account"}
-              onClick={() => { setActiveTab("account"); setSidebarOpen(false); }}
-              icon={<UserCog className="h-4 w-4" />}
-            >
-              Mon compte
-            </NavButton>
-            <div>
+          <nav className="space-y-4 px-3">
+            <NavSection title="Général">
               <NavButton
-                active={activeTab === "settings"}
-                onClick={() => {
-                  setSettingsMenuOpen((open) => !open);
-                  if (activeTab !== "settings") setActiveTab("settings");
-                }}
-                icon={<Settings className="h-4 w-4" />}
+                active={activeTab === "dashboard"}
+                onClick={() => { setActiveTab("dashboard"); setSidebarOpen(false); }}
+                icon={<LayoutDashboard className="h-4 w-4" />}
               >
-                Paramètres
-                <ChevronDown className={`ml-auto h-4 w-4 shrink-0 transition-transform ${settingsMenuOpen ? "rotate-180" : ""}`} />
+                Tableau de bord
               </NavButton>
-              {settingsMenuOpen && (
-                <div className="mt-1 space-y-1 pl-4">
-                  {([
-                    { id: "appearance", label: "Apparence & Affichage", icon: <Palette className="h-3.5 w-3.5" /> },
-                    { id: "behavior", label: "Comportement", icon: <SlidersHorizontal className="h-3.5 w-3.5" /> },
-                    { id: "identity", label: "Identité", icon: <Building2 className="h-3.5 w-3.5" /> },
-                  ] as const).map((section) => {
-                    const active = activeTab === "settings" && settingsTabId === section.id;
-                    return (
-                      <button
-                        key={section.id}
-                        onClick={() => { setActiveTab("settings"); setSettingsTabId(section.id); setSidebarOpen(false); }}
-                        className={`flex min-h-[40px] w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold ${active ? "bg-blue-600/20 text-blue-300" : "text-slate-500 hover:bg-slate-800/60 hover:text-slate-300"}`}
-                      >
-                        {section.icon}
-                        {section.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+              <NavButton
+                active={activeTab === "history"}
+                onClick={() => { setActiveTab("history"); setSidebarOpen(false); }}
+                icon={<FileSearch className="h-4 w-4" />}
+              >
+                Historique
+              </NavButton>
+            </NavSection>
+            <NavSection title="Dossiers" separated>
+              <NavButton
+                active={activeTab === "applications"}
+                onClick={() => { setActiveTab("applications"); setSidebarOpen(false); }}
+                icon={<ClipboardCheck className="h-4 w-4" />}
+              >
+                Dossiers à traiter{" "}
+                <span className="ml-auto rounded-full border border-blue-500/30 bg-blue-500/20 px-2 py-0.5 text-[10px] text-blue-300">
+                  {pending.length}
+                </span>
+              </NavButton>
+              <NavButton
+                active={activeTab === "documents"}
+                onClick={() => { setActiveTab("documents"); setSidebarOpen(false); }}
+                icon={<FileText className="h-4 w-4" />}
+              >
+                Pièces à téléverser
+              </NavButton>
+            </NavSection>
+            <NavSection title="Configuration" separated>
+              <NavButton
+                active={activeTab === "account"}
+                onClick={() => { setActiveTab("account"); setSidebarOpen(false); }}
+                icon={<UserCog className="h-4 w-4" />}
+              >
+                Mon compte
+              </NavButton>
+              <div>
+                <NavButton
+                  active={activeTab === "settings"}
+                  onClick={() => {
+                    setSettingsMenuOpen((open) => !open);
+                    if (activeTab !== "settings") setActiveTab("settings");
+                  }}
+                  icon={<Settings className="h-4 w-4" />}
+                >
+                  Paramètres
+                  <ChevronDown className={`ml-auto h-4 w-4 shrink-0 transition-transform ${settingsMenuOpen ? "rotate-180" : ""}`} />
+                </NavButton>
+                {settingsMenuOpen && (
+                  <div className="mt-1 space-y-1 pl-4">
+                    {([
+                      { id: "appearance", label: "Apparence & Affichage", icon: <Palette className="h-3.5 w-3.5" /> },
+                      { id: "behavior", label: "Comportement", icon: <SlidersHorizontal className="h-3.5 w-3.5" /> },
+                      { id: "identity", label: "Identité", icon: <Building2 className="h-3.5 w-3.5" /> },
+                    ] as const).map((section) => {
+                      const active = activeTab === "settings" && settingsTabId === section.id;
+                      return (
+                        <button
+                          key={section.id}
+                          onClick={() => { setActiveTab("settings"); setSettingsTabId(section.id); setSidebarOpen(false); }}
+                          className={`flex min-h-[40px] w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold ${active ? "bg-blue-600/20 text-blue-300" : "text-slate-500 hover:bg-slate-800/60 hover:text-slate-300"}`}
+                        >
+                          {section.icon}
+                          {section.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </NavSection>
           </nav>
         </div>
         <div className="border-t border-slate-800/80 p-4">
@@ -394,6 +404,7 @@ export default function ScolaritePage() {
                   color="rose"
                 />
               </section>
+              {!loading && <DashboardCharts applications={applications} />}
               <section className="rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-6">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                   <div className="min-w-0">
@@ -472,6 +483,14 @@ export default function ScolaritePage() {
         onConfirm={confirmLogout}
       />
     </div>
+  );
+}
+function NavSection({ title, separated, children }: { title: string; separated?: boolean; children: ReactNode }) {
+  return (
+    <section aria-label={title} className={`space-y-1 ${separated ? "border-t border-slate-800/80 pt-4" : ""}`}>
+      <h3 className="px-3.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">{title}</h3>
+      {children}
+    </section>
   );
 }
 function NavButton({
@@ -669,6 +688,21 @@ function ApplicationList({
   description: string;
   viewDossier: (id: string) => void;
 }) {
+  const [layout, setLayout] = useState<"cartes" | "liste">("cartes");
+  // Dossier dont le motif de refus est en cours de saisie (un seul à la fois).
+  const [refusingId, setRefusingId] = useState<string | null>(null);
+  const refusalForm = (item: Application) => refusingId === item.id && (
+    <RefusalForm
+      note={notes[item.id] ?? ""}
+      onChange={(value) => setNotes((current) => ({ ...current, [item.id]: value }))}
+      busy={processingId === item.id}
+      onConfirm={() => void decide(item, "REFUSE")}
+      onCancel={() => setRefusingId(null)}
+    />
+  );
+  const refuseButton = (item: Application) => (
+    <IconAction label="Refuser le dossier" disabled={processingId === item.id} onClick={() => setRefusingId(refusingId === item.id ? null : item.id)} className={refusingId === item.id ? "bg-rose-500 text-white ring-2 ring-rose-300/60" : "bg-rose-600 text-white hover:bg-rose-500"}><X className="h-4 w-4" /></IconAction>
+  );
   return (
     <section className="rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-6">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -685,12 +719,66 @@ function ApplicationList({
             className="w-full rounded-xl border border-slate-700 bg-slate-950 py-2 pl-9 pr-3 text-base sm:w-64 sm:text-xs max-[1024px]:min-h-[44px]"
           />
         </label>
+        <div role="group" aria-label="Mode d'affichage" className="flex w-fit shrink-0 gap-1 rounded-xl border border-slate-800 bg-slate-950 p-1">
+          {([["cartes", "Cartes", LayoutGrid], ["liste", "Liste", List]] as const).map(([mode, label, Icon]) => (
+            <button
+              key={mode}
+              type="button"
+              title={label}
+              aria-label={`Affichage en ${label.toLowerCase()}`}
+              aria-pressed={layout === mode}
+              onClick={() => setLayout(mode)}
+              className={`flex h-9 w-9 items-center justify-center rounded-lg transition cursor-pointer max-[1024px]:h-11 max-[1024px]:w-11 ${layout === mode ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-slate-800"}`}
+            >
+              <Icon className="h-4 w-4" />
+            </button>
+          ))}
+        </div>
       </div>
       {loading ? (
         <p className="py-12 text-center text-slate-400">Chargement…</p>
       ) : (
-        <div className="space-y-3">
-          {applications.map((item) => (
+        <div className={layout === "cartes" ? "grid grid-cols-1 gap-3 xl:grid-cols-2" : "space-y-2"}>
+          {layout === "liste" && applications.map((item) => {
+            const pending = item.status === "SOUMIS" || item.status === "EN_REVISION";
+            return (
+              <article key={item.id} className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3 sm:px-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="min-w-0 lg:w-1/4">
+                  <h3 className="truncate text-sm font-bold">{item.user.fullName}</h3>
+                  <p className="truncate text-xs text-slate-400">{item.user.email}</p>
+                </div>
+                <p className="min-w-0 text-xs text-slate-400 lg:w-1/4">
+                  <span className="block truncate text-slate-200">{item.establishment}</span>
+                  <span className="block truncate">{item.level} · {item.program}</span>
+                </p>
+                <p className="text-xs text-slate-400 lg:w-28">
+                  <span className="block font-mono text-emerald-300">{item.quitus?.code ?? "—"}</span>
+                  {item.submittedAt ? new Date(item.submittedAt).toLocaleDateString("fr-FR") : "—"}
+                </p>
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  {pending ? (
+                    <span className="flex-1" />
+                  ) : (
+                    <p className="min-w-0 flex-1 truncate text-xs text-slate-400" title={item.reviewNote ?? undefined}>
+                      {item.reviewedBy?.fullName ?? "Scolarité centrale"}{item.reviewNote ? ` — ${item.reviewNote}` : ""}
+                    </p>
+                  )}
+                  <StatusBadge status={item.status} />
+                  <IconAction label="Voir le dossier" onClick={() => viewDossier(item.id)} className="border border-blue-500/40 text-blue-300 hover:bg-blue-500/10"><Eye className="h-4 w-4" /></IconAction>
+                  {pending && (
+                    <>
+                      <IconAction label="Valider le dossier" disabled={processingId === item.id} onClick={() => void decide(item, "VALIDE")} className="bg-emerald-600 text-white hover:bg-emerald-500"><Check className="h-4 w-4" /></IconAction>
+                      {refuseButton(item)}
+                    </>
+                  )}
+                </div>
+              </div>
+              {pending && refusalForm(item)}
+              </article>
+            );
+          })}
+          {layout === "cartes" && applications.map((item) => (
             <article
               key={item.id}
               className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4"
@@ -726,34 +814,12 @@ function ApplicationList({
                 </p>
               </div>
               {item.status === "SOUMIS" || item.status === "EN_REVISION" ? (
-                <div className="flex flex-col gap-2 border-t border-slate-800 pt-3 sm:flex-row">
-                  <input
-                    value={notes[item.id] ?? ""}
-                    onChange={(event) =>
-                      setNotes((current) => ({
-                        ...current,
-                        [item.id]: event.target.value,
-                      }))
-                    }
-                    placeholder="Motif obligatoire en cas de refus (ex. document illisible)"
-                    className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base sm:text-xs max-[1024px]:min-h-[44px]"
-                  />
-                  <div className="grid grid-cols-2 gap-2 sm:flex">
-                    <button
-                      disabled={processingId === item.id}
-                      onClick={() => void decide(item, "VALIDE")}
-                      className={`rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold disabled:opacity-50 ${touch}`}
-                    >
-                      Valider
-                    </button>
-                    <button
-                      disabled={processingId === item.id}
-                      onClick={() => void decide(item, "REFUSE")}
-                      className={`rounded-xl bg-rose-600 px-3 py-2 text-xs font-bold disabled:opacity-50 ${touch}`}
-                    >
-                      Refuser
-                    </button>
+                <div className="space-y-3 border-t border-slate-800 pt-3">
+                  <div className="flex justify-end gap-2">
+                    <IconAction label="Valider le dossier" disabled={processingId === item.id} onClick={() => void decide(item, "VALIDE")} className="bg-emerald-600 text-white hover:bg-emerald-500"><Check className="h-4 w-4" /></IconAction>
+                    {refuseButton(item)}
                   </div>
+                  {refusalForm(item)}
                 </div>
               ) : (
                 <p className="break-words border-t border-slate-800 pt-3 text-xs text-slate-400">
@@ -771,6 +837,182 @@ function ApplicationList({
         </div>
       )}
     </section>
+  );
+}
+const DAY_MS = 24 * 60 * 60 * 1000;
+const dayKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+// Graphiques du tableau de bord : tracés en SVG/HTML simple, colorés par les classes du thème.
+function DashboardCharts({ applications }: { applications: Application[] }) {
+  const data = useMemo(() => {
+    const pending = applications.filter((item) => item.status === "SOUMIS" || item.status === "EN_REVISION").length;
+    const validated = applications.filter((item) => item.status === "VALIDE").length;
+    const refused = applications.filter((item) => item.status === "REFUSE").length;
+    const today = new Date();
+    const days = Array.from({ length: 14 }, (_, index) => {
+      const date = new Date(today.getTime() - (13 - index) * DAY_MS);
+      return { date, key: dayKey(date), count: 0 };
+    });
+    applications.forEach((item) => {
+      if (!item.submittedAt) return;
+      const day = days.find((entry) => entry.key === dayKey(new Date(item.submittedAt as string)));
+      if (day) day.count += 1;
+    });
+    const byEstablishment = new Map<string, number>();
+    applications.forEach((item) => byEstablishment.set(item.establishment, (byEstablishment.get(item.establishment) ?? 0) + 1));
+    const establishments = [...byEstablishment.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+    return { pending, validated, refused, days, establishments };
+  }, [applications]);
+
+  const total = applications.length;
+  const decided = data.validated + data.refused;
+  const validationRate = decided ? Math.round((data.validated / decided) * 100) : 0;
+  const segments = [
+    { label: "À traiter", value: data.pending, tone: "text-amber-400", dot: "bg-amber-400" },
+    { label: "Validés", value: data.validated, tone: "text-emerald-400", dot: "bg-emerald-400" },
+    { label: "Refusés", value: data.refused, tone: "text-rose-400", dot: "bg-rose-400" },
+  ];
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+  const maxDay = Math.max(1, ...data.days.map((day) => day.count));
+  const maxEstablishment = Math.max(1, ...data.establishments.map(([, count]) => count));
+  const periodTotal = data.days.reduce((sum, day) => sum + day.count, 0);
+
+  return (
+    <section className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
+      <div className="rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-6">
+        <h2 className="text-base font-bold text-white">Répartition des dossiers</h2>
+        <p className="text-xs text-slate-400">État de traitement de l&apos;ensemble des dossiers finalisés.</p>
+        <div className="mt-5 flex flex-col items-center gap-5 sm:flex-row sm:gap-8">
+          <div className="relative h-40 w-40 shrink-0">
+            <svg viewBox="0 0 100 100" role="img" aria-label={`${data.pending} à traiter, ${data.validated} validés, ${data.refused} refusés`} className="h-full w-full -rotate-90">
+              <circle cx="50" cy="50" r={radius} fill="none" strokeWidth="12" className="stroke-current text-slate-500 opacity-20" />
+              {total > 0 && segments.map((segment) => {
+                const length = (segment.value / total) * circumference;
+                const circle = segment.value > 0 && (
+                  <circle
+                    key={segment.label}
+                    cx="50" cy="50" r={radius} fill="none" strokeWidth="12"
+                    strokeDasharray={`${length} ${circumference - length}`}
+                    strokeDashoffset={-offset}
+                    className={`stroke-current ${segment.tone}`}
+                  />
+                );
+                offset += length;
+                return circle;
+              })}
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-3xl font-bold text-white">{total}</span>
+              <span className="text-[11px] text-slate-400">dossier(s)</span>
+            </div>
+          </div>
+          <ul className="w-full min-w-0 flex-1 space-y-2.5 text-xs">
+            {segments.map((segment) => (
+              <li key={segment.label} className="flex items-center justify-between gap-3">
+                <span className="flex min-w-0 items-center gap-2 text-slate-300">
+                  <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${segment.dot}`} />
+                  {segment.label}
+                </span>
+                <span className="font-bold text-white">
+                  {segment.value}
+                  <span className="ml-1.5 font-normal text-slate-500">{total ? Math.round((segment.value / total) * 100) : 0}%</span>
+                </span>
+              </li>
+            ))}
+            <li className="flex items-center justify-between gap-3 border-t border-slate-800 pt-2.5">
+              <span className="text-slate-400">Taux de validation</span>
+              <span className="font-bold text-emerald-400">{decided ? `${validationRate}%` : "—"}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+          <h2 className="text-base font-bold text-white">Dépôts des 14 derniers jours</h2>
+          <span className="text-xs font-semibold text-blue-400">{periodTotal} dépôt(s)</span>
+        </div>
+        <p className="text-xs text-slate-400">Nombre de dossiers finalisés par jour.</p>
+        <div className="mt-5 flex h-40 items-end gap-1 sm:gap-1.5" role="img" aria-label={`${periodTotal} dépôts sur les 14 derniers jours`}>
+          {data.days.map((day) => (
+            <div key={day.key} title={`${day.date.toLocaleDateString("fr-FR")} : ${day.count} dépôt(s)`} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
+              <span className="text-[10px] font-semibold text-slate-400">{day.count || ""}</span>
+              <div className={`w-full rounded-t-md ${day.count ? "bg-blue-600" : "bg-slate-800"}`} style={{ height: `${day.count ? Math.max(8, (day.count / maxDay) * 100) : 3}%` }} />
+            </div>
+          ))}
+        </div>
+        <div className="mt-1.5 flex gap-1 sm:gap-1.5">
+          {data.days.map((day, index) => (
+            <span key={day.key} className="min-w-0 flex-1 text-center text-[9px] text-slate-500 sm:text-[10px]">
+              {index % 2 === 1 || index === 13 ? day.date.getDate() : ""}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-6 lg:col-span-2">
+        <h2 className="text-base font-bold text-white">Dossiers par établissement</h2>
+        <p className="text-xs text-slate-400">Les 5 établissements qui déposent le plus de dossiers.</p>
+        {data.establishments.length ? (
+          <ul className="mt-5 space-y-3">
+            {data.establishments.map(([name, count]) => (
+              <li key={name} className="space-y-1">
+                <div className="flex items-baseline justify-between gap-3 text-xs">
+                  <span className="min-w-0 truncate text-slate-300" title={name}>{name}</span>
+                  <span className="shrink-0 font-bold text-white">{count}</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-950">
+                  <div className="h-full rounded-full bg-blue-600" style={{ width: `${(count / maxEstablishment) * 100}%` }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-5 rounded-2xl border border-dashed border-slate-700 p-6 text-center text-xs text-slate-500">Aucun dossier pour le moment.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+function RefusalForm({ note, onChange, busy, onConfirm, onCancel }: { note: string; onChange: (value: string) => void; busy: boolean; onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <form
+      onSubmit={(event) => { event.preventDefault(); onConfirm(); }}
+      className="mt-3 flex flex-col gap-2 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 sm:flex-row sm:items-center"
+    >
+      <input
+        autoFocus
+        value={note}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Motif du refus (obligatoire, ex. document illisible)"
+        aria-label="Motif du refus"
+        className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-base sm:text-xs max-[1024px]:min-h-[44px]"
+      />
+      <div className="flex gap-2">
+        <button type="submit" disabled={busy || !note.trim()} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-3 text-xs font-bold text-white transition hover:bg-rose-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none max-[1024px]:h-11">
+          <XCircle className="h-4 w-4" />
+          Confirmer le refus
+        </button>
+        <button type="button" onClick={onCancel} className="flex h-9 flex-1 items-center justify-center rounded-xl border border-slate-700 px-3 text-xs font-semibold text-slate-300 transition hover:bg-slate-800 cursor-pointer sm:flex-none max-[1024px]:h-11">
+          Annuler
+        </button>
+      </div>
+    </form>
+  );
+}
+function IconAction({ label, onClick, disabled, className, children }: { label: string; onClick: () => void; disabled?: boolean; className: string; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 max-[1024px]:h-11 max-[1024px]:w-11 ${className}`}
+    >
+      {children}
+    </button>
   );
 }
 function StatusBadge({ status }: { status: Status }) {
