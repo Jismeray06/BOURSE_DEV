@@ -346,5 +346,7 @@ model SiteSettings {
   ctaSecondaryLink    String             @default("/login")
   homepageContent     Json               @default("{}")
   homepageNews        Json               @default("[]")
+  // Pièces du dépôt de dossier étudiant : true = une seule liste pour tous les établissements.
+  uniformCandidatureDocuments Boolean    @default(false)
   updatedAt           DateTime           @updatedAt
 }

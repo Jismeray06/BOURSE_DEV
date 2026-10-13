@@ -203,7 +203,7 @@ export default function EstablishmentPage() {
   const [view, setView] = useState<View>("students");
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [settingsTabId, setSettingsTabId] = useState<"appearance" | "behavior" | "establishment" | "academic" | "documentsInscription" | "documentsCandidature">("appearance");
+  const [settingsTabId, setSettingsTabId] = useState<"appearance" | "behavior" | "establishment" | "academic" | "documentsInscription">("appearance");
   const [students, setStudents] = useState<Student[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [profile, setProfile] = useState<EstablishmentProfile | null>(null);
@@ -213,10 +213,7 @@ export default function EstablishmentPage() {
   });
   const [documentRequirements, setDocumentRequirements] = useState<DocumentRequirement[]>([]);
   const [newDocumentRequirement, setNewDocumentRequirement] = useState({ cycle: "LICENCE" as Cycle, label: "" });
-  const [candidatureDocumentRequirements, setCandidatureDocumentRequirements] = useState<DocumentRequirement[]>([]);
-  const [newCandidatureDocumentRequirement, setNewCandidatureDocumentRequirement] = useState({ label: "" });
   const [editingRequirement, setEditingRequirement] = useState<{ id: string; label: string } | null>(null);
-  const [editingCandidatureRequirement, setEditingCandidatureRequirement] = useState<{ id: string; label: string } | null>(null);
   const [secretaries, setSecretaries] = useState<Secretary[]>([]);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -290,12 +287,11 @@ export default function EstablishmentPage() {
       return;
     }
     setLoading(true);
-    const [studentResponse, curriculumResponse, settingsResponse, documentRequirementsResponse, candidatureDocumentRequirementsResponse, interfaceSettingsResponse] = await Promise.all([
+    const [studentResponse, curriculumResponse, settingsResponse, documentRequirementsResponse, interfaceSettingsResponse] = await Promise.all([
       request("/establishment/isstm/students"),
       request("/establishment/isstm/curriculum"),
       request("/establishment/isstm/settings"),
       request("/establishment/isstm/document-requirements?context=INSCRIPTION"),
-      request("/establishment/isstm/document-requirements?context=CANDIDATURE"),
       request("/establishment/isstm/interface-settings"),
     ]);
     const profileResponse = await request("/establishment/isstm/profile");
@@ -328,9 +324,6 @@ export default function EstablishmentPage() {
     }
     if (documentRequirementsResponse.ok) {
       setDocumentRequirements((await documentRequirementsResponse.json()) as DocumentRequirement[]);
-    }
-    if (candidatureDocumentRequirementsResponse.ok) {
-      setCandidatureDocumentRequirements((await candidatureDocumentRequirementsResponse.json()) as DocumentRequirement[]);
     }
     if (
       ["ETABLISSEMENT", "ADMIN_ETABLISSEMENT"].includes(
@@ -726,46 +719,6 @@ export default function EstablishmentPage() {
     else await load();
     setSaving(false);
   };
-  const createCandidatureDocumentRequirement = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!newCandidatureDocumentRequirement.label.trim()) { setMessage("Le libellé de la pièce est obligatoire."); return; }
-    setSaving(true);
-    setMessage("");
-    const response = await request("/establishment/isstm/document-requirements", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...newCandidatureDocumentRequirement, context: "CANDIDATURE" }),
-    });
-    if (!response.ok) setMessage(await errorMessage(response));
-    else {
-      setNewCandidatureDocumentRequirement({ label: "" });
-      await load();
-    }
-    setSaving(false);
-  };
-  const updateCandidatureDocumentRequirement = async (requirement: DocumentRequirement, patch: { label?: string; active?: boolean }) => {
-    setSaving(true);
-    setMessage("");
-    const response = await request(`/establishment/isstm/document-requirements/${requirement.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    });
-    if (!response.ok) setMessage(await errorMessage(response));
-    else {
-      setEditingCandidatureRequirement(null);
-      await load();
-    }
-    setSaving(false);
-  };
-  const deleteCandidatureDocumentRequirement = async (requirement: DocumentRequirement) => {
-    if (!window.confirm(`Supprimer « ${requirement.label} » ?`)) return;
-    setSaving(true);
-    const response = await request(`/establishment/isstm/document-requirements/${requirement.id}`, { method: "DELETE" });
-    if (!response.ok) setMessage(await errorMessage(response));
-    else await load();
-    setSaving(false);
-  };
 
   const establishmentName = profile?.name ?? "Mon établissement";
   const sidebarLogo = logoSrc(profile?.logoUrl);
@@ -806,7 +759,6 @@ export default function EstablishmentPage() {
     { id: "establishment", label: "Nom & logo de l’établissement", icon: Building2 },
     { id: "academic", label: "Structure académique & mentions", icon: Building2 },
     { id: "documentsInscription", label: "Pièces — Inscription", icon: FileText },
-    { id: "documentsCandidature", label: "Pièces — Dépôt de dossier étudiant", icon: FileText },
   ];
   const addSections: { mode: EnrollmentMode; label: string; icon: typeof UserPlus }[] = [
     { mode: "NEW", label: "Nouvelle inscription", icon: UserPlus },
@@ -1361,46 +1313,6 @@ export default function EstablishmentPage() {
                         setEditing={setEditingRequirement}
                         updateRequirement={updateDocumentRequirement}
                         deleteRequirement={deleteDocumentRequirement}
-                        saving={saving}
-                      />
-                    </div>
-                  ),
-                },
-                {
-                  id: "documentsCandidature",
-                  label: "Pièces — Dépôt de dossier étudiant",
-                  icon: <FileText className="h-4 w-4" />,
-                  content: (
-                    <div className="space-y-4 sm:space-y-6">
-                      <p className="text-xs text-slate-400">
-                        Pièces demandées à l&apos;étudiant dans son propre espace, à l&apos;étape « Dépôt de dossier » de sa candidature en ligne. Liste unique, sans distinction Licence/Master. Chaque pièce peut être activée, désactivée ou supprimée.
-                      </p>
-                      <form
-                        onSubmit={(event) => void createCandidatureDocumentRequirement(event)}
-                        className="flex flex-wrap items-end gap-3 rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-5"
-                      >
-                        <Input
-                          className="w-full sm:w-auto sm:flex-1"
-                          label="Nouvelle pièce à téléverser"
-                          value={newCandidatureDocumentRequirement.label}
-                          onChange={(value) => setNewCandidatureDocumentRequirement({ ...newCandidatureDocumentRequirement, label: value })}
-                          placeholder="Ex. Certificat médical"
-                        />
-                        <button
-                          disabled={saving}
-                          className={`w-full rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold sm:w-auto ${touch}`}
-                        >
-                          <Plus className="mr-1 inline h-4 w-4" />
-                          Ajouter
-                        </button>
-                      </form>
-                      <DocumentRequirementList
-                        title="Pièces obligatoires à fournir"
-                        requirements={candidatureDocumentRequirements}
-                        editing={editingCandidatureRequirement}
-                        setEditing={setEditingCandidatureRequirement}
-                        updateRequirement={updateCandidatureDocumentRequirement}
-                        deleteRequirement={deleteCandidatureDocumentRequirement}
                         saving={saving}
                       />
                     </div>

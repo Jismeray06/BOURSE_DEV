@@ -13,6 +13,7 @@ import { DossierViewer } from "../../components/DossierViewer";
 import { AdminSettingsPanel } from "../../components/AdminSettingsPanel";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { AccountPanel } from "../../components/AccountPanel";
+import { CandidatureDocumentsPanel } from "../../components/CandidatureDocumentsPanel";
 import { HeaderToolbar } from "../../components/HeaderToolbar";
 import { usePolling } from "../../components/usePolling";
 import { useInterfaceSettings, useSystemDark } from "../../components/useInterfaceSettings";
@@ -23,6 +24,7 @@ import {
   ChevronDown,
   ClipboardCheck,
   FileSearch,
+  FileText,
   GraduationCap,
   LayoutDashboard,
   LogOut,
@@ -42,7 +44,7 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 // Zone tactile confortable (44px) sur téléphone et tablette uniquement
 const touch = "max-[1024px]:min-h-[44px]";
 type Status = "SOUMIS" | "EN_REVISION" | "VALIDE" | "REFUSE";
-type Tab = "dashboard" | "applications" | "history" | "account" | "settings";
+type Tab = "dashboard" | "applications" | "history" | "documents" | "account" | "settings";
 type Application = {
   id: string;
   establishment: string;
@@ -201,9 +203,11 @@ export default function ScolaritePage() {
         ? "Dossiers à examiner"
         : activeTab === "history"
           ? "Historique des décisions"
-          : activeTab === "account"
-            ? "Mon compte"
-            : "Paramètres";
+          : activeTab === "documents"
+            ? "Pièces du dépôt de dossier"
+            : activeTab === "account"
+              ? "Mon compte"
+              : "Paramètres";
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-950 text-slate-100 selection:bg-blue-600 selection:text-white">
       {sidebarOpen && <button aria-label="Fermer le menu" onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-30 bg-slate-950/70 min-[1025px]:hidden" />}
@@ -261,6 +265,13 @@ export default function ScolaritePage() {
               icon={<FileSearch className="h-4 w-4" />}
             >
               Historique
+            </NavButton>
+            <NavButton
+              active={activeTab === "documents"}
+              onClick={() => { setActiveTab("documents"); setSidebarOpen(false); }}
+              icon={<FileText className="h-4 w-4" />}
+            >
+              Pièces à téléverser
             </NavButton>
             <NavButton
               active={activeTab === "account"}
@@ -434,6 +445,7 @@ export default function ScolaritePage() {
               viewDossier={setDossierApplicationId}
             />
           )}
+          {activeTab === "documents" && <CandidatureDocumentsPanel />}
           {activeTab === "account" && <AccountPanel />}
           {activeTab === "settings" && (
             <section className="space-y-4 sm:space-y-6">

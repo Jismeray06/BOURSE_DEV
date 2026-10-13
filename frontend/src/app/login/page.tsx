@@ -356,19 +356,6 @@ export default function AuthPage() {
             </span>
           </button>
 
-          {/* Mot de passe oublié (Connexion uniquement) */}
-          {!isRegistering ? (
-            <div className="text-left pt-1">
-              <button
-                type="button"
-                onClick={() => setErrorMsg('Contactez le service de scolarité pour réinitialiser votre mot de passe.')}
-                className="text-sm text-[#0b3b60] dark:text-blue-300 hover:underline cursor-pointer"
-              >
-                Mot de passe oublié ?
-              </button>
-            </div>
-          ) : null}
-
           {/* Bascule Connexion / Inscription, en bas du formulaire */}
           <p className="border-t border-slate-200 dark:border-slate-700 pt-4 text-center text-sm text-slate-600 dark:text-slate-400">
             {isRegistering ? (
