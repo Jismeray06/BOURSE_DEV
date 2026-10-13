@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Get, Headers, Post, Put, Unautho
 import { CurriculumOptionType, DocumentRequirementContext, RegistrationStatus, UserRole } from '@prisma/client';
 import { AuthService } from './auth.service.js';
 import { DocumentService } from './document.service.js';
+import { candidatureRequirementScope } from './document-type.js';
 import { PrismaService } from './prisma.service.js';
 import { QuitusService } from './quitus.service.js';
 
@@ -85,7 +86,7 @@ export class StudentController {
   private async requiredCandidatureDocumentTypes(establishment: string, isFirstYear: boolean) {
     const fallback = ['cin', 'quitus', 'residence', ...(isFirstYear ? ['bac'] : [])];
     const configured = await this.prisma.documentRequirement.findMany({
-      where: { establishment, context: DocumentRequirementContext.CANDIDATURE, active: true },
+      where: { establishment: await candidatureRequirementScope(this.prisma, establishment), context: DocumentRequirementContext.CANDIDATURE, active: true },
       select: { type: true },
     });
     if (!configured.length) return fallback;

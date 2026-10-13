@@ -4,6 +4,7 @@ import { CurriculumCycle, CurriculumOptionType, DocumentRequirementContext, Enro
 import { AuthService } from './auth.service.js';
 import { PrismaService } from './prisma.service.js';
 import { QuitusService } from './quitus.service.js';
+import { candidatureRequirementScope, documentTypeSlug } from './document-type.js';
 
 type VerifyQuitusBody = { code?: unknown; establishment?: unknown };
 type DocumentRequirementBody = { cycle?: unknown; type?: unknown; label?: unknown; active?: unknown; context?: unknown };
@@ -92,7 +93,7 @@ export class EstablishmentController {
   @Get('establishments/:name/document-requirements')
   async publicDocumentRequirements(@Param('name') name: string) {
     return this.prisma.documentRequirement.findMany({
-      where: { establishment: name, context: DocumentRequirementContext.CANDIDATURE, active: true },
+      where: { establishment: await candidatureRequirementScope(this.prisma, name), context: DocumentRequirementContext.CANDIDATURE, active: true },
       orderBy: { label: 'asc' },
     });
   }
@@ -112,14 +113,14 @@ export class EstablishmentController {
     const cycle = this.curriculumCycle(body.cycle);
     const context = this.documentContext(body.context);
     const label = this.required(body.label, 'Le libellé');
-    const type = this.documentType(body.type, label);
+    const type = documentTypeSlug(body.type, label);
     return this.prisma.documentRequirement.create({ data: { establishment, context, cycle, type, label } });
   }
 
   @Patch('establishment/isstm/document-requirements/:id')
   async updateDocumentRequirement(@Param('id') id: string, @Body() body: DocumentRequirementBody, @Headers('authorization') authorization?: string) {
     const establishment = await this.adminEstablishment(authorization);
-    const existing = await this.prisma.documentRequirement.findFirst({ where: { id, establishment } });
+    const existing = await this.prisma.documentRequirement.findFirst({ where: { id, establishment, context: DocumentRequirementContext.INSCRIPTION } });
     if (!existing) throw new BadRequestException('Pièce introuvable.');
     const data = {
       ...(typeof body.label === 'string' ? { label: this.required(body.label, 'Le libellé') } : {}),
@@ -133,7 +134,7 @@ export class EstablishmentController {
   @Delete('establishment/isstm/document-requirements/:id')
   async removeDocumentRequirement(@Param('id') id: string, @Headers('authorization') authorization?: string) {
     const establishment = await this.adminEstablishment(authorization);
-    const result = await this.prisma.documentRequirement.deleteMany({ where: { id, establishment } });
+    const result = await this.prisma.documentRequirement.deleteMany({ where: { id, establishment, context: DocumentRequirementContext.INSCRIPTION } });
     if (!result.count) throw new BadRequestException('Pièce introuvable.');
     return { deleted: true };
   }
@@ -383,20 +384,11 @@ export class EstablishmentController {
     if (value !== CurriculumCycle.LICENCE && value !== CurriculumCycle.MASTER) throw new BadRequestException('Le cycle doit être LICENCE ou MASTER.');
     return value;
   }
+  // Les pièces du dépôt de dossier étudiant (CANDIDATURE) sont gérées par la scolarité centrale, pas par l'établissement.
   private documentContext(value: unknown) {
-    if (value === undefined) return DocumentRequirementContext.INSCRIPTION;
-    if (value !== DocumentRequirementContext.INSCRIPTION && value !== DocumentRequirementContext.CANDIDATURE) {
-      throw new BadRequestException('Le contexte doit être INSCRIPTION ou CANDIDATURE.');
-    }
-    return value;
-  }
-  private documentType(value: unknown, label: string) {
-    const raw = typeof value === 'string' && value.trim() ? value.trim() : label;
-    const slug = raw
-      .normalize('NFD').replace(/[̀-ͯ]/g, '')
-      .toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-    if (!slug) throw new BadRequestException('Impossible de déterminer une clé pour cette pièce.');
-    return slug;
+    if (value === undefined || value === DocumentRequirementContext.INSCRIPTION) return DocumentRequirementContext.INSCRIPTION;
+    if (value === DocumentRequirementContext.CANDIDATURE) throw new BadRequestException('Les pièces du dépôt de dossier étudiant sont gérées par la scolarité centrale.');
+    throw new BadRequestException('Le contexte doit être INSCRIPTION.');
   }
   private optionalQuality(value: unknown): EnrollmentQuality | undefined {
     if (value === undefined) return undefined;
