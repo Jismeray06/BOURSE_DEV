@@ -539,50 +539,59 @@ export default function AdminPage() {
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500"><ShieldCheck className="h-5 w-5" /></div>
             <div className="min-w-0 overflow-hidden"><h2 className="truncate text-xs font-bold text-white">Administrateur</h2><p className="truncate text-[10px] text-slate-400">Gestion des inscriptions</p></div>
           </div>
-          <nav className="space-y-1 px-3">
-            <NavButton active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} icon={<LayoutDashboard className="h-4 w-4" />}>Tableau de bord</NavButton>
-            <NavButton active={activeTab === 'students'} onClick={() => { setActiveTab('students'); setSidebarOpen(false); }} icon={<ClipboardList className="h-4 w-4" />}>Etudiants <span className="ml-auto rounded-full border border-blue-500/30 bg-blue-500/20 px-2 py-0.5 text-[10px] text-blue-300">{pendingCount}</span></NavButton>
-            <NavButton active={activeTab === 'establishments'} onClick={() => { setActiveTab('establishments'); setSidebarOpen(false); void loadInstitutions(); }} icon={<Building2 className="h-4 w-4" />}>Établissements</NavButton>
-            <NavButton active={activeTab === 'accounts'} onClick={() => { setActiveTab('accounts'); setSidebarOpen(false); }} icon={<UserPlus className="h-4 w-4" />}>Gestion des comptes</NavButton>
-            <NavButton active={activeTab === 'users'} onClick={() => { setActiveTab('users'); setSidebarOpen(false); void loadAllUsers(); }} icon={<Database className="h-4 w-4" />}>Tous les comptes</NavButton>
-            <NavButton active={activeTab === 'history'} onClick={() => { setActiveTab('history'); setSidebarOpen(false); void loadAuditLog(); }} icon={<History className="h-4 w-4" />}>Historique</NavButton>
-            <NavButton active={activeTab === 'trash'} onClick={() => { setActiveTab('trash'); setSidebarOpen(false); void loadTrashedAccounts(); }} icon={<Trash2 className="h-4 w-4" />}>Corbeille {trashedAccounts.length > 0 && <span className="ml-auto rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">{trashedAccounts.length}</span>}</NavButton>
-            <NavButton active={activeTab === 'account'} onClick={() => { setActiveTab('account'); setSidebarOpen(false); }} icon={<UserCog className="h-4 w-4" />}>Mon compte</NavButton>
-            <div>
-              <NavButton
-                active={activeTab === 'settings'}
-                onClick={() => {
-                  setSettingsMenuOpen((open) => !open);
-                  if (activeTab !== 'settings') setActiveTab('settings');
-                }}
-                icon={<Settings className="h-4 w-4" />}
-              >
-                Paramètres
-                <ChevronDown className={`ml-auto h-4 w-4 shrink-0 transition-transform ${settingsMenuOpen ? 'rotate-180' : ''}`} />
-              </NavButton>
-              {settingsMenuOpen && (
-                <div className="mt-1 space-y-1 pl-4">
-                  {([
-                    { id: 'appearance', label: 'Apparence & Affichage', icon: <Palette className="h-3.5 w-3.5" /> },
-                    { id: 'behavior', label: 'Comportement', icon: <SlidersHorizontal className="h-3.5 w-3.5" /> },
-                    { id: 'identity', label: 'Identité', icon: <Building2 className="h-3.5 w-3.5" /> },
-                    { id: 'homepage', label: "Page d'accueil", icon: <Globe className="h-3.5 w-3.5" /> },
-                  ] as const).map((section) => {
-                    const active = activeTab === 'settings' && settingsTabId === section.id;
-                    return (
-                      <button
-                        key={section.id}
-                        onClick={() => { setActiveTab('settings'); setSettingsTabId(section.id); setSidebarOpen(false); }}
-                        className={`flex min-h-[40px] w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold ${active ? 'bg-blue-600/20 text-blue-300' : 'text-slate-500 hover:bg-slate-800/60 hover:text-slate-300'}`}
-                      >
-                        {section.icon}
-                        {section.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+          <nav className="space-y-4 px-3">
+            <NavSection title="Général">
+              <NavButton active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }} icon={<LayoutDashboard className="h-4 w-4" />}>Tableau de bord</NavButton>
+              <NavButton active={activeTab === 'history'} onClick={() => { setActiveTab('history'); setSidebarOpen(false); void loadAuditLog(); }} icon={<History className="h-4 w-4" />}>Historique</NavButton>
+            </NavSection>
+            <NavSection title="Gestion" separated>
+              <NavButton active={activeTab === 'students'} onClick={() => { setActiveTab('students'); setSidebarOpen(false); }} icon={<ClipboardList className="h-4 w-4" />}>Etudiants <span className="ml-auto rounded-full border border-blue-500/30 bg-blue-500/20 px-2 py-0.5 text-[10px] text-blue-300">{pendingCount}</span></NavButton>
+              <NavButton active={activeTab === 'establishments'} onClick={() => { setActiveTab('establishments'); setSidebarOpen(false); void loadInstitutions(); }} icon={<Building2 className="h-4 w-4" />}>Établissements</NavButton>
+            </NavSection>
+            <NavSection title="Comptes" separated>
+              <NavButton active={activeTab === 'accounts'} onClick={() => { setActiveTab('accounts'); setSidebarOpen(false); }} icon={<UserPlus className="h-4 w-4" />}>Gestion des comptes</NavButton>
+              <NavButton active={activeTab === 'users'} onClick={() => { setActiveTab('users'); setSidebarOpen(false); void loadAllUsers(); }} icon={<Database className="h-4 w-4" />}>Tous les comptes</NavButton>
+              <NavButton active={activeTab === 'trash'} onClick={() => { setActiveTab('trash'); setSidebarOpen(false); void loadTrashedAccounts(); }} icon={<Trash2 className="h-4 w-4" />}>Corbeille {trashedAccounts.length > 0 && <span className="ml-auto rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">{trashedAccounts.length}</span>}</NavButton>
+            </NavSection>
+            <NavSection title="Configuration" separated>
+              <NavButton active={activeTab === 'account'} onClick={() => { setActiveTab('account'); setSidebarOpen(false); }} icon={<UserCog className="h-4 w-4" />}>Mon compte</NavButton>
+              <div>
+                <NavButton
+                  active={activeTab === 'settings'}
+                  onClick={() => {
+                    setSettingsMenuOpen((open) => !open);
+                    if (activeTab !== 'settings') setActiveTab('settings');
+                  }}
+                  icon={<Settings className="h-4 w-4" />}
+                >
+                  Paramètres
+                  <ChevronDown className={`ml-auto h-4 w-4 shrink-0 transition-transform ${settingsMenuOpen ? 'rotate-180' : ''}`} />
+                </NavButton>
+                {settingsMenuOpen && (
+                  <div className="mt-1 space-y-1 pl-4">
+                    {([
+                      { id: 'appearance', label: 'Apparence & Affichage', icon: <Palette className="h-3.5 w-3.5" /> },
+                      { id: 'behavior', label: 'Comportement', icon: <SlidersHorizontal className="h-3.5 w-3.5" /> },
+                      { id: 'identity', label: 'Identité', icon: <Building2 className="h-3.5 w-3.5" /> },
+                      { id: 'homepage', label: "Page d'accueil", icon: <Globe className="h-3.5 w-3.5" /> },
+                    ] as const).map((section) => {
+                      const active = activeTab === 'settings' && settingsTabId === section.id;
+                      return (
+                        <button
+                          key={section.id}
+                          onClick={() => { setActiveTab('settings'); setSettingsTabId(section.id); setSidebarOpen(false); }}
+                          className={`flex min-h-[40px] w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold ${active ? 'bg-blue-600/20 text-blue-300' : 'text-slate-500 hover:bg-slate-800/60 hover:text-slate-300'}`}
+                        >
+                          {section.icon}
+                          {section.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+            </NavSection>
           </nav>
         </div>
         <div className="border-t border-slate-800/80 p-4"><button onClick={logout} className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs font-semibold text-slate-400 transition hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-400"><LogOut className="h-4 w-4" />Déconnexion</button></div>
@@ -843,6 +852,15 @@ export default function AdminPage() {
         onConfirm={confirmLogout}
       />
     </div>
+  );
+}
+
+function NavSection({ title, separated, children }: { title: string; separated?: boolean; children: React.ReactNode }) {
+  return (
+    <section aria-label={title} className={`space-y-1 ${separated ? 'border-t border-slate-800/80 pt-4' : ''}`}>
+      <h3 className="px-3.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">{title}</h3>
+      {children}
+    </section>
   );
 }
 

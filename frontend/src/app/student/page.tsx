@@ -85,7 +85,7 @@ const DOCUMENT_SUBTITLES: Record<string, string> = {
 };
 export default function StudentPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'mydossier' | 'notifications' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'mydossier' | 'notifications' | 'notabene' | 'settings'>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [settings, setSettings] = useInterfaceSettings('student');
@@ -269,6 +269,8 @@ export default function StudentPage() {
   const requiredDocuments = documents.filter((document) => document.type !== 'unemployment' && (document.type !== 'bac' || studentData.niveau === 'Licence 1 (L1)'));
   const missingDocuments = requiredDocuments.filter((document) => !document.file && !document.stored);
   const documentsComplete = missingDocuments.length === 0;
+  const stepProgress = currentStep === STEP_LABELS.length && requiredDocuments.length > 0 ? (requiredDocuments.length - missingDocuments.length) / requiredDocuments.length : 0;
+  const progressPercent = Math.round(((currentStep - 1 + stepProgress) / STEP_LABELS.length) * 100);
 
   const persistApplication = async (submit = false, override: Partial<typeof studentData> = {}) => {
     const data = { ...studentData, ...override };
@@ -452,6 +454,18 @@ export default function StudentPage() {
             </button>
 
             <button
+              onClick={() => { setActiveTab('notabene'); setSidebarOpen(false); }}
+              className={`w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                activeTab === 'notabene'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+              }`}
+            >
+              <AlertTriangle className="w-4 h-4" />
+              <span>Nota Bene</span>
+            </button>
+
+            <button
               disabled={!isSubmitted}
               onClick={() => { if (!isSubmitted) return; setActiveTab('settings'); setSidebarOpen(false); }}
               title={!isSubmitted ? 'Disponible après le dépôt de votre dossier' : undefined}
@@ -513,15 +527,15 @@ export default function StudentPage() {
             ]}
           />
 
-          {/* Le statut passe sur sa propre ligne sur téléphone */}
-          <span className={`order-last sm:order-none w-fit max-w-full px-3 py-1 text-xs font-bold rounded-full flex items-center gap-1.5 border ${
-            isSubmitted 
-              ? applicationStatus === 'REFUSE' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : applicationStatus === 'VALIDE' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-              : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-          }`}>
-            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-            Statut : {isSubmitted ? (applicationStatus === 'VALIDE' ? 'Dossier validé' : applicationStatus === 'REFUSE' ? 'Dossier refusé' : applicationStatus === 'EN_REVISION' ? 'Dossier en révision' : 'Dossier en attente') : `Étape ${currentStep}/5 en cours`}
-          </span>
+          {/* Le statut n'apparaît qu'une fois le dossier déposé (la progression est déjà dans la carte d'étapes) */}
+          {isSubmitted && (
+            <span className={`order-last sm:order-none w-fit max-w-full px-3 py-1 text-xs font-bold rounded-full flex items-center gap-1.5 border ${
+              applicationStatus === 'REFUSE' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : applicationStatus === 'VALIDE' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+            }`}>
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              Statut : {applicationStatus === 'VALIDE' ? 'Dossier validé' : applicationStatus === 'REFUSE' ? 'Dossier refusé' : applicationStatus === 'EN_REVISION' ? 'Dossier en révision' : 'Dossier en attente'}
+            </span>
+          )}
         </header>
 
         <main className="w-full min-w-0 flex-1 space-y-4 p-4 sm:space-y-6 sm:p-6 min-[1025px]:p-8">
@@ -529,21 +543,45 @@ export default function StudentPage() {
           {/* BARRE DE PROGRESSION DES ÉTAPES D'INSCRIPTION */}
           {!isSubmitted && activeTab === 'dashboard' && (
             <>
-              <div className="bg-slate-900/90 border border-slate-800/80 p-4 sm:p-5 rounded-3xl space-y-3">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-400 px-1">
-                  {STEP_LABELS.map((label, index) => (
-                    <span key={label} className={currentStep >= index + 1 ? 'text-blue-400' : ''}>
-                      {index + 1}<span className="hidden sm:inline">. {label}</span>
-                    </span>
-                  ))}
+              <div className="bg-slate-900/90 border border-slate-800/80 p-4 sm:p-6 rounded-3xl space-y-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="flex min-w-0 items-center gap-2 text-sm font-bold text-white">
+                    <Send className="w-4 h-4 shrink-0 text-blue-400" />
+                    <span className="truncate">Dépôt de dossier de bourse</span>
+                  </h2>
+                  <span className="shrink-0 text-xs font-semibold text-blue-400">Étape {currentStep}/{STEP_LABELS.length}</span>
                 </div>
-                <p className="px-1 text-xs font-semibold text-blue-400 sm:hidden">Étape {currentStep}/5 · {STEP_LABELS[currentStep - 1]}</p>
-                <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="text-3xl font-bold text-white sm:text-4xl">{progressPercent}%</span>
+                  <span className="text-xs text-slate-500">{STEP_LABELS.length - currentStep + 1} étape(s) restante(s) · {STEP_LABELS[currentStep - 1]}</span>
+                </div>
+                <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
                   <div
-                    className="bg-gradient-to-r from-blue-600 to-indigo-500 h-full transition-all duration-500"
-                    style={{ width: `${(currentStep / 5) * 100}%` }}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-500 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${progressPercent}%` }}
                   />
                 </div>
+                <ol className="grid grid-cols-5">
+                  {STEP_LABELS.map((label, index) => {
+                    const state = currentStep > index + 1 ? 'done' : currentStep === index + 1 ? 'current' : 'upcoming';
+                    return (
+                      <li key={label} className="relative flex min-w-0 flex-col items-center gap-1.5 text-center">
+                        {index > 0 && (
+                          <span aria-hidden className={`absolute right-1/2 top-3 h-0.5 w-full -translate-y-1/2 ${currentStep >= index + 1 ? 'bg-blue-600' : 'bg-slate-800'}`} />
+                        )}
+                        <span className={`relative z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 ${
+                          state === 'done' ? 'bg-blue-600 border-blue-600 text-white' : state === 'current' ? 'bg-slate-900 border-blue-500/50' : 'bg-slate-900 border-slate-700'
+                        }`}>
+                          {state === 'done' ? <Check className="h-3.5 w-3.5" /> : state === 'current' ? <span className="h-2 w-2 rounded-full bg-blue-600" /> : null}
+                        </span>
+                        <span className={`w-full break-words text-[10px] font-semibold leading-tight sm:text-xs ${state === 'upcoming' ? 'text-slate-400' : 'text-white'}`}>{label}</span>
+                        <span className="text-[10px] text-slate-500 sm:text-[11px]">
+                          {state === 'done' ? 'Terminé' : state === 'current' ? (index === 4 ? `${requiredDocuments.length - missingDocuments.length} sur ${requiredDocuments.length}` : 'En cours') : 'À venir'}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ol>
               </div>
               {quitusError && currentStep < 4 && <p role="alert" className="break-words rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">{quitusError} Vérifiez que le backend est démarré sur le port 3001.</p>}
             </>
@@ -873,61 +911,68 @@ export default function StudentPage() {
 
           {/* ÉTAPE 5 : PIÈCES DU DOSSIER */}
           {activeTab === 'dashboard' && currentStep === 5 && !isSubmitted && (
-            <div className="bg-slate-900/90 border border-slate-800/80 p-4 sm:p-6 rounded-3xl space-y-5">
-              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-800/80 pb-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-blue-400 flex items-center gap-2">
-                  <FileCheck className="w-4 h-4 shrink-0" />
-                  Pièces Obligatoires du Dossier
+            <div className="bg-slate-900/90 border border-slate-800/80 p-4 sm:p-6 rounded-3xl space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <FileCheck className="w-4 h-4 shrink-0 text-blue-400" />
+                  Pièces à téléverser
                 </h3>
-                <span className={`text-[11px] ${documentsComplete ? 'text-emerald-400' : 'text-amber-400'}`}>{requiredDocuments.length - missingDocuments.length}/{requiredDocuments.length} pièce(s) obligatoire(s) téléversée(s)</span>
+                <span className={`text-[11px] ${documentsComplete ? 'text-emerald-400' : 'text-slate-500'}`}>{missingDocuments.length} à fournir · {requiredDocuments.length - missingDocuments.length} téléversée(s)</span>
               </div>
 
-              <div className="space-y-3">
-                {documents.map((doc) => (
-                  <div 
-                    key={doc.id}
-                    className="p-3 sm:p-4 bg-slate-950/60 border border-slate-800/60 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:border-slate-700/80 transition"
-                  >
-                    <div className="flex min-w-0 items-start gap-3">
-                      <div className="w-7 h-7 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
-                        {doc.id}
+              <div className="space-y-2">
+                {documents.map((doc) => {
+                  const uploaded = Boolean(doc.file || doc.stored);
+                  const optional = !requiredDocuments.includes(doc);
+                  return (
+                    <div
+                      key={doc.id}
+                      className="p-3 sm:px-4 bg-slate-950/60 border border-slate-800/60 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:border-slate-700 transition"
+                    >
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${uploaded ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-700'}`}>
+                          {uploaded && <Check className="h-3.5 w-3.5" />}
+                        </span>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-semibold text-slate-200 break-words">{doc.title}</h4>
+                          <p className="text-[11px] text-slate-500 mt-0.5">{doc.subtitle}</p>
+                          {uploaded && (
+                            <div className="mt-2 flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
+                              <File className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate max-w-[14rem] sm:max-w-[300px]">{doc.file?.name ?? 'Pièce enregistrée sur le serveur'}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-semibold text-slate-200 break-words">{doc.title}</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5">{doc.subtitle}</p>
-                        
-                        {(doc.file || doc.stored) && (
-                          <div className="mt-2 flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
-                            <File className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate max-w-[14rem] sm:max-w-[300px]">{doc.file?.name ?? 'Pièce enregistrée sur le serveur'}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
 
-                    <div className="w-full shrink-0 sm:w-auto sm:self-center">
-                      <label className="block cursor-pointer">
-                        <input 
-                          type="file" 
-                          accept=".pdf,.png,.jpg,.jpeg" 
-                          className="hidden" 
-                          onChange={(e) => handleFileUpload(doc.id, e)}
-                        />
-                        {doc.file || doc.stored ? (
-                          <span className={`px-3 py-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-emerald-500/20 transition ${touch}`}>
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Changer le fichier</span>
-                          </span>
-                        ) : (
-                          <span className={`px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition shadow-md shadow-blue-600/20 ${touch}`}>
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>Téléverser</span>
-                          </span>
-                        )}
-                      </label>
+                      <div className="flex w-full shrink-0 items-center justify-between gap-3 sm:w-auto sm:justify-end">
+                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${uploaded ? 'text-emerald-400' : optional ? 'text-slate-400' : 'text-amber-400'}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${uploaded ? 'bg-emerald-400' : optional ? 'bg-slate-500' : 'bg-amber-400'}`} />
+                          {uploaded ? 'Téléversée' : optional ? 'Facultative' : 'À téléverser'}
+                        </span>
+                        <label className="block cursor-pointer">
+                          <input
+                            type="file"
+                            accept=".pdf,.png,.jpg,.jpeg"
+                            className="hidden"
+                            onChange={(e) => handleFileUpload(doc.id, e)}
+                          />
+                          {uploaded ? (
+                            <span className={`px-3 py-2 bg-slate-950 border border-slate-800 text-slate-300 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 hover:bg-slate-800 transition ${touch}`}>
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Changer</span>
+                            </span>
+                          ) : (
+                            <span className={`px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition shadow-md shadow-blue-600/20 ${touch}`}>
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>Téléverser</span>
+                            </span>
+                          )}
+                        </label>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
@@ -985,7 +1030,8 @@ export default function StudentPage() {
             </div>
           )}
 
-          {/* NOTA BENE */}
+          {/* ONGLET NOTA BENE */}
+          {activeTab === 'notabene' && (
           <div className="bg-slate-900/90 border border-slate-800/80 p-4 sm:p-6 rounded-3xl space-y-3">
             <div className="flex items-start gap-2 text-slate-300 font-bold text-xs uppercase tracking-wider">
               <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -1003,10 +1049,11 @@ export default function StudentPage() {
               </li>
               <li className="flex items-start gap-2 text-rose-400 font-semibold">
                 <span className="text-rose-400 font-bold">•</span>
-                <span className="min-w-0"><strong>TOUT DOSSIER INCOMPLET NE SERA PAS PRIS EN COMPTE.</strong> Assurez-vous d&apos;avoir téléversé l&apos;ensemble des documents requis ci-dessus.</span>
+                <span className="min-w-0"><strong>TOUT DOSSIER INCOMPLET NE SERA PAS PRIS EN COMPTE.</strong> Assurez-vous d&apos;avoir téléversé l&apos;ensemble des documents requis dans « Dépôt de dossier ».</span>
               </li>
             </ul>
           </div>
+          )}
 
         </main>
 
