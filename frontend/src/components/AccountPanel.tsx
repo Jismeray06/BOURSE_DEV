@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Camera, Eye, EyeOff, KeyRound, Mail, Trash2 } from 'lucide-react';
 import { avatarSrc, notifyProfileChanged, useProfile } from './useProfile';
 
@@ -23,7 +23,7 @@ async function accountRequest(path: string, method: string, body?: unknown) {
 
 // Modification, par l'utilisateur lui-même, de son mot de passe et de son adresse e-mail.
 // Utilisable dans n'importe quel espace connecté.
-export function AccountPanel() {
+export function AccountPanel({ children }: { children?: ReactNode }) {
   const profile = useProfile();
 
   return (
@@ -33,6 +33,7 @@ export function AccountPanel() {
         <EmailForm currentEmail={profile?.email ?? ''} />
         <PasswordForm />
       </div>
+      {children}
     </div>
   );
 }

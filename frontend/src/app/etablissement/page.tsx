@@ -203,7 +203,7 @@ export default function EstablishmentPage() {
   const [view, setView] = useState<View>("students");
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [settingsTabId, setSettingsTabId] = useState<"appearance" | "behavior" | "establishment" | "academic" | "documentsInscription">("appearance");
+  const [settingsTabId, setSettingsTabId] = useState<"appearance" | "behavior" | "academic" | "documentsInscription">("appearance");
   const [students, setStudents] = useState<Student[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [profile, setProfile] = useState<EstablishmentProfile | null>(null);
@@ -756,7 +756,6 @@ export default function EstablishmentPage() {
   const settingsSections: { id: typeof settingsTabId; label: string; icon: typeof Palette }[] = [
     { id: "appearance", label: "Apparence & Affichage", icon: Palette },
     { id: "behavior", label: "Comportement", icon: SlidersHorizontal },
-    { id: "establishment", label: "Nom & logo de l’établissement", icon: Building2 },
     { id: "academic", label: "Structure académique & mentions", icon: Building2 },
     { id: "documentsInscription", label: "Pièces — Inscription", icon: FileText },
   ];
@@ -985,7 +984,13 @@ export default function EstablishmentPage() {
             {message}
           </p>
         )}
-        {view === "account" && <AccountPanel />}
+        {view === "account" && (
+          <AccountPanel>
+            {isEstablishmentAdmin && (
+              <EstablishmentIdentityPanel key={profile?.id ?? "none"} profile={profile} onSaved={(updated) => { setProfile(updated); void load(); }} />
+            )}
+          </AccountPanel>
+        )}
         {view === "dashboard" && isEstablishmentAdmin && (
           <DashboardView data={dashboard} loading={loading} goTo={setView} />
         )}
@@ -1167,12 +1172,6 @@ export default function EstablishmentPage() {
               hideNav
               activeTabId={settingsTabId}
               extraTabs={[
-                {
-                  id: "establishment",
-                  label: "Nom & logo de l’établissement",
-                  icon: <Building2 className="h-4 w-4" />,
-                  content: <EstablishmentIdentityPanel key={profile?.id ?? "none"} profile={profile} onSaved={(updated) => { setProfile(updated); void load(); }} />,
-                },
                 {
                   id: "academic",
                   label: "Structure académique & mentions",
