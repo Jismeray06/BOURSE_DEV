@@ -1087,7 +1087,7 @@ export default function EstablishmentPage() {
           />
         )}
         {view === "trash" && (
-          <TrashView students={trashedStudents} saving={saving} onRestore={(student) => void restoreStudent(student)} onPurge={setStudentToPurge} />
+          <TrashView students={trashedStudents} saving={saving} canPurge={isEstablishmentAdmin} onRestore={(student) => void restoreStudent(student)} onPurge={setStudentToPurge} />
         )}
         {view === "add" && (
           <form
@@ -1818,7 +1818,7 @@ function StudentActions({ item, onEdit, onDelete }: { item: Student; onEdit: (st
     </div>
   );
 }
-function TrashView({ students, saving, onRestore, onPurge }: { students: Student[]; saving: boolean; onRestore: (student: Student) => void; onPurge: (student: Student) => void }) {
+function TrashView({ students, saving, canPurge, onRestore, onPurge }: { students: Student[]; saving: boolean; canPurge: boolean; onRestore: (student: Student) => void; onPurge: (student: Student) => void }) {
   const deletedOn = (value?: string | null) => (value ? new Date(value).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" }) : "—");
   return (
     <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
@@ -1846,14 +1846,16 @@ function TrashView({ students, saving, onRestore, onPurge }: { students: Student
                   <RotateCcw className="h-4 w-4" />
                   Restaurer
                 </button>
-                <button
-                  onClick={() => onPurge(item)}
-                  disabled={saving}
-                  className={`flex items-center gap-2 rounded-xl border border-rose-500/40 px-4 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500/10 disabled:opacity-50 ${touch}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Supprimer définitivement
-                </button>
+                {canPurge && (
+                  <button
+                    onClick={() => onPurge(item)}
+                    disabled={saving}
+                    className={`flex items-center gap-2 rounded-xl border border-rose-500/40 px-4 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500/10 disabled:opacity-50 ${touch}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Supprimer définitivement
+                  </button>
+                )}
               </div>
             </div>
           ))}

@@ -13,21 +13,31 @@ import type { Request, Response } from 'express';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { AuthService } from './auth.service.js';
 import { GoogleAuthService } from './google-auth.service.js';
+import { RateLimiter } from './rate-limiter.js';
 
 type Credentials = { email?: unknown; password?: unknown };
 type Registration = Credentials & { fullName?: unknown };
 type Verification = { token?: unknown };
 type GoogleExchange = { code?: unknown };
 
+const fifteenMinutes = 15 * 60 * 1000;
+
 @Controller('auth')
 export class AuthController {
+  // Limites par adresse IP (en mémoire). Derrière un proxy, activer « trust proxy » pour que l'IP du client soit lue.
+  private readonly loginAttempts = new RateLimiter(30, fifteenMinutes, 'Trop de tentatives de connexion. Réessayez dans quelques minutes.');
+  // Échecs de connexion pour un même couple IP + adresse e-mail : ralentit le devinage d'un mot de passe sans bloquer le vrai titulaire du compte depuis un autre appareil.
+  private readonly loginFailures = new RateLimiter(5, fifteenMinutes, 'Trop d’échecs de connexion pour ce compte. Réessayez dans 15 minutes.');
+  private readonly registrations = new RateLimiter(5, 60 * 60 * 1000, 'Trop de créations de compte depuis cette adresse. Réessayez dans une heure.');
+
   constructor(
     private readonly authService: AuthService,
     private readonly googleAuthService: GoogleAuthService,
   ) {}
 
   @Post('register')
-  register(@Body() body: Registration) {
+  register(@Body() body: Registration, @Req() request: Request) {
+    this.registrations.consume(this.client(request));
     const fullName = this.requiredString(body.fullName, 'Le nom complet');
     const email = this.email(body.email);
     const password = this.password(body.password);
@@ -35,11 +45,20 @@ export class AuthController {
   }
 
   @Post('login')
-  login(@Body() body: Credentials) {
-    return this.authService.login(
-      this.email(body.email),
-      this.requiredString(body.password, 'Le mot de passe'),
-    );
+  async login(@Body() body: Credentials, @Req() request: Request) {
+    const client = this.client(request);
+    this.loginAttempts.consume(client);
+    const email = this.email(body.email);
+    const failureKey = `${client}|${email.trim().toLowerCase()}`;
+    this.loginFailures.check(failureKey);
+    try {
+      const response = await this.authService.login(email, this.requiredString(body.password, 'Le mot de passe'));
+      this.loginFailures.clear(failureKey);
+      return response;
+    } catch (error: unknown) {
+      if (error instanceof UnauthorizedException) this.loginFailures.record(failureKey);
+      throw error;
+    }
   }
 
   @Post('verify-email')
@@ -88,6 +107,10 @@ export class AuthController {
   @Post('google/exchange')
   googleExchange(@Body() body: GoogleExchange) {
     return this.authService.exchangeGoogleLoginCode(this.requiredString(body.code, 'Le code de connexion'));
+  }
+
+  private client(request: Request) {
+    return request.ip ?? request.socket.remoteAddress ?? 'inconnu';
   }
 
   private requiredString(value: unknown, field: string) {

@@ -6,3 +6,6 @@ dist/
 *.log
 *.tsbuildinfo
 .local-backups/
+
+# Identifiants locaux : ne jamais versionner
+backend/.local-credentials.txt

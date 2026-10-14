@@ -199,10 +199,11 @@ export class EstablishmentController {
     return { deleted: true };
   }
 
-  // Suppression définitive, possible uniquement depuis la corbeille : fiche, pièces jointes et quitus sont effacés.
+  // Suppression définitive (responsable uniquement), possible uniquement depuis la corbeille : fiche, pièces jointes et quitus sont effacés.
   @Delete('establishment/isstm/students/:id/permanent')
   async purgeStudent(@Param('id') id: string, @Headers('authorization') authorization?: string) {
-    const establishment = await this.managerEstablishment(authorization);
+    // Irréversible : réservé au responsable de l'établissement (pas au secrétaire).
+    const establishment = await this.adminEstablishment(authorization);
     const current = await this.prisma.enrolledStudent.findFirst({ where: { id, establishment, deletedAt: { not: null } }, include: { documents: { select: { storageName: true } }, quitus: { include: { application: { select: { id: true } } } } } });
     if (!current) throw new BadRequestException('Seuls les étudiants de la corbeille peuvent être supprimés définitivement.');
     // Un quitus déjà utilisé par un dossier en ligne est conservé : il sert de preuve à ce dossier.
