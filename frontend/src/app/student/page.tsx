@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { SidebarLogo } from '../../components/SidebarLogo';
 import { AdminSettingsPanel } from '../../components/AdminSettingsPanel';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useInterfaceSettings, useSystemDark } from '../../components/useInterfaceSettings';
@@ -381,9 +382,7 @@ export default function StudentPage() {
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col justify-between overflow-y-auto bg-slate-900/95 border-r border-slate-800/80 backdrop-blur-xl transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} min-[1025px]:translate-x-0`}>
         <div>
           <div className="p-5 sm:p-6 border-b border-slate-800/80 flex items-center gap-3">
-            <div className="bg-gradient-to-tr from-blue-600 to-indigo-500 p-2.5 rounded-2xl shadow-lg shadow-blue-500/20 shrink-0">
-              <GraduationCap className="w-6 h-6 text-white" />
-            </div>
+            <SidebarLogo />
             <div className="min-w-0">
               <span className="font-extrabold text-base tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent block leading-tight truncate">
                 Univ Mahajanga
@@ -629,7 +628,7 @@ export default function StudentPage() {
                             isSelected ? 'bg-blue-600/10 border-blue-500' : 'bg-slate-950 border-slate-800 hover:border-slate-700'
                           }`}
                         >
-                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${isSelected ? 'border-blue-400/40 bg-blue-500/20 text-blue-200' : 'border-slate-700 bg-slate-900 text-slate-400'}`}> {logo ? <img src={logo} alt="" className="h-full w-full rounded-lg object-contain" /> : <EstablishmentIcon name={item.name} className="h-4 w-4" />}</span>
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${isSelected ? 'border-blue-400/40 bg-blue-500/20 text-blue-200' : 'border-slate-700 bg-slate-900 text-slate-400'}`}> {logo ? <img src={logo} alt="" className="h-full w-full rounded-full bg-white object-contain p-0.5" /> : <EstablishmentIcon name={item.name} className="h-4 w-4" />}</span>
                           <span className="min-w-0 flex-1 text-xs font-semibold text-white break-words">{item.name}</span>
                           {isSelected && <Check className="w-3.5 h-3.5 shrink-0 text-blue-400 stroke-[3]" />}
                         </button>

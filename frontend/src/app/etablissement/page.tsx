@@ -2,6 +2,7 @@
 
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { SidebarLogo } from "../../components/SidebarLogo";
 import { DossierViewer } from "../../components/DossierViewer";
 import { AdminSettingsPanel } from "../../components/AdminSettingsPanel";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -12,7 +13,7 @@ import { AccountPanel } from "../../components/AccountPanel";
 import { HeaderToolbar } from "../../components/HeaderToolbar";
 import { usePolling } from "../../components/usePolling";
 import { isDarkRendering, toggleLightDark } from "../../components/adminSettings";
-import { EstablishmentIcon, logoSrc } from "../../components/establishments";
+import { EstablishmentBadge } from "../../components/establishments";
 import {
   BookOpen,
   Building2,
@@ -29,6 +30,7 @@ import {
   Pencil,
   Plus,
   Printer,
+  RotateCcw,
   RefreshCw,
   Search,
   Settings,
@@ -43,7 +45,7 @@ import {
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 // Zone tactile confortable (44px) sur téléphone et tablette uniquement
 const touch = "max-[1024px]:min-h-[44px]";
-type View = "dashboard" | "students" | "add" | "secretaries" | "settings" | "account";
+type View = "dashboard" | "students" | "add" | "secretaries" | "settings" | "account" | "trash";
 type Cycle = "LICENCE" | "MASTER";
 type Student = {
   id: string;
@@ -62,7 +64,10 @@ type Student = {
   nationality?: string | null;
   birthDatePlace?: string | null;
   quality?: "PASSANT" | "REDOUBLANT" | null;
+  deletedAt?: string | null;
 };
+type StudentFilters = { level: string; program: string; form: string; gender: string; status: string; quitus: string };
+const emptyFilters: StudentFilters = { level: "", program: "", form: "", gender: "", status: "", quitus: "" };
 type Secretary = {
   id: string;
   fullName: string;
@@ -216,6 +221,11 @@ export default function EstablishmentPage() {
   const [editingRequirement, setEditingRequirement] = useState<{ id: string; label: string } | null>(null);
   const [secretaries, setSecretaries] = useState<Secretary[]>([]);
   const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<StudentFilters>(emptyFilters);
+  const [trashedStudents, setTrashedStudents] = useState<Student[]>([]);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [studentToPurge, setStudentToPurge] = useState<Student | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -384,11 +394,19 @@ export default function EstablishmentPage() {
   const shownStudents = useMemo(() => {
     const term = search.toLowerCase();
     return students.filter((item) =>
+      (!filters.level || item.level === filters.level) &&
+      (!filters.program || item.program === filters.program) &&
+      (!filters.form || item.registrationForm === filters.form) &&
+      (!filters.gender || item.gender === filters.gender) &&
+      (!filters.status || (filters.status === "ACTIF") === item.active) &&
+      (!filters.quitus || (filters.quitus === "AVEC") === !!item.quitus) &&
       `${item.registrationNumber} ${item.fullName} ${item.email ?? ""} ${item.level} ${item.program}`
         .toLowerCase()
         .includes(term),
     );
-  }, [students, search]);
+  }, [students, search, filters]);
+  const filterLevels = useMemo(() => [...new Set(students.map((item) => item.level))].sort(), [students]);
+  const filterPrograms = useMemo(() => [...new Set(students.map((item) => item.program))].sort(), [students]);
   const renewalCandidates = useMemo(() => {
     const term = existingStudentSearch.trim().toLowerCase();
     if (!term) return [];
@@ -404,6 +422,62 @@ export default function EstablishmentPage() {
   const allSelected =
     eligibleIds.length > 0 &&
     eligibleIds.every((id) => selectedIds.includes(id));
+
+  const loadTrash = async () => {
+    const response = await request("/establishment/isstm/students/trash");
+    if (response.ok) setTrashedStudents((await response.json()) as Student[]);
+  };
+  const saveStudent = async (id: string, changes: Record<string, string>) => {
+    setSaving(true);
+    const response = await request(`/establishment/isstm/students/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(changes),
+    });
+    setSaving(false);
+    if (!response.ok) return await errorMessage(response);
+    setEditingStudent(null);
+    setMessage("Étudiant modifié.");
+    await load();
+    return null;
+  };
+  const deleteStudent = async () => {
+    if (!studentToDelete) return;
+    const target = studentToDelete;
+    setStudentToDelete(null);
+    setSaving(true);
+    const response = await request(`/establishment/isstm/students/${target.id}`, { method: "DELETE" });
+    if (!response.ok) setMessage(await errorMessage(response));
+    else {
+      setMessage(`${target.fullName} a été déplacé dans la corbeille.`);
+      setSelectedIds((current) => current.filter((id) => id !== target.id));
+      await Promise.all([load(), loadTrash()]);
+    }
+    setSaving(false);
+  };
+  const purgeStudent = async () => {
+    if (!studentToPurge) return;
+    const target = studentToPurge;
+    setStudentToPurge(null);
+    setSaving(true);
+    const response = await request(`/establishment/isstm/students/${target.id}/permanent`, { method: "DELETE" });
+    if (!response.ok) setMessage(await errorMessage(response));
+    else {
+      setMessage(`${target.fullName} a été supprimé définitivement.`);
+      await loadTrash();
+    }
+    setSaving(false);
+  };
+  const restoreStudent = async (student: Student) => {
+    setSaving(true);
+    const response = await request(`/establishment/isstm/students/${student.id}/restore`, { method: "POST" });
+    if (!response.ok) setMessage(await errorMessage(response));
+    else {
+      setMessage(`${student.fullName} a été restauré.`);
+      await Promise.all([load(), loadTrash()]);
+    }
+    setSaving(false);
+  };
 
   const generateQuitus = async (studentIds: string[]) => {
     if (!studentIds.length)
@@ -721,7 +795,6 @@ export default function EstablishmentPage() {
   };
 
   const establishmentName = profile?.name ?? "Mon établissement";
-  const sidebarLogo = logoSrc(profile?.logoUrl);
   // Actualisation discrète des chiffres affichés (cloche et tableau de bord), sans recharger toute la page.
   const refreshLive = async () => {
     if (!sessionStorage.getItem("auth_token")) return;
@@ -743,6 +816,7 @@ export default function EstablishmentPage() {
       ? [{ id: "dashboard" as View, label: "Tableau de bord", icon: LayoutDashboard }]
       : []),
     { id: "students", label: "Liste des étudiants", icon: List },
+    { id: "trash", label: "Corbeille", icon: Trash2 },
     ...(isEstablishmentAdmin
       ? [
           {
@@ -778,9 +852,7 @@ export default function EstablishmentPage() {
       >
         <div>
           <div className="flex items-center gap-3 border-b border-slate-800 p-5 sm:p-6">
-            <div className="shrink-0 rounded-2xl bg-blue-600 p-2.5">
-              <GraduationCap className="h-6 w-6" />
-            </div>
+            <SidebarLogo />
             <div className="min-w-0">
               <b className="block truncate">Univ Mahajanga</b>
               <span className="block truncate text-[10px] uppercase tracking-wider text-blue-400">
@@ -796,12 +868,7 @@ export default function EstablishmentPage() {
             </button>
           </div>
           <div className="m-3 flex gap-3 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
-            {sidebarLogo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={sidebarLogo} alt="" className="h-10 w-10 shrink-0 rounded-xl object-contain" />
-            ) : (
-              <EstablishmentIcon name={establishmentName} className="h-10 w-10 shrink-0 text-blue-400" />
-            )}
+            <EstablishmentBadge name={establishmentName} logoUrl={profile?.logoUrl} size="lg" />
             <div className="min-w-0">
               <b className="block truncate text-sm">{establishmentName}</b>
               <p className="text-xs text-slate-400">
@@ -817,6 +884,7 @@ export default function EstablishmentPage() {
                   key={item.id}
                   onClick={() => {
                     setView(item.id);
+                    if (item.id === "trash") void loadTrash();
                     setSidebarOpen(false);
                   }}
                   className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-xs font-bold ${view === item.id ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-slate-800"}`}
@@ -942,6 +1010,8 @@ export default function EstablishmentPage() {
                 ? "Tableau de bord"
                 : view === "students"
                 ? "Liste des étudiants"
+                : view === "trash"
+                ? "Corbeille"
                 : view === "add"
                   ? "Ajouter un étudiant"
                   : view === "secretaries"
@@ -1008,7 +1078,16 @@ export default function EstablishmentPage() {
             canGenerateQuitus={isEstablishmentAdmin}
             saving={saving}
             viewDossier={setDossierStudentId}
+            filters={filters}
+            setFilters={setFilters}
+            levelOptions={filterLevels}
+            programOptions={filterPrograms}
+            onEdit={setEditingStudent}
+            onDelete={setStudentToDelete}
           />
+        )}
+        {view === "trash" && (
+          <TrashView students={trashedStudents} saving={saving} onRestore={(student) => void restoreStudent(student)} onPurge={setStudentToPurge} />
         )}
         {view === "add" && (
           <form
@@ -1331,6 +1410,35 @@ export default function EstablishmentPage() {
           onClose={() => setAttestation(null)}
         />
       )}
+      {editingStudent && (
+        <EditStudentDialog
+          key={editingStudent.id}
+          student={editingStudent}
+          levels={curriculum.levels.filter((item) => item.active)}
+          programs={curriculum.programs.filter((item) => item.active)}
+          saving={saving}
+          onCancel={() => setEditingStudent(null)}
+          onSave={saveStudent}
+        />
+      )}
+      <ConfirmDialog
+        open={!!studentToDelete}
+        title="Supprimer cet étudiant ?"
+        message={`${studentToDelete?.fullName ?? ""} sera déplacé dans la corbeille. Vous pourrez le restaurer à tout moment.`}
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
+        onCancel={() => setStudentToDelete(null)}
+        onConfirm={() => void deleteStudent()}
+      />
+      <ConfirmDialog
+        open={!!studentToPurge}
+        title="Supprimer définitivement ?"
+        message={`${studentToPurge?.fullName ?? ""}, ses pièces jointes et son quitus seront effacés. Cette action est irréversible.`}
+        confirmLabel="Supprimer définitivement"
+        cancelLabel="Annuler"
+        onCancel={() => setStudentToPurge(null)}
+        onConfirm={() => void purgeStudent()}
+      />
       <ConfirmDialog
         open={logoutConfirmOpen}
         title="Confirmer la déconnexion"
@@ -1445,6 +1553,12 @@ function StudentsView({
   canGenerateQuitus,
   saving,
   viewDossier,
+  filters,
+  setFilters,
+  levelOptions,
+  programOptions,
+  onEdit,
+  onDelete,
 }: {
   students: Student[];
   loading: boolean;
@@ -1458,7 +1572,15 @@ function StudentsView({
   canGenerateQuitus: boolean;
   saving: boolean;
   viewDossier: (id: string) => void;
+  filters: StudentFilters;
+  setFilters: (value: StudentFilters) => void;
+  levelOptions: string[];
+  programOptions: string[];
+  onEdit: (student: Student) => void;
+  onDelete: (student: Student) => void;
 }) {
+  const filtersActive = Object.values(filters).some(Boolean);
+  const setFilter = (key: keyof StudentFilters, value: string) => setFilters({ ...filters, [key]: value });
   const toggleAll = () =>
     setSelectedIds(
       allSelected
@@ -1513,6 +1635,24 @@ function StudentsView({
         </div>}
       </div>
 
+      <div className="mb-4 grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+        <FilterSelect label="Niveau" value={filters.level} onChange={(value) => setFilter("level", value)} options={levelOptions.map((name) => [name, name])} />
+        <FilterSelect label="Parcours" value={filters.program} onChange={(value) => setFilter("program", value)} options={programOptions.map((name) => [name, name])} />
+        <FilterSelect label="Cycle" value={filters.form} onChange={(value) => setFilter("form", value)} options={[["LICENCE", "Licence"], ["MASTER", "Master"]]} />
+        <FilterSelect label="Genre" value={filters.gender} onChange={(value) => setFilter("gender", value)} options={[["FEMININ", "Féminin"], ["MASCULIN", "Masculin"], ["AUTRE", "Autre"]]} />
+        <FilterSelect label="Statut" value={filters.status} onChange={(value) => setFilter("status", value)} options={[["ACTIF", "Actif"], ["INACTIF", "Inactif"]]} />
+        <FilterSelect label="Quitus" value={filters.quitus} onChange={(value) => setFilter("quitus", value)} options={[["AVEC", "Généré"], ["SANS", "Non généré"]]} />
+      </div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+        <span>{students.length} étudiant(s) affiché(s)</span>
+        {filtersActive && (
+          <button onClick={() => setFilters(emptyFilters)} className={`flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 font-semibold text-slate-300 hover:bg-slate-800 ${touch}`}>
+            <X className="h-3.5 w-3.5" />
+            Réinitialiser les filtres
+          </button>
+        )}
+      </div>
+
       {/* Téléphone et tablette : une carte par étudiant */}
       <div className="space-y-3 xl:hidden">
         {canGenerateQuitus && !loading && students.length > 0 && (
@@ -1556,7 +1696,10 @@ function StudentsView({
                   </p>
                   <p className="text-xs text-slate-400">{item.phone}</p>
                   <div className="mt-2 break-all">{quitusCell(item)}</div>
-                  <button onClick={() => viewDossier(item.id)} className="mt-3 min-h-[44px] w-full rounded-lg border border-blue-500/40 px-3 text-xs font-bold text-blue-300">Voir le dossier</button>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button onClick={() => viewDossier(item.id)} className="min-h-[44px] flex-1 rounded-lg border border-blue-500/40 px-3 text-xs font-bold text-blue-300">Voir le dossier</button>
+                    <StudentActions item={item} onEdit={onEdit} onDelete={onDelete} />
+                  </div>
                 </div>
               </div>
             ))}
@@ -1584,7 +1727,7 @@ function StudentsView({
               <th className="p-3">Étudiant</th>
               <th className="p-3">Formation</th>
               <th className="p-3">Contact</th>
-              <th className="p-3">Quitus</th><th className="p-3">Dossier</th>
+              <th className="p-3">Quitus</th><th className="p-3">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -1619,7 +1762,7 @@ function StudentsView({
                     {item.email}
                     <p className="text-xs text-slate-400">{item.phone}</p>
                   </td>
-                  <td className="p-3">{quitusCell(item)}</td><td className="p-3"><button onClick={() => viewDossier(item.id)} className="min-h-[44px] rounded-lg border border-blue-500/40 px-3 text-xs font-bold text-blue-300">Voir le dossier</button></td>
+                  <td className="p-3">{quitusCell(item)}</td><td className="p-3"><div className="flex items-center gap-2"><button onClick={() => viewDossier(item.id)} className="min-h-[44px] rounded-lg border border-blue-500/40 px-3 text-xs font-bold text-blue-300">Voir le dossier</button><StudentActions item={item} onEdit={onEdit} onDelete={onDelete} /></div></td>
                 </tr>
               ))
             )}
@@ -1634,6 +1777,204 @@ function StudentsView({
         </table>
       </div>
     </section>
+  );
+}
+function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: [string, string][] }) {
+  return (
+    <label className="min-w-0 text-[11px] font-semibold text-slate-400">
+      {label}
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100 max-[1024px]:min-h-[44px]"
+      >
+        <option value="">Tous</option>
+        {options.map(([optionValue, optionLabel]) => (
+          <option key={optionValue} value={optionValue}>{optionLabel}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+function StudentActions({ item, onEdit, onDelete }: { item: Student; onEdit: (student: Student) => void; onDelete: (student: Student) => void }) {
+  return (
+    <div className="flex shrink-0 items-center gap-1.5">
+      <button
+        aria-label={`Modifier ${item.fullName}`}
+        title="Modifier"
+        onClick={() => onEdit(item)}
+        className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
+      >
+        <Pencil className="h-4 w-4" />
+      </button>
+      <button
+        aria-label={`Supprimer ${item.fullName}`}
+        title="Supprimer"
+        onClick={() => onDelete(item)}
+        className="flex h-11 w-11 items-center justify-center rounded-lg border border-rose-500/40 text-rose-400 hover:bg-rose-500/10"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+function TrashView({ students, saving, onRestore, onPurge }: { students: Student[]; saving: boolean; onRestore: (student: Student) => void; onPurge: (student: Student) => void }) {
+  const deletedOn = (value?: string | null) => (value ? new Date(value).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" }) : "—");
+  return (
+    <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
+      <p className="mb-4 text-xs text-slate-400">
+        Les étudiants supprimés sont conservés ici. Restaurez-en un pour le remettre dans la liste, ou supprimez-le définitivement (irréversible).
+      </p>
+      {!students.length ? (
+        <p className="p-8 text-center text-sm text-slate-500">La corbeille est vide.</p>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1">
+          {students.map((item) => (
+            <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950 p-4 text-sm">
+              <div className="min-w-0">
+                <b className="break-words">{item.fullName}</b>
+                <p className="font-mono text-xs text-slate-400">{item.registrationNumber}</p>
+                <p className="mt-1 break-words text-xs text-slate-300">{item.level} · {item.program}</p>
+                <p className="mt-1 text-xs text-amber-400">Supprimé le {deletedOn(item.deletedAt)}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => onRestore(item)}
+                  disabled={saving}
+                  className={`flex items-center gap-2 rounded-xl border border-emerald-500/40 px-4 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-50 ${touch}`}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Restaurer
+                </button>
+                <button
+                  onClick={() => onPurge(item)}
+                  disabled={saving}
+                  className={`flex items-center gap-2 rounded-xl border border-rose-500/40 px-4 py-2 text-xs font-bold text-rose-400 hover:bg-rose-500/10 disabled:opacity-50 ${touch}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Supprimer définitivement
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+function EditStudentDialog({
+  student,
+  levels,
+  programs,
+  saving,
+  onCancel,
+  onSave,
+}: {
+  student: Student;
+  levels: Option[];
+  programs: Option[];
+  saving: boolean;
+  onCancel: () => void;
+  onSave: (id: string, changes: Record<string, string>) => Promise<string | null>;
+}) {
+  const [form, setForm] = useState({
+    fullName: student.fullName,
+    email: student.email ?? "",
+    phone: student.phone,
+    gender: student.gender,
+    registrationForm: student.registrationForm,
+    level: student.level,
+    program: student.program,
+    cin: student.cin ?? "",
+    nationality: student.nationality ?? "",
+    birthDatePlace: student.birthDatePlace ?? "",
+    address: student.address ?? "",
+  });
+  const [error, setError] = useState("");
+  const set = (key: keyof typeof form) => (value: string) => setForm((current) => ({ ...current, [key]: value }));
+  const cycle = form.registrationForm === "MASTER" ? "MASTER" : "LICENCE";
+  // La valeur actuelle reste proposée même si elle n'est plus active dans la configuration.
+  const choices = (options: Option[], current: string) => [...new Set([...options.filter((item) => item.cycle === cycle).map((item) => item.name), ...(cycle === student.registrationForm ? [current] : [])])];
+  const levelChoices = choices(levels, student.level);
+  const programChoices = choices(programs, student.program);
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+    const failure = await onSave(student.id, form);
+    if (failure) setError(failure);
+  };
+  const field = "mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-base sm:text-sm max-[1024px]:min-h-[44px]";
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
+      <form onSubmit={(event) => void submit(event)} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-800 bg-slate-900 p-5 text-slate-100 shadow-2xl sm:p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-base font-bold">Modifier l&apos;étudiant</h2>
+            <p className="font-mono text-xs text-slate-400">{student.registrationNumber}</p>
+          </div>
+          <button type="button" aria-label="Fermer" onClick={onCancel} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-700">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="text-xs text-slate-300 sm:col-span-2">Nom complet
+            <input required value={form.fullName} onChange={(event) => set("fullName")(event.target.value)} className={field} />
+          </label>
+          <label className="text-xs text-slate-300">E-mail
+            <input required type="email" value={form.email} onChange={(event) => set("email")(event.target.value)} className={field} />
+          </label>
+          <label className="text-xs text-slate-300">Téléphone
+            <input required value={form.phone} onChange={(event) => set("phone")(event.target.value)} className={field} />
+          </label>
+          <label className="text-xs text-slate-300">Genre
+            <select value={form.gender} onChange={(event) => set("gender")(event.target.value)} className={field}>
+              {Object.entries(GENDER_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <label className="text-xs text-slate-300">Cycle
+            <select
+              value={form.registrationForm}
+              onChange={(event) => {
+                const next = event.target.value;
+                setForm((current) => ({ ...current, registrationForm: next, level: next === student.registrationForm ? student.level : "", program: next === student.registrationForm ? student.program : "" }));
+              }}
+              className={field}
+            >
+              {Object.entries(FORM_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <label className="text-xs text-slate-300">Niveau
+            <select required value={form.level} onChange={(event) => set("level")(event.target.value)} className={field}>
+              <option value="">Choisir…</option>
+              {levelChoices.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </label>
+          <label className="text-xs text-slate-300">Parcours
+            <select required value={form.program} onChange={(event) => set("program")(event.target.value)} className={field}>
+              <option value="">Choisir…</option>
+              {programChoices.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </label>
+          <label className="text-xs text-slate-300">CIN
+            <input value={form.cin} onChange={(event) => set("cin")(event.target.value)} className={field} />
+          </label>
+          <label className="text-xs text-slate-300">Nationalité
+            <input value={form.nationality} onChange={(event) => set("nationality")(event.target.value)} className={field} />
+          </label>
+          <label className="text-xs text-slate-300 sm:col-span-2">Date et lieu de naissance
+            <input value={form.birthDatePlace} onChange={(event) => set("birthDatePlace")(event.target.value)} className={field} />
+          </label>
+          <label className="text-xs text-slate-300 sm:col-span-2">Adresse
+            <input value={form.address} onChange={(event) => set("address")(event.target.value)} className={field} />
+          </label>
+        </div>
+        {error && <p className="mt-4 break-words rounded-xl bg-rose-500/10 p-3 text-xs text-rose-300">{error}</p>}
+        <div className="mt-5 flex items-center justify-end gap-3">
+          <button type="button" onClick={onCancel} className="min-h-[44px] flex-1 rounded-xl border border-slate-800 bg-slate-950 px-4 text-xs font-semibold text-slate-300 sm:flex-none">Annuler</button>
+          <button type="submit" disabled={saving} className="min-h-[44px] flex-1 rounded-xl bg-blue-600 px-4 text-xs font-bold text-white disabled:opacity-50 sm:flex-none">Enregistrer</button>
+        </div>
+      </form>
+    </div>
   );
 }
 function SecretaryManagement({

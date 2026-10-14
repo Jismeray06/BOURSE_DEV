@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { EditPencil, HomeText, useContactInfo, useHomeEdit } from './HomepageEditor';
 import Link from 'next/link';
-import { ArrowUp, BellRing, GraduationCap, Mail, MapPin, Phone } from 'lucide-react';
-import { assetUrl, type SiteSettings } from '../siteSettings';
+import { ArrowUp, BellRing, Mail, MapPin, Phone } from 'lucide-react';
+import { assetUrl, DEFAULT_LOGO, type SiteSettings } from '../siteSettings';
 import { LOGIN_PATH, NAV_LINKS, REGISTER_PATH, useDashboardPath } from './useHomeSession';
 
 const columnTitle = 'text-sm font-semibold text-white';
@@ -35,7 +35,7 @@ function BackToTop({ color, textColor }: { color: string; textColor: string }) {
 
 export function HomeFooter({ settings }: { settings: SiteSettings }) {
   const dashboardPath = useDashboardPath();
-  const logoUrl = assetUrl(settings.logoUrl);
+  const logoUrl = assetUrl(settings.logoUrl) ?? DEFAULT_LOGO;
   const { scolarite } = useContactInfo();
   const { editMode, editContact } = useHomeEdit();
   const hasContact = Boolean(scolarite.address || scolarite.phone || scolarite.email);
@@ -71,14 +71,8 @@ export function HomeFooter({ settings }: { settings: SiteSettings }) {
         <div className="mt-12 grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.4fr]">
           <div>
             <div className="flex items-center gap-3">
-              {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt="" className="h-12 w-12 rounded-lg bg-white object-contain p-1" />
-              ) : (
-                <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-white/10">
-                  <GraduationCap className="h-6 w-6" style={{ color: settings.secondaryColor }} aria-hidden />
-                </span>
-              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logoUrl} alt="" className="h-12 w-12 rounded-full bg-white object-contain p-1 shadow-md ring-2 ring-white/20" />
               <div>
                 <p className="font-[family-name:var(--font-heading)] text-base font-semibold text-white"><HomeText contentKey="footer.7" /></p>
                 <p className="text-xs" style={{ color: settings.secondaryColor }}><HomeText contentKey="footer.8" /></p>

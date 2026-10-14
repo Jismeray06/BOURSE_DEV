@@ -66,9 +66,9 @@ export function EstablishmentIdentityPanel({ profile, onSaved }: { profile: Esta
         <h2 className="mb-1 font-bold text-white">Logo</h2>
         <p className="mb-4 text-xs text-slate-400">Affiché dans le choix d’établissement de la page étudiant et dans votre menu. PNG, JPG ou WebP, 5 Mo maximum.</p>
         <div className="flex flex-wrap items-center gap-4">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-blue-500/20 bg-blue-500/10 text-blue-400">
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-blue-500/20 bg-blue-500/10 text-blue-400">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            {logo ? <img src={logo} alt={`Logo ${profile.name}`} className="h-full w-full object-contain" /> : <EstablishmentIcon name={profile.name} className="h-8 w-8" />}
+            {logo ? <img src={logo} alt={`Logo ${profile.name}`} className="h-full w-full rounded-full bg-white object-contain p-2" /> : <EstablishmentIcon name={profile.name} className="h-8 w-8" />}
           </div>
           <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => uploadLogo(event.target.files?.[0])} />
           <div className="flex flex-wrap gap-2 text-xs font-bold">

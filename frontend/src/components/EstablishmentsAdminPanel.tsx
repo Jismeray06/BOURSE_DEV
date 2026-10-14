@@ -111,9 +111,9 @@ export function EstablishmentsAdminPanel({ institutions, onChanged }: Props) {
           return (
             <article key={institution.id} className={`min-w-0 rounded-3xl border bg-slate-900/90 p-4 sm:p-5 ${institution.active ? 'border-slate-800/80' : 'border-amber-500/30 opacity-80'}`}>
               <div className="flex items-start gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-blue-500/20 bg-blue-500/10 text-blue-400">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-blue-500/20 bg-blue-500/10 text-blue-400">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {logo ? <img src={logo} alt={`Logo ${institution.name}`} className="h-full w-full object-contain" /> : <EstablishmentIcon name={institution.name} className="h-6 w-6" />}
+                  {logo ? <img src={logo} alt={`Logo ${institution.name}`} className="h-full w-full rounded-full bg-white object-contain p-1" /> : <EstablishmentIcon name={institution.name} className="h-6 w-6" />}
                 </div>
                 <div className="min-w-0 flex-1">
                   {editing ? (

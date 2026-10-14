@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Playfair_Display } from "next/font/google";
+import { Dancing_Script, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { PlatformThemeProvider } from "../components/PlatformThemeProvider";
 import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
@@ -7,6 +7,11 @@ import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
 const playfairDisplay = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-heading",
+});
+
+const dancingScript = Dancing_Script({
+  subsets: ["latin"],
+  variable: "--font-script",
 });
 
 export const metadata: Metadata = {
@@ -36,7 +41,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="fr" className={`h-full antialiased ${playfairDisplay.variable}`}>
+    <html lang="fr" className={`h-full antialiased ${playfairDisplay.variable} ${dancingScript.variable}`}>
       <body className="min-h-full flex flex-col">
         <ServiceWorkerRegistration />
         <PlatformThemeProvider>{children}</PlatformThemeProvider>

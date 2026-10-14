@@ -63,6 +63,11 @@ export class DocumentService {
     return { document, buffer: await readFile(join(this.directory, document.storageName)) };
   }
 
+  // Supprime les fichiers du disque après que leurs lignes ont été retirées de la base ; un fichier déjà absent est ignoré.
+  async removeFiles(storageNames: string[]) {
+    await Promise.all(storageNames.map((name) => unlink(join(this.directory, name)).catch(() => undefined)));
+  }
+
   private validate(type: string, file: { originalname: string; mimetype: string; size: number }) {
     if (!type.trim() || !/^[a-z0-9_-]+$/.test(type)) throw new BadRequestException('Type de pièce invalide.');
     if (!allowedMimeTypes.has(file.mimetype)) throw new BadRequestException('Format accepté : PDF, PNG ou JPG.');

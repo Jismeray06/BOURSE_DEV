@@ -1,9 +1,10 @@
 import { BadRequestException, Body, Controller, Delete, Get, Headers, Param, Patch, Post, Put, Query } from '@nestjs/common';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import { CurriculumCycle, CurriculumOptionType, DocumentRequirementContext, EnrollmentQuality, Gender, Prisma, UserRole } from '@prisma/client';
 import { AuthService } from './auth.service.js';
 import { PrismaService } from './prisma.service.js';
 import { QuitusService } from './quitus.service.js';
+import { DocumentService } from './document.service.js';
 import { candidatureRequirementScope, documentTypeSlug } from './document-type.js';
 
 type VerifyQuitusBody = { code?: unknown; establishment?: unknown };
@@ -49,7 +50,7 @@ type InterfaceSettingsBody = { settings?: unknown };
 
 @Controller()
 export class EstablishmentController {
-  constructor(private readonly prisma: PrismaService, private readonly authService: AuthService, private readonly quitusService: QuitusService) {}
+  constructor(private readonly prisma: PrismaService, private readonly authService: AuthService, private readonly quitusService: QuitusService, private readonly documentService: DocumentService) {}
 
   @Get('establishments/:name/curriculum')
   async publicCurriculum(@Param('name') name: string) { return this.curriculum(true, name); }
@@ -143,9 +144,84 @@ export class EstablishmentController {
   async students(@Headers('authorization') authorization?: string, @Query('search') search = '', @Query('gender') gender?: string, @Query('level') level?: string) {
     const establishment = await this.managerEstablishment(authorization);
     return this.prisma.enrolledStudent.findMany({
-      where: { establishment, ...(gender ? { gender: gender as never } : {}), ...(level ? { level } : {}), ...(search ? { OR: [{ fullName: { contains: search, mode: 'insensitive' } }, { registrationNumber: { contains: search, mode: 'insensitive' } }, { phone: { contains: search } }] } : {}) },
+      where: { establishment, deletedAt: null, ...(gender ? { gender: gender as never } : {}), ...(level ? { level } : {}), ...(search ? { OR: [{ fullName: { contains: search, mode: 'insensitive' } }, { registrationNumber: { contains: search, mode: 'insensitive' } }, { phone: { contains: search } }] } : {}) },
       include: { quitus: true }, orderBy: { registrationNumber: 'asc' },
     });
+  }
+
+  // Corbeille : étudiants supprimés de l'établissement, du plus récent au plus ancien.
+  @Get('establishment/isstm/students/trash')
+  async trashedStudents(@Headers('authorization') authorization?: string) {
+    const establishment = await this.managerEstablishment(authorization);
+    return this.prisma.enrolledStudent.findMany({ where: { establishment, deletedAt: { not: null } }, include: { quitus: true }, orderBy: { deletedAt: 'desc' } });
+  }
+
+  @Patch('establishment/isstm/students/:id')
+  async updateStudent(@Param('id') id: string, @Body() body: CreateStudentBody, @Headers('authorization') authorization?: string) {
+    const establishment = await this.managerEstablishment(authorization);
+    const current = await this.activeStudent(id, establishment);
+    const registrationForm = body.registrationForm === undefined ? current.registrationForm : body.registrationForm === 'MASTER' ? 'MASTER' : 'LICENCE';
+    const level = body.level === undefined ? current.level : this.required(body.level, 'Le niveau');
+    const program = body.program === undefined ? current.program : this.required(body.program, 'Le parcours');
+    if (level !== current.level || program !== current.program || registrationForm !== current.registrationForm) {
+      await this.assertCurriculum(establishment, level, program, registrationForm === 'MASTER' ? CurriculumCycle.MASTER : CurriculumCycle.LICENCE);
+    }
+    const email = body.email === undefined ? undefined : this.required(body.email, "L’adresse e-mail").toLowerCase();
+    if (email && email !== current.email) {
+      if (await this.prisma.enrolledStudent.findUnique({ where: { email } })) throw new BadRequestException('Un étudiant utilise déjà cette adresse e-mail.');
+    }
+    if (body.gender !== undefined && (typeof body.gender !== 'string' || !Object.values(Gender).includes(body.gender as Gender))) throw new BadRequestException('Le genre est invalide.');
+    const text = (value: unknown) => (value === undefined ? {} : { value: this.optional(value) });
+    const optionalFields = ['birthDatePlace', 'cin', 'nationality', 'address'] as const;
+    const data: Prisma.EnrolledStudentUpdateInput = {
+      level, program, registrationForm,
+      ...(body.fullName !== undefined ? { fullName: this.required(body.fullName, 'Le nom complet') } : {}),
+      ...(email ? { email } : {}),
+      ...(body.phone !== undefined ? { phone: this.required(body.phone, 'Le téléphone') } : {}),
+      ...(body.gender !== undefined ? { gender: body.gender as Gender } : {}),
+      ...(body.quality !== undefined ? { quality: this.optionalQuality(body.quality) } : {}),
+      ...Object.fromEntries(optionalFields.filter((field) => body[field] !== undefined).map((field) => [field, text(body[field]).value])),
+    };
+    try {
+      return await this.prisma.enrolledStudent.update({ where: { id: current.id }, data, include: { quitus: true } });
+    } catch (error: unknown) {
+      if (this.isUniqueError(error)) throw new BadRequestException('Un étudiant utilise déjà cette adresse e-mail.');
+      throw error;
+    }
+  }
+
+  // Suppression douce : l'étudiant va à la corbeille et peut être restauré.
+  @Delete('establishment/isstm/students/:id')
+  async deleteStudent(@Param('id') id: string, @Headers('authorization') authorization?: string) {
+    const establishment = await this.managerEstablishment(authorization);
+    const current = await this.activeStudent(id, establishment);
+    await this.prisma.enrolledStudent.update({ where: { id: current.id }, data: { deletedAt: new Date() } });
+    return { deleted: true };
+  }
+
+  // Suppression définitive, possible uniquement depuis la corbeille : fiche, pièces jointes et quitus sont effacés.
+  @Delete('establishment/isstm/students/:id/permanent')
+  async purgeStudent(@Param('id') id: string, @Headers('authorization') authorization?: string) {
+    const establishment = await this.managerEstablishment(authorization);
+    const current = await this.prisma.enrolledStudent.findFirst({ where: { id, establishment, deletedAt: { not: null } }, include: { documents: { select: { storageName: true } }, quitus: { include: { application: { select: { id: true } } } } } });
+    if (!current) throw new BadRequestException('Seuls les étudiants de la corbeille peuvent être supprimés définitivement.');
+    // Un quitus déjà utilisé par un dossier en ligne est conservé : il sert de preuve à ce dossier.
+    const removableQuitus = current.quitus && !current.quitus.application ? current.quitus : null;
+    await this.prisma.$transaction([
+      ...(removableQuitus ? [this.prisma.quitus.delete({ where: { id: removableQuitus.id } })] : []),
+      this.prisma.enrolledStudent.delete({ where: { id: current.id } }),
+    ]);
+    await this.documentService.removeFiles(current.documents.map((document) => document.storageName));
+    return { purged: true };
+  }
+
+  @Post('establishment/isstm/students/:id/restore')
+  async restoreStudent(@Param('id') id: string, @Headers('authorization') authorization?: string) {
+    const establishment = await this.managerEstablishment(authorization);
+    const current = await this.prisma.enrolledStudent.findFirst({ where: { id, establishment, deletedAt: { not: null } } });
+    if (!current) throw new BadRequestException('Cet étudiant n’est pas dans la corbeille.');
+    await this.prisma.enrolledStudent.update({ where: { id: current.id }, data: { deletedAt: null } });
+    return { restored: true };
   }
 
   // Statistiques de l'établissement : réservées au responsable (le secrétaire n'a pas de tableau de bord).
@@ -153,17 +229,17 @@ export class EstablishmentController {
   async dashboard(@Headers('authorization') authorization?: string) {
     const establishment = await this.adminEstablishment(authorization);
     const [students, active, byLevel, byGender, byForm, quitusIssued, withoutQuitus, secretaries, activeSecretaries, applications, recent] = await Promise.all([
-      this.prisma.enrolledStudent.count({ where: { establishment } }),
-      this.prisma.enrolledStudent.count({ where: { establishment, active: true } }),
-      this.prisma.enrolledStudent.groupBy({ by: ['level'], where: { establishment }, _count: { _all: true }, orderBy: { level: 'asc' } }),
-      this.prisma.enrolledStudent.groupBy({ by: ['gender'], where: { establishment }, _count: { _all: true } }),
-      this.prisma.enrolledStudent.groupBy({ by: ['registrationForm'], where: { establishment }, _count: { _all: true } }),
-      this.prisma.quitus.count({ where: { establishment } }),
-      this.prisma.enrolledStudent.count({ where: { establishment, active: true, quitus: { is: null } } }),
+      this.prisma.enrolledStudent.count({ where: { establishment, deletedAt: null } }),
+      this.prisma.enrolledStudent.count({ where: { establishment, deletedAt: null, active: true } }),
+      this.prisma.enrolledStudent.groupBy({ by: ['level'], where: { establishment, deletedAt: null }, _count: { _all: true }, orderBy: { level: 'asc' } }),
+      this.prisma.enrolledStudent.groupBy({ by: ['gender'], where: { establishment, deletedAt: null }, _count: { _all: true } }),
+      this.prisma.enrolledStudent.groupBy({ by: ['registrationForm'], where: { establishment, deletedAt: null }, _count: { _all: true } }),
+      this.prisma.quitus.count({ where: { establishment, enrollment: { is: { deletedAt: null } } } }),
+      this.prisma.enrolledStudent.count({ where: { establishment, deletedAt: null, active: true, quitus: { is: null } } }),
       this.prisma.user.count({ where: { role: UserRole.SECRETAIRE, establishment, deletedAt: null } }),
       this.prisma.user.count({ where: { role: UserRole.SECRETAIRE, establishment, deletedAt: null, active: true } }),
       this.prisma.enrollmentApplication.groupBy({ by: ['status'], where: { establishment }, _count: { _all: true } }),
-      this.prisma.enrolledStudent.findMany({ where: { establishment }, orderBy: { createdAt: 'desc' }, take: 5, select: { id: true, registrationNumber: true, fullName: true, level: true, program: true, createdAt: true } }),
+      this.prisma.enrolledStudent.findMany({ where: { establishment, deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 5, select: { id: true, registrationNumber: true, fullName: true, level: true, program: true, createdAt: true } }),
     ]);
     return {
       students: { total: students, active, inactive: students - active },
@@ -228,7 +304,7 @@ export class EstablishmentController {
 
     if (typeof body.existingStudentId === 'string' && body.existingStudentId.trim()) {
       const existing = await this.prisma.enrolledStudent.findFirst({
-        where: { id: body.existingStudentId.trim(), establishment },
+        where: { id: body.existingStudentId.trim(), establishment, deletedAt: null },
       });
       if (!existing) throw new BadRequestException('Le dossier étudiant est introuvable dans cet établissement.');
       const quality = this.optionalQuality(body.quality);
@@ -254,7 +330,7 @@ export class EstablishmentController {
       throw new BadRequestException('Le genre est invalide.');
     }
     const existing = await this.prisma.enrolledStudent.findUnique({ where: { email } });
-    if (existing) throw new BadRequestException('Un étudiant utilise déjà cette adresse e-mail.');
+    if (existing) throw new BadRequestException(existing.deletedAt ? 'Un étudiant supprimé utilise cette adresse e-mail : restaurez-le depuis la corbeille.' : 'Un étudiant utilise déjà cette adresse e-mail.');
 
     // Le matricule reste requis par la base, mais il est désormais attribué par le serveur.
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -334,7 +410,7 @@ export class EstablishmentController {
     const establishment = this.establishmentOf(manager.establishment);
     const ids = Array.isArray(body.studentIds) ? body.studentIds.filter((id): id is string => typeof id === 'string') : undefined;
     if (ids && !ids.length) throw new BadRequestException('Sélectionnez au moins un étudiant.');
-    const students = await this.prisma.enrolledStudent.findMany({ where: { establishment, active: true, ...(ids ? { id: { in: ids } } : {}) }, include: { quitus: true } });
+    const students = await this.prisma.enrolledStudent.findMany({ where: { establishment, active: true, deletedAt: null, ...(ids ? { id: { in: ids } } : {}) }, include: { quitus: true } });
     const missing = students.filter((student) => !student.quitus);
     await this.prisma.$transaction(missing.map((student) => this.prisma.quitus.create({ data: { code: this.code(), studentName: student.fullName, studentEmail: student.email, establishment, issuedById: manager.id, enrollmentId: student.id } })));
     return { created: missing.length, alreadyGenerated: students.length - missing.length };
@@ -358,8 +434,10 @@ export class EstablishmentController {
   }
 
   private code() {
-    // 160 bits d'aléa cryptographique : un code imprévisible, comparable à un mot de passe.
-    return `QT-${randomBytes(20).toString('hex').toUpperCase()}`;
+    // 12 caractères tirés d'un alphabet de 32 signes sans ambiguïté (ni 0/O ni 1/I) : 60 bits d'aléa cryptographique,
+    // assez court pour être recopié, et la vérification par code e-mail empêche de deviner un quitus.
+    const alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    return `QT-${Array.from({ length: 12 }, () => alphabet[randomInt(alphabet.length)]).join('')}`;
   }
 
   private registrationNumber(establishment: string) {
@@ -421,6 +499,11 @@ export class EstablishmentController {
   private establishmentOf(establishment: string | null) {
     if (!establishment?.trim()) throw new BadRequestException('Aucun établissement n’est associé à ce compte.');
     return establishment.trim();
+  }
+  private async activeStudent(id: string, establishment: string) {
+    const student = await this.prisma.enrolledStudent.findFirst({ where: { id, establishment, deletedAt: null } });
+    if (!student) throw new BadRequestException('Étudiant introuvable dans cet établissement.');
+    return student;
   }
   private async secretaryInEstablishment(id: string, establishment: string) {
     const secretary = await this.prisma.user.findFirst({ where: { id, role: UserRole.SECRETAIRE, establishment }, select: { id: true } });

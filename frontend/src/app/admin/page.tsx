@@ -10,7 +10,6 @@ import {
   Database,
   Eye,
   EyeOff,
-  GraduationCap,
   Globe,
   History,
   ArrowLeft,
@@ -35,6 +34,8 @@ import {
 import { DossierViewer } from '../../components/DossierViewer';
 import { AdminSettingsPanel } from '../../components/AdminSettingsPanel';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { SidebarLogo } from '../../components/SidebarLogo';
+import { EstablishmentBadge } from '../../components/establishments';
 import { EstablishmentsAdminPanel, type Institution } from '../../components/EstablishmentsAdminPanel';
 import { AccountPanel } from '../../components/AccountPanel';
 import { HeaderToolbar } from '../../components/HeaderToolbar';
@@ -531,7 +532,7 @@ export default function AdminPage() {
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col justify-between overflow-y-auto border-r border-slate-800/80 bg-slate-900/95 backdrop-blur-xl transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} min-[1025px]:translate-x-0`}>
         <div>
           <div className="flex items-center gap-3 border-b border-slate-800/80 p-5 sm:p-6">
-            <div className="shrink-0 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 p-2.5 shadow-lg shadow-blue-500/20"><GraduationCap className="h-6 w-6 text-white" /></div>
+            <SidebarLogo />
             <div className="min-w-0"><span className="block truncate text-base font-extrabold leading-tight tracking-tight text-white">{settings.universityName}</span><span className="mt-0.5 block truncate text-[10px] font-semibold uppercase tracking-wider text-blue-400">Espace Administration</span></div>
             <button aria-label="Fermer le menu" onClick={() => setSidebarOpen(false)} className="ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-300 transition hover:bg-slate-800 min-[1025px]:hidden"><X className="h-5 w-5" /></button>
           </div>
@@ -641,7 +642,7 @@ export default function AdminPage() {
             <div className="mb-5 grid gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-4 sm:grid-cols-[minmax(0,1fr)_12rem_auto_auto]"><label className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} placeholder="Rechercher partout par nom ou e-mail" className="w-full rounded-xl border border-slate-700 bg-slate-900 py-2.5 pl-10 pr-3 text-base sm:text-sm max-[1024px]:min-h-[44px]" /></label><select value={globalStatus} onChange={(event) => setGlobalStatus(event.target.value as Status | '')} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-base sm:text-sm max-[1024px]:min-h-[44px]"><option value="">Tous les statuts</option>{statuses.map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select><button onClick={exportStudentsCsv} className="min-h-[44px] rounded-xl border border-blue-500/40 px-3 text-xs font-bold text-blue-300">Exporter CSV</button><button onClick={exportStudentsPdf} className="min-h-[44px] rounded-xl border border-slate-700 px-3 text-xs font-bold">Exporter PDF</button></div>
             {(globalSearch || globalStatus) && <div className="mb-5 space-y-2"><p className="text-xs text-slate-400">{displayedGlobalStudents.length} dossier(s) trouvé(s)</p><StudentTable students={displayedGlobalStudents} updateStatus={updateStatus} viewDossier={setDossierStudentId} /></div>}
             <div className="mb-5"><h2 className="text-base font-bold text-white">Choisir un établissement</h2><p className="mt-1 text-xs text-slate-400">Accédez à la liste des étudiants classée par établissement.</p></div>
-            {loading ? <p className="py-12 text-center text-slate-400">Chargement des établissements…</p> : <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">{allEstablishments.map((item) => <button key={item.establishment} onClick={() => void openEstablishment(item.establishment)} className="group min-w-0 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-left transition hover:border-blue-500/60 hover:bg-blue-500/10 sm:p-5"><div className="flex items-start justify-between gap-3"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10"><GraduationCap className="h-5 w-5 text-blue-400" /></div><span className="shrink-0 rounded-full border border-slate-700 px-2.5 py-1 text-[10px] font-bold text-slate-400">{item.studentCount} étudiant(s)</span></div><h3 className="mt-4 break-words text-sm font-bold text-white group-hover:text-blue-300 sm:mt-5">{item.establishment}</h3><p className="mt-1 text-xs text-slate-500">Voir les étudiants</p></button>)}</div>}
+            {loading ? <p className="py-12 text-center text-slate-400">Chargement des établissements…</p> : <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">{allEstablishments.map((item) => <button key={item.establishment} onClick={() => void openEstablishment(item.establishment)} className="group min-w-0 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-left transition hover:border-blue-500/60 hover:bg-blue-500/10 sm:p-5"><div className="flex items-start justify-between gap-3"><EstablishmentBadge name={item.establishment} logoUrl={institutions.find((institution) => institution.name === item.establishment)?.logoUrl} /><span className="shrink-0 rounded-full border border-slate-700 px-2.5 py-1 text-[10px] font-bold text-slate-400">{item.studentCount} étudiant(s)</span></div><h3 className="mt-4 break-words text-sm font-bold text-white group-hover:text-blue-300 sm:mt-5">{item.establishment}</h3><p className="mt-1 text-xs text-slate-500">Voir les étudiants</p></button>)}</div>}
           </section>}
 
           {activeTab === 'students' && selectedEstablishment && <section className="rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-6">
