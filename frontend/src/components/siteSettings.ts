@@ -42,6 +42,8 @@ export async function fetchSiteSettings(): Promise<SiteSettings> {
   return response.json() as Promise<SiteSettings>;
 }
 
+export const DEFAULT_LOGO = '/logo.png';
+
 export function assetUrl(path: string | null): string | null {
   return path ? `${apiUrl}${path}` : null;
 }

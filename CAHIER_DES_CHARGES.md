@@ -290,7 +290,7 @@ Manifeste (`manifest.webmanifest`, mode `standalone`, couleur `#0b3b60`, icônes
 | RG-06 | « L1 » détecté par l'expression `/licence\s*1\|\bL1\b/i` sur le libellé du niveau. |
 | RG-07 | Pour l'ISSTM, niveau et parcours d'un dossier doivent être **actifs** dans le curriculum ; pour les autres établissements aucune validation. |
 | RG-08 | Un quitus est unique (`code`), lié à au plus un étudiant inscrit et à au plus un dossier. |
-| RG-09 | Code de quitus : `QT-` + 40 caractères hexadécimaux majuscules (160 bits aléatoires) ; comparaison insensible à la casse (mise en majuscules). |
+| RG-09 | Code de quitus : `QT-` + 12 caractères majuscules/chiffres sans ambiguïté (alphabet de 32 signes, 60 bits aléatoires) ; comparaison insensible à la casse (mise en majuscules). |
 | RG-10 | Seuls les étudiants **actifs** sans quitus reçoivent un quitus lors de la génération. |
 | RG-11 | La scolarité ne décide que des dossiers `SOUMIS`/`EN_REVISION` ; la décision est `VALIDE` ou `REFUSE` ; le refus exige un motif non vide. |
 | RG-12 | Le statut du `User` et celui du dossier sont mis à jour dans une même transaction (décision, soumission, forçage admin). |

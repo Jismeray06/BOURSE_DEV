@@ -61,3 +61,15 @@ export function useEstablishments(onLoaded?: (list: PublicEstablishment[]) => vo
 
   return { establishments, loaded, reload };
 }
+
+// Pastille ronde d'un établissement : son logo sur fond blanc, ou son pictogramme de repli.
+export function EstablishmentBadge({ name, logoUrl, size = 'md' }: { name: string; logoUrl?: string | null; size?: 'md' | 'lg' }) {
+  const logo = logoSrc(logoUrl);
+  return createElement(
+    'div',
+    { className: `flex ${size === 'lg' ? 'h-12 w-12' : 'h-11 w-11'} shrink-0 items-center justify-center overflow-hidden rounded-full border border-blue-500/20 bg-blue-500/10 text-blue-400` },
+    logo
+      ? createElement('img', { src: logo, alt: '', className: 'h-full w-full rounded-full bg-white object-contain p-1' })
+      : createElement(EstablishmentIcon, { name, className: size === 'lg' ? 'h-6 w-6' : 'h-5 w-5' }),
+  );
+}

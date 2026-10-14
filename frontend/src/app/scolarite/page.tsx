@@ -9,6 +9,7 @@ import {
   type SetStateAction,
 } from "react";
 import { useRouter } from "next/navigation";
+import { SidebarLogo } from "../../components/SidebarLogo";
 import { DossierViewer } from "../../components/DossierViewer";
 import { AdminSettingsPanel } from "../../components/AdminSettingsPanel";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -27,7 +28,6 @@ import {
   Eye,
   FileSearch,
   FileText,
-  GraduationCap,
   LayoutDashboard,
   LayoutGrid,
   List,
@@ -219,9 +219,7 @@ export default function ScolaritePage() {
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col justify-between overflow-y-auto border-r border-slate-800/80 bg-slate-900/95 backdrop-blur-xl transition-transform duration-200 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} min-[1025px]:translate-x-0`}>
         <div>
           <div className="flex items-center gap-3 border-b border-slate-800/80 p-5 sm:p-6">
-            <div className="shrink-0 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 p-2.5 shadow-lg shadow-blue-500/20">
-              <GraduationCap className="h-6 w-6 text-white" />
-            </div>
+            <SidebarLogo />
             <div className="min-w-0">
               <span className="block truncate text-base font-extrabold leading-tight tracking-tight text-white">
                 Univ Mahajanga

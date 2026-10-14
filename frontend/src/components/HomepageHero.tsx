@@ -3,7 +3,21 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { SiteSettings } from './siteSettings';
 import { assetUrl } from './siteSettings';
-import { EditPencil, useHomeEdit } from './home/HomepageEditor';
+import { Eye, FileText, GraduationCap } from 'lucide-react';
+import { EditPencil, HomeText, useHomeEdit } from './home/HomepageEditor';
+
+// La partie « bourse nationale » du titre est mise en valeur sur sa propre ligne ; un titre sans cette expression reste uniforme.
+function HighlightedTitle({ title }: { title: string }) {
+  const match = /bourse nationale,?/i.exec(title);
+  if (!match) return <>{title}</>;
+  return (
+    <>
+      {title.slice(0, match.index).trimEnd()}
+      <span className="block text-blue-300">{match[0]}</span>
+      {title.slice(match.index + match[0].length).trimStart()}
+    </>
+  );
+}
 
 /**
  * Fond du hero pour les modes pilotés par les réglages (couleur unie, dégradé, une ou plusieurs images).
@@ -66,13 +80,18 @@ export function HeroContent({
 }) {
   const { editMode, editHero } = useHomeEdit();
   return (
-    <div className="max-w-2xl space-y-7 text-center lg:text-left">
+    <div className="max-w-2xl space-y-6 text-center lg:text-left">
+      <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-blue-900/70 px-4 py-2 text-sm font-semibold text-white">
+        <GraduationCap className="h-4 w-4" aria-hidden />
+        <HomeText contentKey="hero.badge" />
+      </p>
+
       <h1 className="font-[family-name:var(--font-heading)] text-4xl font-bold leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-6xl">
-        {settings.heroTitle}
+        <HighlightedTitle title={settings.heroTitle} />
         <EditPencil label="Modifier le titre" onClick={() => editHero('heroTitle')} className="ml-2" />
       </h1>
 
-      <p className="mx-auto max-w-xl text-base leading-relaxed text-slate-200 sm:text-lg lg:mx-0">
+      <p className="mx-auto max-w-xl text-base leading-relaxed text-slate-100 sm:text-lg lg:mx-0">
         {settings.heroSubtitle}
         <EditPencil label="Modifier le sous-titre" onClick={() => editHero('heroSubtitle')} className="ml-2" />
       </p>
@@ -83,9 +102,9 @@ export function HeroContent({
           <button
             type="button"
             onClick={primary.onClick}
-            className={`flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold text-[#0b3b60] shadow-sm transition hover:brightness-95 ${editMode && primary.editable ? 'flex-1 sm:flex-none' : ''}`}
-            style={{ backgroundColor: settings.secondaryColor }}
+            className={`flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-900/30 transition hover:bg-blue-500 ${editMode && primary.editable ? 'flex-1 sm:flex-none' : ''}`}
           >
+            <FileText className="h-4 w-4" aria-hidden />
             <span>{primary.label}</span>
           </button>
           {primary.editable && <EditPencil label="Modifier le texte du bouton" onClick={() => editHero('ctaSecondaryLabel')} />}
@@ -94,8 +113,9 @@ export function HeroContent({
           <button
             type="button"
             onClick={secondary.onClick}
-            className="flex items-center justify-center gap-2 rounded-lg border border-white/40 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+            className="flex items-center justify-center gap-2 rounded-lg border border-white/50 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10"
           >
+            <Eye className="h-4 w-4" aria-hidden />
             <span>{secondary.label}</span>
           </button>
         )}

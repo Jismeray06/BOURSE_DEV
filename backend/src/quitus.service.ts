@@ -78,12 +78,13 @@ export class QuitusService {
   private async load(user: Requester, rawCode: string, establishment: string) {
     const quitus = await this.prisma.quitus.findUnique({
       where: { code: this.normalize(rawCode) },
-      include: { enrollment: { select: { id: true, fullName: true, email: true, userId: true, active: true } }, application: { select: { userId: true } } },
+      include: { enrollment: { select: { id: true, fullName: true, email: true, userId: true, active: true, deletedAt: true } }, application: { select: { userId: true } } },
     });
     if (!quitus) throw new BadRequestException('Quitus introuvable. Vérifiez le code saisi.');
     if (quitus.establishment !== establishment) throw new BadRequestException('Ce quitus ne correspond pas à l’établissement sélectionné.');
     const enrollment = quitus.enrollment;
     if (!enrollment) throw new BadRequestException("Ce quitus n'est lié à aucun étudiant inscrit : contactez votre établissement.");
+    if (enrollment.deletedAt) throw new BadRequestException("L'inscription liée à ce quitus a été supprimée : contactez votre établissement.");
     if (!enrollment.active) throw new BadRequestException("L'inscription liée à ce quitus n'est pas active : contactez votre établissement.");
     if (quitus.application && quitus.application.userId !== user.id) throw new ConflictException('Ce quitus est déjà utilisé par un autre dossier.');
     if (enrollment.userId && enrollment.userId !== user.id) throw new ConflictException('Ce quitus est déjà rattaché à un autre compte : contactez votre établissement.');

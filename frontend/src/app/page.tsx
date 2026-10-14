@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { useHomeTheme } from '../components/HomeThemeToggle';
 import { HeroBackground, HeroContent } from '../components/HomepageHero';
 import { HomeEditProvider, HomeText, useHomeEdit } from '../components/home/HomepageEditor';
 import { HomeNavbar } from '../components/home/HomeNavbar';
+import { HeroInfoCard, HeroStats, HeroTagline } from '../components/home/HeroExtras';
 import { BourseSection } from '../components/home/BourseSection';
 import { StepsSection } from '../components/home/StepsSection';
 import { PrepareSection } from '../components/home/PrepareSection';
@@ -84,14 +85,6 @@ function HomeBody({ settings, darkMode, onToggleTheme }: { settings: SiteSetting
     return () => clearInterval(timer);
   }, []);
 
-  const handleNextImage = () => {
-    setCurrentImageIndex((prevIndex) => (prevIndex + 1) % CAMPUS_IMAGES.length);
-  };
-
-  const handlePrevImage = () => {
-    setCurrentImageIndex((prevIndex) => (prevIndex - 1 + CAMPUS_IMAGES.length) % CAMPUS_IMAGES.length);
-  };
-
   const goToLogin = (link: string) => {
     if (/^https?:\/\//.test(link)) window.location.assign(link);
     else router.push(link);
@@ -102,7 +95,7 @@ function HomeBody({ settings, darkMode, onToggleTheme }: { settings: SiteSetting
       <HomeNavbar settings={settings} darkMode={darkMode} onToggleTheme={onToggleTheme} />
 
       {/* --- HERO SECTION --- */}
-      <section id="accueil" className="relative flex min-h-[calc(100svh-4rem)] scroll-mt-16 lg:min-h-[calc(100svh-5rem)] items-center overflow-hidden bg-[#06233b]">
+      <section id="accueil" className="relative flex min-h-[calc(100svh-4rem)] scroll-mt-16 flex-col overflow-hidden bg-[#06233b] lg:min-h-[calc(100svh-5rem)] lg:scroll-mt-20">
         {showDefaultCarousel ? (
           <div className="absolute inset-0">
             {CAMPUS_IMAGES.map((item, index) => (
@@ -123,14 +116,17 @@ function HomeBody({ settings, darkMode, onToggleTheme }: { settings: SiteSetting
               </div>
             ))}
             {/* Assombrissement pour la lisibilité du texte */}
-            <div className="absolute inset-0 bg-[#06233b]/60" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#06233b]/95 via-[#06233b]/55 to-[#06233b]/25" />
+            <div className="absolute inset-0 bg-[#06233b]/55" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#06233b]/90 via-[#06233b]/55 to-[#06233b]/20" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#06233b]/80 via-transparent to-transparent" />
           </div>
         ) : (
           <HeroBackground settings={settings} />
         )}
 
-        <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 relative z-10 w-full py-16 sm:py-20 lg:py-24">
+        <HeroTagline />
+
+        <div className="relative z-10 grid w-full flex-1 items-center gap-10 px-5 py-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:gap-12 lg:px-8 lg:py-16">
           <HeroContent
             settings={settings}
             primary={
@@ -140,6 +136,11 @@ function HomeBody({ settings, darkMode, onToggleTheme }: { settings: SiteSetting
             }
             secondary={dashboardPath ? undefined : { label: <HomeText contentKey="hero.trackingLabel" />, onClick: () => router.push(LOGIN_PATH) }}
           />
+          <HeroInfoCard />
+        </div>
+
+        <div className="relative z-10 w-full px-5 pb-12 sm:px-6 lg:px-8">
+          <HeroStats />
         </div>
 
         {editMode && (
@@ -155,29 +156,13 @@ function HomeBody({ settings, darkMode, onToggleTheme }: { settings: SiteSetting
         {/* Contrôles du diaporama (uniquement quand le carrousel par défaut est actif) */}
         {showDefaultCarousel && (
           <>
-            <button
-              onClick={handlePrevImage}
-              aria-label="Image précédente"
-              className="hidden sm:flex absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-white/10 backdrop-blur text-white hover:bg-white/20 transition border border-white/25 cursor-pointer"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-
-            <button
-              onClick={handleNextImage}
-              aria-label="Image suivante"
-              className="hidden sm:flex absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-white/10 backdrop-blur text-white hover:bg-white/20 transition border border-white/25 cursor-pointer"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
               {CAMPUS_IMAGES.map((_, idx) => (
                 <button
                   key={idx}
                   onClick={() => setCurrentImageIndex(idx)}
                   aria-label={`Aller à l'image ${idx + 1}`}
-                  className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                  className={`h-2 min-h-0! rounded-full transition-all duration-300 cursor-pointer ${
                     idx === currentImageIndex ? 'w-6 bg-white' : 'w-2 bg-white/50 hover:bg-white/80'
                   }`}
                 />

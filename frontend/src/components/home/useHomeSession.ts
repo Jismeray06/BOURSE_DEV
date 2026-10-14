@@ -32,4 +32,5 @@ export const NAV_LINKS = [
   { href: '/#etapes', contentKey: 'nav.steps' },
   { href: '/#etablissements', contentKey: 'nav.establishments' },
   { href: '/#faq', contentKey: 'nav.faq' },
+  { href: '/#actualites', contentKey: 'nav.news' },
 ];

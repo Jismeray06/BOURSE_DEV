@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 
-type Props = { id?: string; title: ReactNode; description?: ReactNode; tone?: 'white' | 'muted'; children: ReactNode };
+type Props = { id?: string; eyebrow?: ReactNode; title: ReactNode; description?: ReactNode; tone?: 'white' | 'muted'; children: ReactNode };
 
 // Gabarit commun des sections : titre centré, description facultative, fond blanc ou grisé.
-export function SectionShell({ id, title, description, tone = 'white', children }: Props) {
+export function SectionShell({ id, eyebrow, title, description, tone = 'white', children }: Props) {
   return (
     <section
       id={id}
@@ -11,6 +11,11 @@ export function SectionShell({ id, title, description, tone = 'white', children 
     >
       <div className="mx-auto max-w-7xl px-5 sm:px-6 lg:px-8">
         <div className="mx-auto mb-10 max-w-3xl text-center">
+          {eyebrow && (
+            <p className="mb-2 flex items-center justify-center gap-3 text-sm font-semibold text-blue-600 dark:text-blue-400">
+              <span className="h-px w-8 bg-current" aria-hidden />{eyebrow}<span className="h-px w-8 bg-current" aria-hidden />
+            </p>
+          )}
           <h2 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">{title}</h2>
           {description && <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400 sm:text-base">{description}</p>}
         </div>

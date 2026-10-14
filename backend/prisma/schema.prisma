@@ -250,6 +250,7 @@ model EnrolledStudent {
   level              String
   program            String
   active             Boolean  @default(true)
+  deletedAt          DateTime?
   userId             String?  @unique
   user               User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt          DateTime @default(now())
