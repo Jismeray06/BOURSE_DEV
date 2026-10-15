@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Dancing_Script, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { PlatformThemeProvider } from "../components/PlatformThemeProvider";
-import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
 
 const playfairDisplay = Playfair_Display({
   subsets: ["latin"],
@@ -17,18 +16,12 @@ const dancingScript = Dancing_Script({
 export const metadata: Metadata = {
   title: "Université de Mahajanga — Demande de bourse nationale",
   description: "Plateforme de dématérialisation des demandes de bourse nationale de l'Université de Mahajanga.",
-  manifest: "/manifest.webmanifest",
   icons: {
     icon: [
       { url: "/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },
       { url: "/icon-512.svg", sizes: "512x512", type: "image/svg+xml" },
     ],
     apple: "/icon-192.svg",
-  },
-  appleWebApp: {
-    capable: true,
-    title: "Université de Mahajanga",
-    statusBarStyle: "default",
   },
 };
 
@@ -43,7 +36,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="fr" className={`h-full antialiased ${playfairDisplay.variable} ${dancingScript.variable}`}>
       <body className="min-h-full flex flex-col">
-        <ServiceWorkerRegistration />
         <PlatformThemeProvider>{children}</PlatformThemeProvider>
       </body>
     </html>

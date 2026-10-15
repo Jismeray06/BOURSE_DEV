@@ -12,14 +12,14 @@ Un étudiant crée un compte, choisit son établissement/niveau/parcours, rensei
 
 Le dossier soumis part ensuite vers la **Scolarité centrale**, qui l'examine et décide de le **valider** (la bourse est accordée) ou de le **refuser** (avec un motif obligatoire). L'étudiant suit l'état de son dossier en temps réel et peut télécharger une attestation une fois validé.
 
-En parallèle, chaque **établissement** (aujourd'hui : ISSTM) gère sa propre base d'étudiants inscrits/réinscrits, configure ses niveaux et parcours, et génère les quitus que les étudiants utiliseront pour appuyer leur demande de bourse.
+En parallèle, chaque **établissement** de l'Université de Mahajanga (l'ISSTM étant l'établissement de démonstration) gère sa propre base d'étudiants inscrits/réinscrits, configure ses niveaux et parcours, et génère les quitus que les étudiants utiliseront pour appuyer leur demande de bourse.
 
 Un **administrateur** supervise l'ensemble : comptes du personnel (établissements, scolarité centrale, secrétaires), listes globales d'étudiants, apparence du site public, et journal d'audit.
 
 Schéma du flux principal :
 
 ```
-Étudiant                Établissement (ISSTM…)         Scolarité centrale
+Étudiant                Établissement (ex. ISSTM)       Scolarité centrale
    │                            │                              │
    │  s'inscrit, remplit        │  inscrit/réinscrit l'étudiant │
    │  établissement/niveau/     │  dans sa base, génère un      │
@@ -77,7 +77,7 @@ Le super-administrateur de la plateforme. Il :
 Espace : `/admin`.
 
 ### 3.3 ETABLISSEMENT (`ETABLISSEMENT`) et ADMIN_ETABLISSEMENT (`ADMIN_ETABLISSEMENT`)
-Le responsable d'un établissement (aujourd'hui uniquement ISSTM — codé en dur dans le backend). Il :
+Le responsable d'un établissement de l'Université de Mahajanga (l'ISSTM sert d'établissement de démonstration ; le backend utilise l'établissement du compte connecté, le préfixe de route `/establishment/isstm/…` n'étant qu'un nom historique). Il :
 - inscrit de nouveaux étudiants dans la base de son établissement (formulaires distincts pour Licence 1, Master 1, ou réinscription d'un étudiant existant) ;
 - génère les quitus (reçus de paiement) pour ses étudiants inscrits, un par un ou en masse ;
 - configure les niveaux et parcours propres à son établissement (structure académique) ;
@@ -113,7 +113,7 @@ Racine : `backend/src/`
 | `google-auth.service.ts` | Encapsule le flux OAuth2 Google (génère l'URL d'autorisation, vérifie le jeton d'identité renvoyé). Nécessite `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` configurés. |
 | `mail.service.ts` | Envoie l'e-mail de vérification d'adresse via SMTP (nodemailer), avec lien pointant vers `/verify-email?token=...` sur le frontend. |
 | `admin.controller.ts` | Toutes les routes réservées au rôle ADMIN : liste des étudiants, liste des établissements avec effectifs, étudiants d'un établissement (recherche/filtre), gestion des comptes du personnel (CRUD + corbeille), journal d'audit, changement de statut d'un dossier étudiant. |
-| `establishment.controller.ts` | Toutes les routes de l'espace établissement (ISSTM en dur) : référentiel de niveaux/parcours (curriculum), liste des étudiants inscrits, gestion des comptes secrétaires, inscription/réinscription d'un étudiant, paramètres (mention), génération de quitus, vérification publique d'un quitus. |
+| `establishment.controller.ts` | Toutes les routes de l'espace établissement (préfixe historique `isstm`, établissement du compte connecté) : référentiel de niveaux/parcours (curriculum), liste des étudiants inscrits, gestion des comptes secrétaires, inscription/réinscription d'un étudiant, paramètres (mention), génération de quitus, vérification publique d'un quitus. |
 | `student.controller.ts` | Routes de l'espace étudiant : lecture du dossier (`GET /student/application`), lecture du profil, enregistrement d'un brouillon (`PUT /student/application`), soumission définitive (`POST /student/application/submit` — vérifie que toutes les pièces obligatoires sont présentes et qu'un quitus valide est associé). |
 | `central-registrar.controller.ts` | Routes de l'espace scolarité centrale : liste des dossiers soumis/en révision/validés/refusés, décision (`PATCH /scolarite/applications/:id/decision`) avec motif obligatoire si refus. |
 | `document.controller.ts` | Téléversement et consultation des pièces justificatives : upload d'une pièce par type (`POST /student/application/documents/:type`, max 10 Mo, PDF/PNG/JPG), liste des pièces d'un dossier, consultation du "dossier" complet (infos + pièces) pour admin/scolarité/établissement, téléchargement/visualisation sécurisée d'un fichier (`GET /documents/:id/file`) avec contrôle d'accès selon le rôle. |
@@ -149,10 +149,10 @@ Racine : `frontend/src/app/`
 | `login/page.tsx` (`/login`) | Écran unique de connexion **et** création de compte (bascule par un lien). Formulaire email/mot de passe, connexion Google, gestion des erreurs (dont le cas "e-mail non vérifié" avec bouton pour renvoyer l'e-mail). Redirige selon le rôle renvoyé par l'API après connexion (`ADMIN→/admin`, `ETABLISSEMENT/ADMIN_ETABLISSEMENT/SECRETAIRE→/etablissement`, `SCOLARITE_CENTRALE→/scolarite`, `ETUDIANT→/student`). |
 | `verify-email/page.tsx` (`/verify-email`) | Page atteinte via le lien reçu par e-mail (`?token=...`). Appelle `POST /auth/verify-email` et affiche le résultat. |
 | `student/page.tsx` (`/student`) | **Espace étudiant.** Formulaire en 5 étapes (établissement → niveau → parcours → quitus → pièces), sauvegarde automatique du brouillon à chaque étape, vérification du quitus, upload des pièces obligatoires, soumission finale, affichage du statut du dossier et de l'attestation imprimable une fois validé. Contient aussi un onglet Notifications et un onglet Paramètres (apparence de l'interface). |
-| `etablissement/page.tsx` (`/etablissement`) | **Espace établissement (ISSTM).** Liste des étudiants inscrits (recherche, sélection, génération de quitus individuelle/en masse), formulaire d'ajout d'étudiant (3 modes : inscription Licence 1, inscription Master 1, réinscription d'un étudiant existant), gestion des comptes secrétaires (réservé aux responsables), paramètres (apparence, structure académique : niveaux/parcours, mention de l'établissement), et un visualiseur de dossier (pièces jointes) par étudiant. |
+| `etablissement/page.tsx` (`/etablissement`) | **Espace établissement** (démonstration : ISSTM). Liste des étudiants inscrits (recherche, sélection, génération de quitus individuelle/en masse), formulaire d'ajout d'étudiant (3 modes : inscription Licence 1, inscription Master 1, réinscription d'un étudiant existant), gestion des comptes secrétaires (réservé aux responsables), paramètres (apparence, structure académique : niveaux/parcours, mention de l'établissement), et un visualiseur de dossier (pièces jointes) par étudiant. |
 | `scolarite/page.tsx` (`/scolarite`) | **Espace scolarité centrale.** Tableau de bord avec compteurs (dossiers finalisés, à examiner, bourses validées, refusés), liste des dossiers à traiter avec action Valider/Refuser (motif obligatoire pour un refus), historique des décisions, visualiseur de dossier, réglages d'apparence. |
 | `admin/page.tsx` (`/admin`) | **Espace administrateur.** Tableau de bord global, liste des étudiants (globale ou filtrée par établissement), gestion des comptes du personnel (créer, activer/désactiver, renommer, réinitialiser mot de passe, corbeille/restauration/purge), journal d'audit, réglages d'apparence de la plateforme et de la page d'accueil publique (logo, couleurs, textes, images). |
-| `layout.tsx` | Mise en page racine : police (Playfair Display pour les titres), métadonnées (titre, manifeste PWA, icônes), enregistrement du service worker, et le `PlatformThemeProvider` qui applique le thème visuel choisi selon l'espace visité. |
+| `layout.tsx` | Mise en page racine : police (Playfair Display pour les titres), métadonnées (titre, icônes), et le `PlatformThemeProvider` qui applique le thème visuel choisi selon l'espace visité. |
 
 ### Composants partagés (`frontend/src/components/`)
 
@@ -167,7 +167,6 @@ Racine : `frontend/src/app/`
 | `adminSettings.ts` | Type, valeurs par défaut, migration et sérialisation des réglages d'interface personnels (stockés en `localStorage`, par espace) ; génère le CSS de thème appliqué dynamiquement. |
 | `useInterfaceSettings.ts` | Hook React qui charge/sauvegarde les réglages d'interface d'un espace donné et les synchronise entre onglets. |
 | `PlatformThemeProvider.tsx` | Composant racine qui détecte l'espace visité (`/admin`, `/etablissement`, `/scolarite`, `/student`) et injecte le CSS du thème correspondant. |
-| `ServiceWorkerRegistration.tsx` | Enregistre le service worker en production (PWA) ; le désinstalle en développement pour éviter les conflits de cache. |
 
 ---
 
@@ -175,7 +174,7 @@ Racine : `frontend/src/app/`
 
 1. **Création de compte** (`/login`, mode inscription) → e-mail de vérification envoyé → l'étudiant clique le lien (`/verify-email`) → compte activé.
 2. **Connexion** → redirection vers `/student`.
-3. **Étape 1 : Établissement** — l'étudiant choisit parmi la liste (ENS, Médecine, FSTE, ISSTM, etc.). Seul ISSTM a un référentiel dynamique de niveaux/parcours ; les autres établissements utilisent des listes statiques côté frontend.
+3. **Étape 1 : Établissement** — l'étudiant choisit parmi la liste (ENS, Médecine, FSTE, ISSTM, etc.). L'ISSTM, établissement de démonstration, est celui dont le référentiel de niveaux/parcours a été le plus travaillé ; ⚠️ cette description de l'étape est antérieure à la refonte multi-établissements : se référer au CAHIER_DES_CHARGES.md pour l'état actuel.
 4. **Étape 2 : Niveau** (L1 à M2).
 5. **Étape 3 : Parcours/spécialité.**
    → Après chaque étape, le formulaire est sauvegardé en brouillon (`PUT /student/application`).
@@ -235,7 +234,7 @@ L'**administrateur** (`ADMIN`, plus haut rôle du projet) modifie la page d'accu
 ## 7. Points d'attention connus (dette technique)
 
 - **Incohérence de nommage** : le dépôt s'appelle "plateforme-inscription-mahajanga" et les textes de l'interface (page d'accueil, attestations) parlent encore d'"inscription universitaire", alors que la fonction réelle et validée par le porteur du projet est la **demande de bourse**. Les futurs textes/écrans devraient être alignés sur "dossier de bourse" plutôt que "dossier d'inscription".
-- **ISSTM codé en dur** : tout l'espace établissement (`establishment.controller.ts`) est écrit spécifiquement pour "ISSTM" (constante `ISSTM`). Les autres établissements listés côté étudiant (ENS, Médecine, FSTE…) n'ont pas de référentiel backend ni de flux de quitus réel.
+- **Intégration des autres établissements à poursuivre** : l'ISSTM est l'établissement de démonstration ; l'intégration complète des autres établissements de l'Université de Mahajanga (ENS, Médecine, FSTE…) sera poursuivie après la soutenance (état actuel détaillé dans CAHIER_DES_CHARGES.md).
 - **Redirection Google incomplète** : la connexion via Google ne route pas le rôle `SCOLARITE_CENTRALE` vers `/scolarite` (voir section 3.5).
 - **Deux entités étudiant distinctes** : `User` (compte de connexion) et `EnrolledStudent` (fiche dans la base d'un établissement) ne sont reliées que par e-mail ou un `userId` optionnel — source de désynchronisation possible.
 - **Jetons de session** stockés en `sessionStorage` (pas de cookie httpOnly) — acceptable en développement, à revoir avant mise en production.

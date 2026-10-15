@@ -5,10 +5,24 @@
 | **Nom du dépôt** | `plateforme-inscription-mahajanga` |
 | **Nature réelle du projet** | Plateforme de **dépôt et de traitement de dossiers de demande de bourse** (et non une plateforme d'inscription universitaire, malgré le nom du dépôt) |
 | **Version documentée** | État du code au 14 octobre 2026 (branche `main`, commit `5d7be57`) — 30 migrations, 12 contrôleurs, 8 pages |
-| **Périmètre actuel** | **Plusieurs établissements** gérés par l'administrateur (table `Establishment` : ENS, Faculté de Médecine, IOSTM, EDSP, École de Vétérinaire, IUGM, IUTAM, ILC-SS, ELCI, FSTE, Écoles doctorales, École de Pharmacie, ISSTM, etc. ; la liste exacte dépend de la base, les migrations en ajoutent aussi plusieurs antennes). Chaque établissement dispose de son espace dès qu'un compte responsable lui est rattaché ; **ISSTM** reste l'établissement de démonstration. Les routes de l'API conservent le préfixe historique `/establishment/isstm/…` mais l'établissement visé est **toujours celui du compte connecté**. |
+| **Périmètre actuel** | **Plusieurs établissements** gérés par l'administrateur (table `Establishment` : ENS, Faculté de Médecine, IOSTM, EDSP, École de Vétérinaire, IUGM, IUTAM, ILC-SS, ELCI, FSTE, Écoles doctorales, École de Pharmacie, ISSTM, etc. ; la liste exacte dépend de la base, les migrations en ajoutent aussi plusieurs antennes). Chaque établissement dispose de son espace dès qu'un compte responsable lui est rattaché ; **ISSTM** est uniquement l'établissement de démonstration (développement et tests). Les routes de l'API conservent le préfixe historique `/establishment/isstm/…` mais l'établissement visé est **toujours celui du compte connecté**. |
 | **Langue de l'interface** | Français |
 
 > Ce document décrit **ce que le système fait réellement aujourd'hui** (constaté dans le code), puis liste les écarts, risques et évolutions à prévoir. Les passages marqués ⚠️ sont des écarts ou des défauts constatés, pas des fonctionnalités.
+
+### Clarification du périmètre (précisée par l'auteur le 14 octobre 2026)
+
+| | |
+| --- | --- |
+| **Périmètre du projet** | **L'ensemble des établissements de l'Université de Mahajanga**, et non l'ISSTM seul. |
+| **Établissement de démonstration** | **ISSTM** : **uniquement** l'établissement de démonstration, utilisé pour développer, configurer et tester la plateforme. Ce choix ne signifie pas que l'application lui est destinée. |
+| **Objectif** | Permettre à plusieurs établissements de gérer leurs étudiants, inscriptions, réinscriptions et quitus, tout en centralisant les demandes de bourse nationale. |
+| **Évolution prévue** | L'intégration complète des autres établissements sera poursuivie **après la soutenance**. |
+
+Règles à respecter dans tout texte, code ou réponse concernant ce projet (mémoire de Licence 3 en Génie informatique) :
+- Ne jamais présenter l'ISSTM comme le seul établissement concerné ; ne pas limiter l'architecture ni les fonctionnalités à l'ISSTM ; conserver une architecture multi-établissements.
+- Dans les descriptions générales, écrire « Université de Mahajanga » ; ne citer l'ISSTM que pour les exemples, configurations ou tests effectivement réalisés avec lui.
+- Distinguer clairement ce qui est **développé**, **partiellement réalisé** et **à faire** ; ne jamais présenter une fonctionnalité prévue comme réalisée. Les réponses techniques s'appuient sur le code réellement implémenté.
 
 ---
 
@@ -52,7 +66,7 @@
 - Calcul ou versement de la bourse.
 - Réinitialisation du mot de passe **oublié** en libre-service (le changement de mot de passe depuis « Mon compte » existe, lui, pour l'utilisateur connecté).
 - Campagnes / années de bourse (aucune date d'ouverture ou de clôture n'est gérée côté serveur).
-- Application mobile native (une PWA minimale existe).
+- Application mobile native et application web installable (PWA) : la PWA minimale qui existait a été retirée.
 
 ---
 
@@ -318,9 +332,9 @@ Transport : `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `
 
 Réglages **par espace** (`admin`, `etablissement`, `student`, `scolarite`), enregistrés en `localStorage`, synchronisés entre onglets : thème (Sombre / Minuit / Clair / Auto), couleur d'accentuation (9 préréglages + libre), couleur de fond (7 préréglages + libre), style de fond (uni / dégradé / points), lueur décorative, police (système / serif / mono), taille du texte (4 niveaux), arrondi, largeur du contenu, contraste élevé, réduction des animations, confirmation avant changement de statut, actualisation automatique, onglet de démarrage, nom de l'université et année universitaire. Le thème est appliqué par génération de CSS dynamique (`buildThemeCss`) qui surcharge les classes Tailwind `slate/blue`.
 
-### 4.10 PWA
+### 4.10 PWA (retirée)
 
-Manifeste (`manifest.webmanifest`, mode `standalone`, couleur `#0b3b60`, icônes SVG 192/512) et Service Worker (`sw.js`, cache `mahajanga-inscription-v2`) : précache des icônes/manifeste, cache des ressources `/_next/static/`, navigation « réseau d'abord » avec secours hors ligne. Enregistré **en production uniquement** ; désinstallé en développement. Le manifeste est désormais intitulé « Université de Mahajanga - Demande de bourse nationale » (nom court « Inscription UM » : ⚠️ à harmoniser). Les icônes sont toujours des **SVG** (`icon-192.svg`, `icon-512.svg`) ; le logo de l'accueil est un PNG (`/logo.png`).
+Le manifeste (`manifest.webmanifest`), le Service Worker (`sw.js`) et son composant d'enregistrement (`ServiceWorkerRegistration.tsx`) ont été **supprimés** à la demande de l'auteur, la PWA n'étant pas utilisée. Les icônes SVG (`icon-192.svg`, `icon-512.svg`) sont conservées comme icônes du site (`layout.tsx`). ⚠️ Un navigateur qui avait déjà enregistré l'ancien Service Worker doit le désinstaller une fois (outils de développement → Application → Service Workers → Unregister).
 
 ---
 
@@ -375,7 +389,7 @@ Manifeste (`manifest.webmanifest`, mode `standalone`, couleur `#0b3b60`, icônes
 | **Sécurité (limitation de débit)** | Limites ciblées en mémoire : vérification de quitus, codes de quitus, mot de passe actuel (comptes) | Partiel — voir S-01 |
 | **Maintenabilité** | TypeScript strict, ESLint (frontend), oxlint + Prettier (backend), migrations Prisma versionnées (30 migrations) | Respecté |
 | **Portabilité** | Variables d'environnement pour URL, SMTP, Google, base de données | Respecté |
-| **Hors ligne** | PWA minimale | Partiel |
+| **Hors ligne** | Non pris en charge (PWA retirée) | – |
 | **Observabilité** | Module `@nestjs/observe` activé seulement si `OBSERVE_APP_KEY` et `OBSERVE_APP_SECRET` sont définis ; journalisation de l'échec d'envoi d'e-mail | Partiel |
 | **Navigateurs** | Navigateurs modernes (CSS `color-mix`, `useSyncExternalStore`, Tailwind 4) | – |
 
@@ -424,7 +438,7 @@ plateforme-inscription-mahajanga/
 │   ├── test/ (e2e)
 │   └── uploads/ (créé à l'exécution : documents/, site-settings/, establishments/, avatars/)
 └── frontend/
-    ├── public/ (images campus, icônes SVG, logo.png, manifest, sw.js)
+    ├── public/ (images campus, icônes SVG, logo.png)
     └── src/
         ├── app/ (page.tsx, login/, login/google/, verify-email/, confirm-email-change/, student/, etablissement/, scolarite/, admin/, layout.tsx, globals.css)
         └── components/ (voir §10.2 ; sous-dossier home/ pour la page d'accueil)
@@ -678,7 +692,6 @@ Navigation par espace :
 | [HomeThemeToggle](frontend/src/components/HomeThemeToggle.tsx) | Bascule clair/sombre des pages publiques |
 | [dashboardPath.ts](frontend/src/components/dashboardPath.ts) | Rôle → chemin du tableau de bord |
 | [siteSettings.ts](frontend/src/components/siteSettings.ts) | Types, valeurs par défaut, `assetUrl`, `DEFAULT_LOGO` (`/logo.png`), récupération des réglages du site |
-| [ServiceWorkerRegistration](frontend/src/components/ServiceWorkerRegistration.tsx) | Enregistrement du Service Worker |
 
 ### 10.3 Variables d'environnement frontend
 
@@ -786,7 +799,6 @@ Scripts : `dev`, `build`, `start`, `lint`. ⚠️ Le fichier [frontend/AGENTS.md
 - Créer le dossier `uploads/` avec droits d'écriture et le **sauvegarder** (il contient les pièces des étudiants).
 - Changer **tous** les mots de passe et secrets de démonstration ; ne pas exécuter le seed de démonstration en production sans adaptation.
 - Configurer HTTPS, `NODE_ENV=production`, `FRONTEND_URL` et `GOOGLE_CALLBACK_URL` de production (URI autorisées dans Google Cloud).
-- Le Service Worker n'est actif qu'en production.
 - ⚠️ **Ne pas versionner `backend/.local-credentials.txt`** (voir S-14). Le `.gitignore` exclut `*.tsbuildinfo`, `.local-backups/` et `backend/.local-credentials.txt`.
 - Sauvegarder aussi `uploads/establishments/` et `uploads/avatars/` (logos, photos de profil) et `uploads/site-settings/`.
 
@@ -834,7 +846,7 @@ Plan de test minimal recommandé (voir §16) : tests d'intégration sur RG-02, R
 10. Étudiant validé : l'attestation devient imprimable ; le dossier n'est plus modifiable.
 11. Établissement : inscrire un étudiant Licence puis Master ; réinscrire ; générer quitus (sélection puis « manquants ») ; imprimer l'attestation.
 12. Secrétaire : vérifier l'absence des boutons de génération de quitus, de gestion des comptes et de paramètres.
-13. Isolation : un responsable d'un autre établissement ne peut pas ouvrir le dossier ni les pièces d'un étudiant de l'ISSTM.
+13. Isolation : un responsable d'un autre établissement ne peut pas ouvrir le dossier ni les pièces d'un étudiant rattaché à un autre établissement.
 14. Admin : créer un compte, le désactiver, le renommer, réinitialiser son mot de passe, le mettre à la corbeille, le restaurer, le purger (saisie du nom) ; vérifier chaque ligne du journal d'audit ; tenter de désactiver le dernier admin.
 15. Admin : personnaliser la page d'accueil (logo, favicon, 4 photos, couleurs, textes) puis réinitialiser.
 16. Export CSV et PDF des étudiants.
@@ -855,7 +867,7 @@ Plan de test minimal recommandé (voir §16) : tests d'intégration sur RG-02, R
 ### 15.1 Cohérence métier et textes
 | # | Constat |
 | --- | --- |
-| T-01 | Le titre HTML, la description et le manifeste PWA parlent désormais de **demande de bourse nationale**, ainsi que les textes d'accueil. Restent du vocabulaire d'**inscription** : le nom du dépôt, le nom court du manifeste (« Inscription UM »), les valeurs par défaut du hero en base (`SiteSettings.heroTitle/heroSubtitle/ctaSecondaryLabel`), le thème de l'espace admin (« Gestion des inscriptions »), l'expéditeur `SMTP_FROM` (« Plateforme d'inscription »), la page de connexion et l'attestation étudiante. À harmoniser. |
+| T-01 | Le titre HTML et la description parlent désormais de **demande de bourse nationale**, ainsi que les textes d'accueil. Restent du vocabulaire d'**inscription** : le nom du dépôt, les valeurs par défaut du hero en base (`SiteSettings.heroTitle/heroSubtitle/ctaSecondaryLabel`), le thème de l'espace admin (« Gestion des inscriptions »), l'expéditeur `SMTP_FROM` (« Plateforme d'inscription »), la page de connexion et l'attestation étudiante. À harmoniser. |
 | T-02 | L'attestation délivrée à l'étudiant validé dit « est inscrit(e) à … pour l'Année Universitaire 2025-2026 » : ce n'est pas une attestation de bourse. |
 | T-03 | L'année universitaire est **codée en dur** (« 2025-2026 » côté étudiant ; fonction `academicYear()` côté établissement ; réglage local « Année universitaire » dans les paramètres) et n'est pas liée à une donnée serveur. La période de dépôt affichée sur l'accueil (« 01 Septembre au 31 Octobre 2026 ») n'est qu'un **texte modifiable**, sans effet sur le dépôt. |
 | T-04 | Les statistiques de l'accueil (« + 12 000 étudiants », « 100 % dématérialisé ») sont des textes modifiables non reliés aux données ; seul le nombre d'établissements est calculé. |
@@ -902,7 +914,7 @@ Plan de test minimal recommandé (voir §16) : tests d'intégration sur RG-02, R
 
 ### 16.1 Priorité haute
 1. **Sécurité des secrets** : changer les mots de passe concernés, purger `backend/.local-credentials.txt` de l'historique Git (le fichier n'est plus suivi), nettoyer `.env.example` (S-14, S-04).
-2. **Aligner le vocabulaire** sur la bourse (nom court du manifeste, valeurs par défaut en base, attestation, e-mails, thème admin) (T-01, T-02).
+2. **Aligner le vocabulaire** sur la bourse (valeurs par défaut en base, attestation, e-mails, thème admin) (T-01, T-02).
 3. **Limitation de débit** : compléter (renvoi d'e-mail, stockage partagé, `trust proxy`) et ajouter les en-têtes de sécurité (S-01, S-10).
 4. **Inspection du contenu des fichiers** (pièces, logos) et interdiction ou assainissement du SVG (S-05).
 5. **Réinitialisation du mot de passe oublié** par e-mail (P-01).
@@ -927,7 +939,7 @@ Plan de test minimal recommandé (voir §16) : tests d'intégration sur RG-02, R
 20. Mise en page PDF dédiée pour les exports et l'attestation de bourse.
 21. Internationalisation (français / malgache).
 22. Audit d'accessibilité (WCAG) et tests e2e (Playwright).
-23. Icônes PWA et favicon en PNG en plus des SVG.
+23. Favicon en PNG en plus des SVG.
 
 ## 17. Glossaire
 
@@ -937,7 +949,7 @@ Plan de test minimal recommandé (voir §16) : tests d'intégration sur RG-02, R
 | **Quitus** | Reçu/attestation de paiement des droits d'inscription délivré par l'établissement ; ici un code unique `QT-…` généré par l'établissement et vérifié par l'étudiant |
 | **Scolarité centrale** | Service de l'université qui examine et décide des dossiers |
 | **Établissement** | Faculté, école ou institut (ISSTM, ENS, FSTE…) |
-| **ISSTM** | Établissement de l'université de Mahajanga — seul établissement géré de bout en bout (le code ne donne pas la signification de l'acronyme : à compléter) |
+| **ISSTM** | Établissement de l'Université de Mahajanga utilisé comme **établissement de démonstration** pour développer et tester la plateforme (le code ne donne pas la signification de l'acronyme : à compléter) |
 | **Curriculum** | Niveaux (L1…M2) et parcours (GInfo, GC…) d'un établissement, par cycle |
 | **Cycle** | `LICENCE` ou `MASTER` |
 | **Pièce requise** | Type de document exigé, configurable par établissement, contexte (inscription / candidature) et cycle |
@@ -949,4 +961,4 @@ Plan de test minimal recommandé (voir §16) : tests d'intégration sur RG-02, R
 | **Liste commune** | Liste de pièces du dépôt de dossier (clé d'établissement `*`) appliquée à tous les établissements quand le mode « identique pour tous » est actif |
 | **Mode personnalisation** | Mode de l'accueil réservé à l'admin (`/?mode=personnalisation`) où chaque texte, image et actualité est modifiable en place |
 | **Logo rond** | Style commun des logos (cercle, fond blanc, petite marge, liseré) utilisé sur l'accueil, les menus latéraux et les cartes d'établissements |
-| **PWA** | Application web installable avec cache hors ligne minimal |
+| **PWA** | Application web installable (fonction retirée du projet) |
