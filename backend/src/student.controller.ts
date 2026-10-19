@@ -47,13 +47,22 @@ export class StudentController {
       throw new BadRequestException('Ce dossier est déjà soumis et ne peut plus être modifié.');
     }
 
-    const application = await this.prisma.enrollmentApplication.upsert({
-      where: { userId: user.id },
-      update: { ...fields, status: RegistrationStatus.BROUILLON, submittedAt: null },
-      create: { userId: user.id, ...fields },
-      include: { quitus: { select: { code: true } } },
-    });
-    await this.prisma.user.update({ where: { id: user.id }, data: { establishment: fields.establishment, level: fields.level, program: fields.program, registrationStatus: RegistrationStatus.BROUILLON } });
+    // Après un refus, l'étudiant doit refaire le dépôt de toutes ses pièces : les anciennes sont retirées en même temps que le dossier repasse en brouillon.
+    const reopening = existing?.status === RegistrationStatus.REFUSE;
+    const obsoleteFiles = reopening && existing
+      ? (await this.prisma.applicationDocument.findMany({ where: { applicationId: existing.id }, select: { storageName: true } })).map((document) => document.storageName)
+      : [];
+    const [, application] = await this.prisma.$transaction([
+      this.prisma.applicationDocument.deleteMany({ where: { applicationId: reopening && existing ? existing.id : '' } }),
+      this.prisma.enrollmentApplication.upsert({
+        where: { userId: user.id },
+        update: { ...fields, status: RegistrationStatus.BROUILLON, submittedAt: null },
+        create: { userId: user.id, ...fields },
+        include: { quitus: { select: { code: true } } },
+      }),
+      this.prisma.user.update({ where: { id: user.id }, data: { establishment: fields.establishment, level: fields.level, program: fields.program, registrationStatus: RegistrationStatus.BROUILLON } }),
+    ]);
+    await this.documents.removeFiles(obsoleteFiles);
     return application;
   }
 
@@ -61,8 +70,11 @@ export class StudentController {
   async submit(@Body() body: ApplicationBody, @Headers('authorization') authorization?: string) {
     const user = await this.student(authorization);
     const existing = await this.prisma.enrollmentApplication.findUnique({ where: { userId: user.id } });
+    if (existing?.status === RegistrationStatus.REFUSE) {
+      throw new BadRequestException('Ce dossier a été refusé : corrigez-le et téléversez de nouveau vos pièces avant de le renvoyer.');
+    }
     const fields = await this.fields(body, user, existing, true);
-    if (existing && existing.status !== RegistrationStatus.BROUILLON && existing.status !== RegistrationStatus.REFUSE) {
+    if (existing && existing.status !== RegistrationStatus.BROUILLON) {
       throw new BadRequestException('Ce dossier a déjà été soumis.');
     }
     const storedTypes = new Set(existing ? (await this.documents.list(existing.id)).map((document) => document.type) : []);

@@ -8,6 +8,7 @@ import { useHomeTheme } from '../components/HomeThemeToggle';
 import { HeroBackground, HeroContent } from '../components/HomepageHero';
 import { HomeEditProvider, HomeText, useHomeEdit } from '../components/home/HomepageEditor';
 import { HomeNavbar } from '../components/home/HomeNavbar';
+import { HomeSetting } from '../components/home/HomeSetting';
 import { HeroInfoCard, HeroStats, HeroTagline } from '../components/home/HeroExtras';
 import { BourseSection } from '../components/home/BourseSection';
 import { StepsSection } from '../components/home/StepsSection';
@@ -105,13 +106,16 @@ function HomeBody({ settings, darkMode, onToggleTheme }: { settings: SiteSetting
                   index === currentImageIndex ? 'opacity-100' : 'opacity-0'
                 }`}
               >
+                {/* Fond flou : comble les côtés quand la photo n'a pas le même format que l'écran. */}
+                <Image src={item.url} alt="" aria-hidden fill sizes="25vw" className="scale-110 object-cover blur-2xl" />
+                {/* Sur grand écran, la photo est affichée en entier (sans zoom ni recadrage) ; sur téléphone, elle remplit le bandeau. */}
                 <Image
                   src={item.url}
                   alt={item.title}
                   fill
                   sizes="100vw"
                   priority={index === 0}
-                  className="object-cover"
+                  className="object-cover object-center lg:object-contain"
                 />
               </div>
             ))}
@@ -132,7 +136,7 @@ function HomeBody({ settings, darkMode, onToggleTheme }: { settings: SiteSetting
             primary={
               dashboardPath
                 ? { label: <HomeText contentKey="navbar.1" />, onClick: () => router.push(dashboardPath) }
-                : { label: settings.ctaSecondaryLabel, onClick: () => goToLogin(settings.ctaSecondaryLink), editable: true }
+                : { label: <HomeSetting value={settings.ctaSecondaryLabel} />, onClick: () => goToLogin(settings.ctaSecondaryLink), editable: true }
             }
             secondary={dashboardPath ? undefined : { label: <HomeText contentKey="hero.trackingLabel" />, onClick: () => router.push(LOGIN_PATH) }}
           />

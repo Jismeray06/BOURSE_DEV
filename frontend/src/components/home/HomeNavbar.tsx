@@ -7,6 +7,9 @@ import { Menu, Search, X } from 'lucide-react';
 import { HomeThemeToggle } from '../HomeThemeToggle';
 import { assetUrl, DEFAULT_LOGO, type SiteSettings } from '../siteSettings';
 import { useHomepageContent } from './homepageStore';
+import { LanguageSwitcher } from './LanguageSwitcher';
+import { useLanguage } from './language';
+import { translateKey, ui } from './translate';
 import { LOGIN_PATH, NAV_LINKS, REGISTER_PATH, useDashboardPath } from './useHomeSession';
 
 type Props = {
@@ -41,21 +44,22 @@ function useActiveSection() {
 // Recherche rapide : propose les rubriques de la page dont le titre correspond à la saisie.
 function QuickSearch({ onNavigate }: { onNavigate: () => void }) {
   const { content } = useHomepageContent();
+  const language = useLanguage();
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => inputRef.current?.focus(), []);
   const results = useMemo(() => {
     const term = query.trim().toLowerCase();
-    return NAV_LINKS.map((link) => ({ href: link.href, label: content[link.contentKey] ?? '' })).filter((item) => item.label.toLowerCase().includes(term));
-  }, [content, query]);
+    return NAV_LINKS.map((link) => ({ href: link.href, label: translateKey(link.contentKey, content, language) })).filter((item) => item.label.toLowerCase().includes(term));
+  }, [content, language, query]);
   return (
     <div className="absolute right-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-2.5rem)] rounded-xl border border-slate-200 bg-white p-3 text-slate-800 shadow-2xl">
       <input
         ref={inputRef}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="Rechercher une rubrique…"
-        aria-label="Rechercher une rubrique"
+        placeholder={ui('search.placeholder', language)}
+        aria-label={ui('search.label', language)}
         className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
       />
       <ul className="mt-2 max-h-56 overflow-y-auto">
@@ -64,7 +68,7 @@ function QuickSearch({ onNavigate }: { onNavigate: () => void }) {
             <a href={item.href} onClick={onNavigate} className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-slate-100">{item.label}</a>
           </li>
         ))}
-        {!results.length && <li className="px-3 py-2 text-sm text-slate-500">Aucune rubrique trouvée.</li>}
+        {!results.length && <li className="px-3 py-2 text-sm text-slate-500">{ui('search.empty', language)}</li>}
       </ul>
     </div>
   );
@@ -75,6 +79,7 @@ export function HomeNavbar({ settings, darkMode, onToggleTheme, onSelectAuth }: 
   const [searchOpen, setSearchOpen] = useState(false);
   const dashboardPath = useDashboardPath();
   const { editLogo } = useHomeEdit();
+  const language = useLanguage();
   const activeSection = useActiveSection();
   const logoUrl = assetUrl(settings.logoUrl) ?? DEFAULT_LOGO;
   const close = () => setOpen(false);
@@ -120,12 +125,13 @@ export function HomeNavbar({ settings, darkMode, onToggleTheme, onSelectAuth }: 
         </nav>
 
         <div className="flex items-center gap-2 2xl:justify-self-end">
+          <LanguageSwitcher />
           <div className="relative hidden sm:block">
             <button
               type="button"
               onClick={() => setSearchOpen((value) => !value)}
               aria-expanded={searchOpen}
-              aria-label="Rechercher sur la page"
+              aria-label={ui('search.open', language)}
               className="rounded-lg p-2.5 text-white transition hover:bg-white/10"
             >
               {searchOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}

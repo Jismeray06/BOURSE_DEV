@@ -3,6 +3,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Check, EyeOff, ImagePlus, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { EstablishmentIcon, logoSrc } from './establishments';
+import { ViewToggle, type ViewMode } from './ViewToggle';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const fieldCls = 'AccountInput w-full text-base sm:text-sm max-[1024px]:min-h-[44px]';
@@ -30,6 +31,7 @@ export function EstablishmentsAdminPanel({ institutions, onChanged }: Props) {
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [logoTarget, setLogoTarget] = useState('');
+  const [view, setView] = useState<ViewMode>('blocs');
 
   const request = async (path: string, options: RequestInit = {}) => {
     const headers = new Headers(options.headers);
@@ -103,39 +105,56 @@ export function EstablishmentsAdminPanel({ institutions, onChanged }: Props) {
 
       <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => uploadLogo(event.target.files?.[0])} />
 
-      <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-slate-400">{institutions.length} établissement(s)</p>
+        <ViewToggle value={view} onChange={setView} />
+      </div>
+
+      <div className={view === 'blocs' ? 'grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3' : 'space-y-2'}>
         {institutions.map((institution) => {
           const logo = logoSrc(institution.logoUrl);
           const editing = editingId === institution.id;
           const busy = busyId === institution.id;
-          return (
-            <article key={institution.id} className={`min-w-0 rounded-3xl border bg-slate-900/90 p-4 sm:p-5 ${institution.active ? 'border-slate-800/80' : 'border-amber-500/30 opacity-80'}`}>
-              <div className="flex items-start gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-blue-500/20 bg-blue-500/10 text-blue-400">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {logo ? <img src={logo} alt={`Logo ${institution.name}`} className="h-full w-full rounded-full bg-white object-contain p-1" /> : <EstablishmentIcon name={institution.name} className="h-6 w-6" />}
+          const logoBlock = (
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-blue-500/20 bg-blue-500/10 text-blue-400">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {logo ? <img src={logo} alt={`Logo ${institution.name}`} className="h-full w-full rounded-full bg-white object-contain p-1" /> : <EstablishmentIcon name={institution.name} className="h-6 w-6" />}
+            </div>
+          );
+          const infoBlock = (
+            <div className="min-w-0 flex-1">
+              {editing ? (
+                <div className="flex items-center gap-2">
+                  <input autoFocus value={editingName} maxLength={60} onChange={(event) => setEditingName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') saveName(institution); if (event.key === 'Escape') setEditingId(''); }} aria-label="Nouveau nom" className={fieldCls} />
+                  <button type="button" title="Enregistrer" aria-label="Enregistrer le nom" disabled={busy} onClick={() => saveName(institution)} className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-500/40 text-emerald-300 ${touch}`}><Check className="h-4 w-4" /></button>
+                  <button type="button" title="Annuler" aria-label="Annuler" onClick={() => setEditingId('')} className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-700 text-slate-300 ${touch}`}><X className="h-4 w-4" /></button>
                 </div>
-                <div className="min-w-0 flex-1">
-                  {editing ? (
-                    <div className="flex items-center gap-2">
-                      <input autoFocus value={editingName} maxLength={60} onChange={(event) => setEditingName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') saveName(institution); if (event.key === 'Escape') setEditingId(''); }} aria-label="Nouveau nom" className={fieldCls} />
-                      <button type="button" title="Enregistrer" aria-label="Enregistrer le nom" disabled={busy} onClick={() => saveName(institution)} className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-500/40 text-emerald-300 ${touch}`}><Check className="h-4 w-4" /></button>
-                      <button type="button" title="Annuler" aria-label="Annuler" onClick={() => setEditingId('')} className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-700 text-slate-300 ${touch}`}><X className="h-4 w-4" /></button>
-                    </div>
-                  ) : (
-                    <h3 className="break-words text-sm font-bold text-white">{institution.name}</h3>
-                  )}
-                  <p className="mt-1 text-[11px] text-slate-400">{institution.studentCount} étudiant(s) · {institution.applicationCount} dossier(s) · {institution.staffCount} compte(s)</p>
-                  {!institution.active && <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-amber-300"><EyeOff className="h-3 w-3" />Masqué dans la page étudiant</p>}
-                </div>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-semibold">
-                <button type="button" disabled={busy} onClick={() => { setEditingId(institution.id); setEditingName(institution.name); }} className={`flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-2 text-slate-300 transition hover:border-blue-500/50 hover:text-white ${touch}`}><Pencil className="h-3.5 w-3.5" />Renommer</button>
-                <button type="button" disabled={busy} onClick={() => { setLogoTarget(institution.id); fileInput.current?.click(); }} className={`flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-2 text-slate-300 transition hover:border-blue-500/50 hover:text-white ${touch}`}><ImagePlus className="h-3.5 w-3.5" />{logo ? 'Changer le logo' : 'Ajouter un logo'}</button>
-                {logo && <button type="button" disabled={busy} onClick={() => removeLogo(institution)} className={`rounded-lg border border-slate-700 px-2.5 py-2 text-slate-300 transition hover:border-rose-500/50 hover:text-rose-300 ${touch}`}>Retirer le logo</button>}
-                <button type="button" disabled={busy} onClick={() => toggle(institution)} className={`rounded-lg border px-2.5 py-2 transition ${institution.active ? 'border-slate-700 text-slate-300 hover:border-amber-500/50 hover:text-amber-300' : 'border-emerald-500/40 text-emerald-300'} ${touch}`}>{institution.active ? 'Masquer' : 'Afficher'}</button>
-                <button type="button" disabled={busy} onClick={() => remove(institution)} aria-label={`Supprimer ${institution.name}`} title="Supprimer" className={`ml-auto flex items-center rounded-lg border border-slate-700 px-2.5 py-2 text-slate-300 transition hover:border-rose-500/50 hover:bg-rose-500/10 hover:text-rose-300 ${touch}`}><Trash2 className="h-3.5 w-3.5" /></button>
-              </div>
+              ) : (
+                <h3 className="break-words text-sm font-bold text-white">{institution.name}</h3>
+              )}
+              <p className="mt-1 text-[11px] text-slate-400">{institution.studentCount} étudiant(s) · {institution.applicationCount} dossier(s) · {institution.staffCount} compte(s)</p>
+              {!institution.active && <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-amber-300"><EyeOff className="h-3 w-3" />Masqué dans la page étudiant</p>}
+            </div>
+          );
+          const actionButtons = (
+            <>
+              <button type="button" disabled={busy} onClick={() => { setEditingId(institution.id); setEditingName(institution.name); }} className={`flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-2 text-slate-300 transition hover:border-blue-500/50 hover:text-white ${touch}`}><Pencil className="h-3.5 w-3.5" />Renommer</button>
+              <button type="button" disabled={busy} onClick={() => { setLogoTarget(institution.id); fileInput.current?.click(); }} className={`flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-2 text-slate-300 transition hover:border-blue-500/50 hover:text-white ${touch}`}><ImagePlus className="h-3.5 w-3.5" />{logo ? 'Changer le logo' : 'Ajouter un logo'}</button>
+              {logo && <button type="button" disabled={busy} onClick={() => removeLogo(institution)} className={`rounded-lg border border-slate-700 px-2.5 py-2 text-slate-300 transition hover:border-rose-500/50 hover:text-rose-300 ${touch}`}>Retirer le logo</button>}
+              <button type="button" disabled={busy} onClick={() => toggle(institution)} className={`rounded-lg border px-2.5 py-2 transition ${institution.active ? 'border-slate-700 text-slate-300 hover:border-amber-500/50 hover:text-amber-300' : 'border-emerald-500/40 text-emerald-300'} ${touch}`}>{institution.active ? 'Masquer' : 'Afficher'}</button>
+              <button type="button" disabled={busy} onClick={() => remove(institution)} aria-label={`Supprimer ${institution.name}`} title="Supprimer" className={`ml-auto flex items-center rounded-lg border border-slate-700 px-2.5 py-2 text-slate-300 transition hover:border-rose-500/50 hover:bg-rose-500/10 hover:text-rose-300 sm:ml-0 ${touch}`}><Trash2 className="h-3.5 w-3.5" /></button>
+            </>
+          );
+          const tone = institution.active ? 'border-slate-800/80' : 'border-amber-500/30 opacity-80';
+          return view === 'blocs' ? (
+            <article key={institution.id} className={`min-w-0 rounded-3xl border bg-slate-900/90 p-4 sm:p-5 ${tone}`}>
+              <div className="flex items-start gap-3">{logoBlock}{infoBlock}</div>
+              <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-semibold">{actionButtons}</div>
+            </article>
+          ) : (
+            <article key={institution.id} className={`min-w-0 rounded-2xl border bg-slate-900/90 p-3 sm:px-4 lg:flex lg:items-center lg:gap-4 ${tone}`}>
+              <div className="flex min-w-0 flex-1 items-center gap-3">{logoBlock}{infoBlock}</div>
+              <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold lg:mt-0 lg:justify-end">{actionButtons}</div>
             </article>
           );
         })}

@@ -7,6 +7,8 @@ import { ConfirmDialog } from '../ConfirmDialog';
 import type { SiteSettings } from '../siteSettings';
 import { CarouselModal, FieldsModal, SingleImageModal, type EditField } from './HomepageEditModals';
 import { apiUrl, defaultContent, ensureHomepageLoaded, setHomepageContent, useHomepageContent, type HomeNews } from './homepageStore';
+import { ensureLanguageLoaded, useLanguage } from './language';
+import { translateKey } from './translate';
 
 // Mode personnalisation de la page d'accueil : ouvert par un administrateur depuis son tableau de bord
 // (/?mode=personnalisation). Hors de ce mode, aucun contrôle d'édition n'est rendu : les visiteurs voient la page finale.
@@ -113,8 +115,10 @@ export function EditPencil({ label, onClick, className = '' }: { label: string; 
 export function HomeText({ contentKey }: { contentKey: string }) {
   const { content } = useHomepageContent();
   const { editMode, editText } = useHomeEdit();
-  useEffect(() => { ensureHomepageLoaded(); }, []);
-  const text = content[contentKey] ?? defaultContent[contentKey] ?? '';
+  const language = useLanguage();
+  useEffect(() => { ensureHomepageLoaded(); ensureLanguageLoaded(); }, []);
+  // Le mode personnalisation travaille toujours sur le texte français.
+  const text = editMode ? content[contentKey] ?? defaultContent[contentKey] ?? '' : translateKey(contentKey, content, language);
   if (!editMode) return <>{text}</>;
   return (
     <span className="rounded-sm outline-1 outline-offset-2 outline-dashed outline-blue-500/40 transition hover:outline-blue-500">

@@ -104,6 +104,8 @@ export default function StudentPage() {
   const [otpValue, setOtpValue] = useState('');
   const [applicationLoading, setApplicationLoading] = useState(true);
   const [submittingApplication, setSubmittingApplication] = useState(false);
+  const [reopening, setReopening] = useState(false);
+  const [reopenError, setReopenError] = useState('');
   const [applicationStatus, setApplicationStatus] = useState<SavedApplication['status'] | null>(null);
   const [applicationReviewNote, setApplicationReviewNote] = useState<string | null>(null);
   // Curriculum de l'établissement choisi (vide si l'établissement n'en a pas configuré : listes par défaut).
@@ -368,6 +370,25 @@ export default function StudentPage() {
       setQuitusError(error instanceof Error ? error.message : 'Impossible de soumettre le dossier.');
     } finally {
       setSubmittingApplication(false);
+    }
+  };
+
+  // Dossier refusé : on le rouvre en brouillon. Le serveur retire alors les anciennes pièces : l'étudiant doit les téléverser de nouveau avant de renvoyer.
+  const reopenApplication = async () => {
+    setReopening(true);
+    setReopenError('');
+    try {
+      await persistApplication();
+      setUploadState({});
+      setApplicationStatus('BROUILLON');
+      setApplicationReviewNote(null);
+      setIsSubmitted(false);
+      setCurrentStep(5);
+      setActiveTab('dashboard');
+    } catch (error) {
+      setReopenError(error instanceof Error ? error.message : 'Impossible de rouvrir le dossier.');
+    } finally {
+      setReopening(false);
     }
   };
 
@@ -811,14 +832,27 @@ export default function StudentPage() {
               )}
 
               {/* DOSSIER SOUMIS : renvoi vers l'onglet dédié */}
-              {isSubmitted && (
+              {isSubmitted && (applicationStatus === 'REFUSE' ? (
+                <div className="space-y-4 rounded-3xl border border-rose-500/30 bg-rose-500/10 p-4 sm:p-6">
+                  <div className="flex items-start gap-3">
+                    <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" />
+                    <div className="min-w-0 space-y-1 text-xs">
+                      <p className="font-bold text-white">Votre dossier a été refusé par la scolarité centrale.</p>
+                      {applicationReviewNote && <p className="break-words text-rose-200">Motif : {applicationReviewNote}</p>}
+                      <p className="text-slate-300">Pour le corriger, vous devez refaire le dépôt de toutes vos pièces justificatives, puis le renvoyer.</p>
+                    </div>
+                  </div>
+                  {reopenError && <p role="alert" className="break-words text-xs text-rose-300">{reopenError}</p>}
+                  <button type="button" disabled={reopening} onClick={() => void reopenApplication()} className="min-h-[44px] cursor-pointer rounded-xl bg-blue-600 px-5 py-3 text-xs font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">{reopening ? 'Ouverture…' : 'Corriger et renvoyer mon dossier'}</button>
+                </div>
+              ) : (
                 <div className="bg-slate-900/90 border border-slate-800/80 p-4 sm:p-6 rounded-3xl flex items-center gap-3">
                   <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                   <p className="min-w-0 text-xs text-slate-300">
-                    Votre dossier a été soumis. Consultez son détail dans l&apos;onglet <strong className="text-white">Mon dossier</strong>.
+                    {applicationStatus === 'VALIDE' ? 'Votre dossier a été validé.' : 'Votre dossier a été soumis.'} Consultez son détail dans l&apos;onglet <strong className="text-white">Mon dossier</strong>.
                   </p>
                 </div>
-              )}
+              ))}
             </>
           )}
 
@@ -835,6 +869,13 @@ export default function StudentPage() {
                       {applicationStatus === 'VALIDE' ? 'Votre dossier est validé. Vous pouvez télécharger votre reçu officiel.' : applicationStatus === 'REFUSE' ? 'Votre dossier n’a pas été validé par la scolarité centrale.' : applicationStatus === 'EN_REVISION' ? 'Votre dossier est actuellement examiné par la scolarité centrale.' : isSubmitted ? 'Votre dossier a été déposé et est en attente de traitement par la scolarité centrale.' : 'Votre quitus est vérifié. Finalisez le dépôt de vos pièces pour soumettre votre dossier.'}
                     </p>
                     {applicationStatus === 'REFUSE' && applicationReviewNote && <p className="break-words text-xs text-rose-300">Motif : {applicationReviewNote}</p>}
+                    {applicationStatus === 'REFUSE' && (
+                      <>
+                        <p className="text-xs text-slate-400">Pour le corriger, vous devez refaire le dépôt de toutes vos pièces, puis le renvoyer.</p>
+                        {reopenError && <p role="alert" className="break-words text-xs text-rose-300">{reopenError}</p>}
+                        <button type="button" disabled={reopening} onClick={() => void reopenApplication()} className="mt-1 min-h-[44px] cursor-pointer rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50">{reopening ? 'Ouverture…' : 'Corriger et renvoyer mon dossier'}</button>
+                      </>
+                    )}
                   </div>
 
                   <button

@@ -5,10 +5,12 @@ import type { SiteSettings } from './siteSettings';
 import { assetUrl } from './siteSettings';
 import { Eye, FileText, GraduationCap } from 'lucide-react';
 import { EditPencil, HomeText, useHomeEdit } from './home/HomepageEditor';
+import { useLanguage } from './home/language';
+import { translateSetting } from './home/translate';
 
 // La partie « bourse nationale » du titre est mise en valeur sur sa propre ligne ; un titre sans cette expression reste uniforme.
 function HighlightedTitle({ title }: { title: string }) {
-  const match = /bourse nationale,?/i.exec(title);
+  const match = /(bourse nationale|national scholarship|bours nasionaly),?/i.exec(title);
   if (!match) return <>{title}</>;
   return (
     <>
@@ -44,11 +46,12 @@ export function HeroBackground({ settings }: { settings: SiteSettings }) {
     return (
       <div className="absolute inset-0">
         {images.map((url, index) => (
-          <div
-            key={url}
-            className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ease-in-out"
-            style={{ backgroundImage: `url(${url})`, opacity: index === safeIndex ? 1 : 0 }}
-          />
+          <div key={url} className="absolute inset-0 transition-opacity duration-1000 ease-in-out" style={{ opacity: index === safeIndex ? 1 : 0 }}>
+            {/* Fond flou : comble les côtés quand la photo n'a pas le même format que l'écran. */}
+            <div className="absolute inset-0 scale-110 bg-cover bg-center blur-2xl" style={{ backgroundImage: `url(${url})` }} />
+            {/* Sur grand écran, la photo est affichée en entier (sans zoom ni recadrage) ; sur téléphone, elle remplit le bandeau. */}
+            <div className="absolute inset-0 bg-cover bg-center bg-no-repeat lg:bg-contain" style={{ backgroundImage: `url(${url})` }} />
+          </div>
         ))}
         <div className="absolute inset-0" style={{ backgroundColor: `rgba(6, 35, 59, ${overlayOpacity})` }} />
       </div>
@@ -79,6 +82,8 @@ export function HeroContent({
   secondary?: { label: ReactNode; onClick: () => void };
 }) {
   const { editMode, editHero } = useHomeEdit();
+  const language = useLanguage();
+  const shown = (value: string) => (editMode ? value : translateSetting(value, language));
   return (
     <div className="max-w-2xl space-y-6 text-center lg:text-left">
       <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-blue-900/70 px-4 py-2 text-sm font-semibold text-white">
@@ -87,12 +92,12 @@ export function HeroContent({
       </p>
 
       <h1 className="font-[family-name:var(--font-heading)] text-4xl font-bold leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-6xl">
-        <HighlightedTitle title={settings.heroTitle} />
+        <HighlightedTitle title={shown(settings.heroTitle)} />
         <EditPencil label="Modifier le titre" onClick={() => editHero('heroTitle')} className="ml-2" />
       </h1>
 
       <p className="mx-auto max-w-xl text-base leading-relaxed text-slate-100 sm:text-lg lg:mx-0">
-        {settings.heroSubtitle}
+        {shown(settings.heroSubtitle)}
         <EditPencil label="Modifier le sous-titre" onClick={() => editHero('heroSubtitle')} className="ml-2" />
       </p>
 
