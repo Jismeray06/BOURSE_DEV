@@ -7,6 +7,7 @@ import { Menu, Search, X } from 'lucide-react';
 import { HomeThemeToggle } from '../HomeThemeToggle';
 import { assetUrl, DEFAULT_LOGO, type SiteSettings } from '../siteSettings';
 import { useHomepageContent } from './homepageStore';
+import { HeroInfoMenu } from './HeroExtras';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useLanguage } from './language';
 import { translateKey, ui } from './translate';
@@ -139,6 +140,7 @@ export function HomeNavbar({ settings, darkMode, onToggleTheme, onSelectAuth }: 
             {searchOpen && <QuickSearch onNavigate={() => setSearchOpen(false)} />}
           </div>
           <div className="hidden items-center gap-2 sm:flex">{actions}</div>
+          <HeroInfoMenu />
           <HomeThemeToggle darkMode={darkMode} onToggle={onToggleTheme} onDark />
           <button
             type="button"

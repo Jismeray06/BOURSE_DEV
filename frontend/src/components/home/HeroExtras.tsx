@@ -1,8 +1,9 @@
 'use client';
 
-import { ArrowRight, CalendarDays, CircleHelp, FileText, GraduationCap, Megaphone, ShieldCheck, Users } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowRight, CalendarDays, CircleHelp, FileText, GraduationCap, Megaphone, Pencil, ShieldCheck, Users } from 'lucide-react';
 import { useEstablishments } from '../establishments';
-import { HomeText } from './HomepageEditor';
+import { HomeText, useHomeEdit } from './HomepageEditor';
 
 // Mot d'ordre manuscrit en haut à droite du hero (masqué sur petit écran).
 export function HeroTagline() {
@@ -22,34 +23,68 @@ const INFO_ITEMS = [
   { icon: CircleHelp, key: 'hero.info.3', href: '#faq' },
 ];
 
-// Carte « Informations importantes » : trois rappels avec lien vers la rubrique concernée.
-export function HeroInfoCard() {
+// « Informations importantes » : icône de la barre de navigation qui ouvre trois rappels avec lien vers la rubrique concernée.
+export function HeroInfoMenu() {
+  const [open, setOpen] = useState(false);
+  const { editMode } = useHomeEdit();
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // En mode personnalisation, le panneau reste ouvert pendant la modification des textes.
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!editMode && !wrapperRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open, editMode]);
+
   return (
-    <aside className="w-full overflow-hidden rounded-2xl bg-white text-slate-800 shadow-2xl shadow-black/30" aria-label="Informations importantes">
-      <h2 className="flex items-center gap-3 px-6 py-5 text-lg font-bold text-slate-900">
-        <Megaphone className="h-6 w-6 text-blue-600" aria-hidden />
-        <HomeText contentKey="hero.info.title" />
-      </h2>
-      <ul className="border-t border-slate-200 px-6">
-        {INFO_ITEMS.map(({ icon: Icon, key, href }) => (
-          <li key={key} className="border-b border-slate-200 last:border-b-0">
-            <a href={href} className="flex items-center gap-4 py-4 transition hover:opacity-80">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                <Icon className="h-6 w-6" aria-hidden />
-              </span>
-              <span className="min-w-0">
-                <b className="block text-sm font-bold text-slate-900"><HomeText contentKey={`${key}.title`} /></b>
-                <span className="block text-sm text-slate-600"><HomeText contentKey={`${key}.text`} /></span>
-              </span>
-            </a>
-          </li>
-        ))}
-      </ul>
-      <a href="#actualites" className="flex items-center gap-3 bg-blue-50 px-6 py-4 text-sm font-semibold text-blue-700 transition hover:bg-blue-100">
-        <ArrowRight className="h-4 w-4" aria-hidden />
-        <HomeText contentKey="hero.info.more" />
-      </a>
-    </aside>
+    <div ref={wrapperRef} className="sm:relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-label="Informations importantes"
+        title="Informations importantes"
+        className={`relative cursor-pointer rounded-lg border border-white/25 p-2.5 text-white transition hover:bg-white/10 ${open ? 'bg-white/10' : ''}`}
+      >
+        <Megaphone className="h-5 w-5" aria-hidden />
+        {editMode && <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-white" aria-hidden><Pencil className="h-2.5 w-2.5" /></span>}
+      </button>
+      {open && (
+        <aside className="absolute inset-x-5 top-full z-50 mt-2 overflow-hidden rounded-2xl bg-white text-slate-800 shadow-2xl shadow-black/30 sm:inset-x-auto sm:right-0 sm:w-96" aria-label="Informations importantes">
+          <h2 className="flex items-center gap-3 px-5 py-4 text-base font-bold text-slate-900">
+            <Megaphone className="h-5 w-5 text-blue-600" aria-hidden />
+            <HomeText contentKey="hero.info.title" />
+          </h2>
+          <ul className="border-t border-slate-200 px-5">
+            {INFO_ITEMS.map(({ icon: Icon, key, href }) => (
+              <li key={key} className="border-b border-slate-200 last:border-b-0">
+                <a href={href} onClick={() => { if (!editMode) setOpen(false); }} className="flex items-center gap-4 py-3 transition hover:opacity-80">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                    <Icon className="h-5 w-5" aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <b className="block text-sm font-bold text-slate-900"><HomeText contentKey={`${key}.title`} /></b>
+                    <span className="block text-sm text-slate-600"><HomeText contentKey={`${key}.text`} /></span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+          <a href="#actualites" onClick={() => { if (!editMode) setOpen(false); }} className="flex items-center gap-3 bg-blue-50 px-5 py-3.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100">
+            <ArrowRight className="h-4 w-4" aria-hidden />
+            <HomeText contentKey="hero.info.more" />
+          </a>
+        </aside>
+      )}
+    </div>
   );
 }
 

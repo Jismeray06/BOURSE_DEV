@@ -20,6 +20,7 @@ type CreateStaffBody = { fullName?: unknown; email?: unknown; password?: unknown
 type AccountStatusBody = { active?: unknown };
 type ResetPasswordBody = { password?: unknown };
 type UpdateNameBody = { fullName?: unknown };
+type AuditLogDeleteBody = { ids?: unknown; all?: unknown };
 
 @Controller('admin')
 export class AdminController {
@@ -182,6 +183,17 @@ export class AdminController {
   async auditLog(@Headers('authorization') authorization?: string) {
     await this.authService.requireAdmin(authorization);
     return this.authService.listAuditLog();
+  }
+
+  @Delete('audit-log')
+  async deleteAuditLog(@Body() body: AuditLogDeleteBody, @Headers('authorization') authorization?: string) {
+    await this.authService.requireAdmin(authorization);
+    if (body?.all === true) return this.authService.deleteAuditLog();
+    const ids = body?.ids;
+    if (!Array.isArray(ids) || !ids.length || ids.length > 1000 || ids.some((id) => typeof id !== 'string')) {
+      throw new BadRequestException('Sélectionnez au moins une entrée de l’historique à supprimer.');
+    }
+    return this.authService.deleteAuditLog(ids as string[]);
   }
 
   @Post('staff-accounts')

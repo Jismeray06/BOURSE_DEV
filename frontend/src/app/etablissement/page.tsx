@@ -827,6 +827,23 @@ export default function EstablishmentPage() {
         ]
       : []),
   ];
+  const renderNavItem = (item: (typeof navigation)[number]) => {
+    const Icon = item.icon;
+    return (
+      <button
+        key={item.id}
+        onClick={() => {
+          setView(item.id);
+          if (item.id === "trash") void loadTrash();
+          setSidebarOpen(false);
+        }}
+        className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-xs font-bold ${view === item.id ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-slate-800"}`}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        {item.label}
+      </button>
+    );
+  };
   const settingsSections: { id: typeof settingsTabId; label: string; icon: typeof Palette }[] = [
     { id: "appearance", label: "Apparence & Affichage", icon: Palette },
     { id: "behavior", label: "Comportement", icon: SlidersHorizontal },
@@ -876,24 +893,14 @@ export default function EstablishmentPage() {
               </p>
             </div>
           </div>
-          <nav className="space-y-1 px-3">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setView(item.id);
-                    if (item.id === "trash") void loadTrash();
-                    setSidebarOpen(false);
-                  }}
-                  className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-xs font-bold ${view === item.id ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-slate-800"}`}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {item.label}
-                </button>
-              );
-            })}
+          <nav className="space-y-4 px-3">
+            {isEstablishmentAdmin && (
+              <NavSection title="Général">
+                {navigation.filter((item) => item.id === "dashboard").map(renderNavItem)}
+              </NavSection>
+            )}
+            <NavSection title="Étudiants" separated={isEstablishmentAdmin}>
+              {navigation.filter((item) => item.id === "students").map(renderNavItem)}
             <div>
               <button
                 onClick={() => {
@@ -937,6 +944,13 @@ export default function EstablishmentPage() {
                 </div>
               )}
             </div>
+            </NavSection>
+            {isEstablishmentAdmin && (
+              <NavSection title="Équipe" separated>
+                {navigation.filter((item) => item.id === "secretaries").map(renderNavItem)}
+              </NavSection>
+            )}
+            <NavSection title="Configuration" separated>
             {isEstablishmentAdmin && (
             <div>
               <button
@@ -984,15 +998,19 @@ export default function EstablishmentPage() {
               <UserCog className="h-4 w-4 shrink-0" />
               Mon compte
             </button>
+            </NavSection>
           </nav>
         </div>
-        <button
-          onClick={() => setLogoutConfirmOpen(true)}
-          className="m-4 flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-950 p-3 text-xs text-slate-400"
-        >
-          <LogOut className="h-4 w-4" />
-          Déconnexion
-        </button>
+        <div className="space-y-2 border-t border-slate-800 p-4">
+          {navigation.filter((item) => item.id === "trash").map(renderNavItem)}
+          <button
+            onClick={() => setLogoutConfirmOpen(true)}
+            className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-950 p-3 text-xs text-slate-400"
+          >
+            <LogOut className="h-4 w-4" />
+            Déconnexion
+          </button>
+        </div>
       </aside>
       {/* Contenu : marge gauche = largeur exacte de la barre latérale (w-72) */}
       <main className="w-full min-w-0 flex-1 p-4 sm:p-6 min-[1025px]:ml-72 min-[1025px]:w-auto min-[1025px]:p-8">
@@ -2388,6 +2406,15 @@ function StepNav({
     </div>
   );
 }
+function NavSection({ title, separated, children }: { title: string; separated?: boolean; children: ReactNode }) {
+  return (
+    <section aria-label={title} className={`space-y-1 ${separated ? "border-t border-slate-800 pt-4" : ""}`}>
+      <h3 className="px-3.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 function ProgramPicker({
   programs,
   value,

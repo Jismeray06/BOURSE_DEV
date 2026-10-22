@@ -256,6 +256,12 @@ export class AuthService {
     return this.prisma.auditLogEntry.findMany({ orderBy: { createdAt: 'desc' }, take: limit });
   }
 
+  // Supprime les entrées d'historique choisies (`ids`) ou tout l'historique (`ids` absent).
+  async deleteAuditLog(ids?: string[]) {
+    const result = await this.prisma.auditLogEntry.deleteMany({ where: ids ? { id: { in: ids } } : {} });
+    return { deleted: result.count };
+  }
+
   private async findStaffAccount(id: string, options: { includeTrashed?: boolean; requireTrashed?: boolean } = {}) {
     const account = await this.prisma.user.findFirst({
       where: {

@@ -176,6 +176,9 @@ export default function AdminPage() {
   const [editingName, setEditingName] = useState('');
   const [trashedAccounts, setTrashedAccounts] = useState<TrashedAccount[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
+  const [selectedAuditIds, setSelectedAuditIds] = useState<string[]>([]);
+  const [auditMessage, setAuditMessage] = useState('');
+  const [auditDeleteMode, setAuditDeleteMode] = useState<'selection' | 'all' | null>(null);
   const [purgingAccountId, setPurgingAccountId] = useState('');
   const [purgeConfirmText, setPurgeConfirmText] = useState('');
   const [accountForm, setAccountForm] = useState({ fullName: '', email: '', password: '', role: 'ETABLISSEMENT' as StaffRole, establishment: '' });
@@ -312,6 +315,28 @@ export default function AdminPage() {
       setAuditLog((await response.json()) as AuditLogEntry[]);
     } catch (err) { setError(err instanceof Error ? err.message : 'Erreur de chargement.'); }
   }, [getToken]);
+
+  const toggleAuditEntry = (id: string) => setSelectedAuditIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  const toggleAllAuditEntries = () => setSelectedAuditIds((current) => (current.length === auditLog.length ? [] : auditLog.map((entry) => entry.id)));
+
+  const deleteAuditEntries = async () => {
+    const mode = auditDeleteMode;
+    setAuditDeleteMode(null);
+    if (!mode) return;
+    setError(''); setAuditMessage('');
+    try {
+      const response = await fetch(`${apiUrl}/admin/audit-log`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(mode === 'all' ? { all: true } : { ids: selectedAuditIds }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { deleted?: number; message?: string | string[] };
+      if (!response.ok) throw new Error(Array.isArray(data.message) ? data.message[0] : data.message || 'Impossible de supprimer l’historique.');
+      setSelectedAuditIds([]);
+      setAuditMessage(`${data.deleted ?? 0} entrée(s) de l’historique supprimée(s).`);
+      void loadAuditLog(); void loadDashboard();
+    } catch (err) { setError(err instanceof Error ? err.message : 'Erreur de suppression.'); }
+  };
 
   const loadEstablishments = useCallback(async () => {
     const token = getToken();
@@ -791,14 +816,27 @@ export default function AdminPage() {
           </section>}
 
           {activeTab === 'history' && <section className="rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-6">
-            <h2 className="text-base font-bold text-white">Historique des actions</h2>
-            <p className="mt-1 text-xs text-slate-400">Actions effectuées sur les comptes du personnel et sur la page d’accueil, les plus récentes en premier.</p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-base font-bold text-white">Historique des actions</h2>
+                <p className="mt-1 text-xs text-slate-400">Actions effectuées sur les comptes du personnel et sur la page d’accueil, les plus récentes en premier.</p>
+              </div>
+              {auditLog.length > 0 && <div className="flex flex-wrap items-center gap-2">
+                <button type="button" onClick={toggleAllAuditEntries} className="min-h-[36px] rounded-lg border border-slate-700 px-3 text-xs font-semibold text-slate-300 transition hover:bg-slate-800">{selectedAuditIds.length === auditLog.length ? 'Tout désélectionner' : 'Tout sélectionner'}</button>
+                <button type="button" disabled={!selectedAuditIds.length} onClick={() => setAuditDeleteMode('selection')} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-rose-500/40 px-3 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-40"><Trash2 className="h-3.5 w-3.5" aria-hidden />Supprimer la sélection{selectedAuditIds.length > 0 && ` (${selectedAuditIds.length})`}</button>
+                <button type="button" onClick={() => setAuditDeleteMode('all')} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white transition hover:bg-rose-500"><Trash2 className="h-3.5 w-3.5" aria-hidden />Tout supprimer</button>
+              </div>}
+            </div>
+            {auditMessage && <p className="mt-4 break-words rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200">{auditMessage}</p>}
             <div className="mt-5 space-y-2">
-              {auditLog.map((entry) => <div key={entry.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-                <p className="break-words text-sm text-slate-200"><span className="font-bold text-white">{entry.actorName}</span> {auditActionLabels[entry.action]} <span className="font-bold text-blue-300">{entry.targetName}</span></p>
-                {entry.detail && <p className="mt-0.5 break-words text-xs text-slate-500">{entry.detail}</p>}
-                <p className="mt-1 text-[11px] text-slate-500">{new Date(entry.createdAt).toLocaleString('fr-FR')}</p>
-              </div>)}
+              {auditLog.map((entry) => <label key={entry.id} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${selectedAuditIds.includes(entry.id) ? 'border-rose-500/50 bg-rose-500/5' : 'border-slate-800 bg-slate-950/60'}`}>
+                <input type="checkbox" checked={selectedAuditIds.includes(entry.id)} onChange={() => toggleAuditEntry(entry.id)} aria-label="Sélectionner cette entrée" className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-rose-500" />
+                <div className="min-w-0">
+                  <p className="break-words text-sm text-slate-200"><span className="font-bold text-white">{entry.actorName}</span> {auditActionLabels[entry.action]} <span className="font-bold text-blue-300">{entry.targetName}</span></p>
+                  {entry.detail && <p className="mt-0.5 break-words text-xs text-slate-500">{entry.detail}</p>}
+                  <p className="mt-1 text-[11px] text-slate-500">{new Date(entry.createdAt).toLocaleString('fr-FR')}</p>
+                </div>
+              </label>)}
               {!auditLog.length && <p className="flex min-h-48 items-center justify-center rounded-2xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-500">Aucune action enregistrée.</p>}
             </div>
           </section>}
@@ -848,6 +886,15 @@ export default function AdminPage() {
         </main>
       </div>
       {dossierStudentId && <DossierViewer endpoint={`/admin/students/${dossierStudentId}/dossier`} onClose={() => setDossierStudentId(null)} />}
+      <ConfirmDialog
+        open={auditDeleteMode !== null}
+        title={auditDeleteMode === 'all' ? 'Supprimer tout l’historique' : 'Supprimer la sélection'}
+        message={auditDeleteMode === 'all' ? 'Toutes les entrées de l’historique seront supprimées définitivement. Cette action est irréversible.' : `${selectedAuditIds.length} entrée(s) de l’historique seront supprimées définitivement. Cette action est irréversible.`}
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
+        onCancel={() => setAuditDeleteMode(null)}
+        onConfirm={() => void deleteAuditEntries()}
+      />
       <ConfirmDialog
         open={logoutConfirmOpen}
         title="Confirmer la déconnexion"

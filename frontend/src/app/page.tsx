@@ -9,7 +9,7 @@ import { HeroBackground, HeroContent } from '../components/HomepageHero';
 import { HomeEditProvider, HomeText, useHomeEdit } from '../components/home/HomepageEditor';
 import { HomeNavbar } from '../components/home/HomeNavbar';
 import { HomeSetting } from '../components/home/HomeSetting';
-import { HeroInfoCard, HeroStats, HeroTagline } from '../components/home/HeroExtras';
+import { HeroStats, HeroTagline } from '../components/home/HeroExtras';
 import { BourseSection } from '../components/home/BourseSection';
 import { StepsSection } from '../components/home/StepsSection';
 import { PrepareSection } from '../components/home/PrepareSection';
@@ -130,7 +130,7 @@ function HomeBody({ settings, darkMode, onToggleTheme }: { settings: SiteSetting
 
         <HeroTagline />
 
-        <div className="relative z-10 grid w-full flex-1 items-center gap-10 px-5 py-12 sm:px-6 lg:grid-cols-[minmax(0,1fr)_26rem] lg:gap-12 lg:px-8 lg:py-16">
+        <div className="relative z-10 grid w-full flex-1 items-center gap-10 px-5 py-12 sm:px-6 lg:gap-12 lg:px-8 lg:py-16">
           <HeroContent
             settings={settings}
             primary={
@@ -140,7 +140,6 @@ function HomeBody({ settings, darkMode, onToggleTheme }: { settings: SiteSetting
             }
             secondary={dashboardPath ? undefined : { label: <HomeText contentKey="hero.trackingLabel" />, onClick: () => router.push(LOGIN_PATH) }}
           />
-          <HeroInfoCard />
         </div>
 
         <div className="relative z-10 w-full px-5 pb-12 sm:px-6 lg:px-8">
