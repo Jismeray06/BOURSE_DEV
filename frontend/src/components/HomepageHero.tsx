@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { SiteSettings } from './siteSettings';
 import { assetUrl } from './siteSettings';
-import { Eye, FileText, GraduationCap } from 'lucide-react';
+import { Eye, FileText } from 'lucide-react';
 import { EditPencil, HomeText, useHomeEdit } from './home/HomepageEditor';
 import { useLanguage } from './home/language';
 import { translateSetting } from './home/translate';
@@ -15,7 +15,7 @@ function HighlightedTitle({ title }: { title: string }) {
   return (
     <>
       {title.slice(0, match.index).trimEnd()}
-      <span className="block text-blue-300">{match[0]}</span>
+      <span className="block">{match[0]}</span>
       {title.slice(match.index + match[0].length).trimStart()}
     </>
   );
@@ -71,43 +71,46 @@ export function HeroBackground({ settings }: { settings: SiteSettings }) {
   );
 }
 
-/** Contenu textuel du hero (titre, sous-titre et deux boutons d'action). */
+/**
+ * Contenu textuel du hero (titre, sous-titre et deux boutons d'action).
+ * `tone` indique le fond sur lequel il est posé : « light » (fond blanc du mode clair) ou « dark » (fond bleu nuit, photos, dégradé).
+ */
 export function HeroContent({
   settings,
   primary,
   secondary,
+  tone = 'dark',
 }: {
   settings: SiteSettings;
   primary: { label: ReactNode; onClick: () => void; editable?: boolean };
   secondary?: { label: ReactNode; onClick: () => void };
+  tone?: 'light' | 'dark';
 }) {
   const { editMode, editHero } = useHomeEdit();
   const language = useLanguage();
   const shown = (value: string) => (editMode ? value : translateSetting(value, language));
+  const light = tone === 'light';
   return (
-    <div className="max-w-2xl space-y-6 text-center lg:text-left">
-      <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-blue-900/70 px-4 py-2 text-sm font-semibold text-white">
-        <GraduationCap className="h-4 w-4" aria-hidden />
-        <HomeText contentKey="hero.badge" />
-      </p>
-
-      <h1 className="font-[family-name:var(--font-heading)] text-4xl font-bold leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-6xl">
+    <div className="mx-auto max-w-3xl space-y-6 text-center">
+      <h1 className={`font-[family-name:var(--font-heading)] text-4xl font-bold leading-[1.15] tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl ${light ? 'text-[#0b2c55]' : 'text-white'}`}>
         <HighlightedTitle title={shown(settings.heroTitle)} />
         <EditPencil label="Modifier le titre" onClick={() => editHero('heroTitle')} className="ml-2" />
       </h1>
 
-      <p className="mx-auto max-w-xl text-base leading-relaxed text-slate-100 sm:text-lg lg:mx-0">
+      <p className={`mx-auto max-w-xl text-base leading-relaxed sm:text-lg ${light ? 'text-slate-800' : 'text-slate-100'}`}>
         {shown(settings.heroSubtitle)}
         <EditPencil label="Modifier le sous-titre" onClick={() => editHero('heroSubtitle')} className="ml-2" />
       </p>
 
-      <div className="flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start">
+      <p className={`mx-auto max-w-xl text-sm sm:text-base ${light ? 'text-slate-500' : 'text-slate-200/90'}`}><HomeText contentKey="hero.lead" /></p>
+
+      <div className="flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
         {/* En mode personnalisation, le crayon reste sur la même ligne que le bouton (y compris sur téléphone). */}
         <div className={editMode && primary.editable ? 'flex items-center justify-center gap-2' : 'contents'}>
           <button
             type="button"
             onClick={primary.onClick}
-            className={`flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-900/30 transition hover:bg-blue-500 ${editMode && primary.editable ? 'flex-1 sm:flex-none' : ''}`}
+            className={`flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-500 ${light ? 'shadow-[0_8px_24px_rgba(37,99,235,0.35)]' : 'shadow-[0_0_28px_rgba(37,99,235,0.55)]'} ${editMode && primary.editable ? 'flex-1 sm:flex-none' : ''}`}
           >
             <FileText className="h-4 w-4" aria-hidden />
             <span>{primary.label}</span>
@@ -118,7 +121,7 @@ export function HeroContent({
           <button
             type="button"
             onClick={secondary.onClick}
-            className="flex items-center justify-center gap-2 rounded-lg border border-white/50 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-white/10"
+            className={`flex items-center justify-center gap-2 rounded-lg border px-6 py-3.5 text-sm font-semibold transition ${light ? 'border-slate-300 bg-white text-slate-900 hover:bg-slate-50' : 'border-white/50 text-white hover:bg-white/10'}`}
           >
             <Eye className="h-4 w-4" aria-hidden />
             <span>{secondary.label}</span>

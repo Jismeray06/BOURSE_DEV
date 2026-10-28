@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { assertFileMatchesType } from './file-signature.js';
 import { PrismaService } from './prisma.service.js';
 
 const maximumDocumentSize = 10 * 1024 * 1024;
@@ -68,11 +69,12 @@ export class DocumentService {
     await Promise.all(storageNames.map((name) => unlink(join(this.directory, name)).catch(() => undefined)));
   }
 
-  private validate(type: string, file: { originalname: string; mimetype: string; size: number }) {
+  private validate(type: string, file: { buffer: Buffer; originalname: string; mimetype: string; size: number }) {
     if (!type.trim() || !/^[a-z0-9_-]+$/.test(type)) throw new BadRequestException('Type de pièce invalide.');
     if (!allowedMimeTypes.has(file.mimetype)) throw new BadRequestException('Format accepté : PDF, PNG ou JPG.');
     if (file.size > maximumDocumentSize) throw new BadRequestException('La pièce ne doit pas dépasser 10 Mo.');
     if (!file.originalname.trim()) throw new BadRequestException('Nom de fichier invalide.');
+    assertFileMatchesType(file);
   }
 
   private extension(mimeType: string) {

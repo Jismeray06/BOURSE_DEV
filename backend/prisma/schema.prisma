@@ -14,6 +14,7 @@ enum UserRole {
   ADMIN_ETABLISSEMENT
   SECRETAIRE
   SCOLARITE_CENTRALE
+  SECRETAIRE_SCOLARITE
 }
 
 enum RegistrationStatus {
@@ -336,14 +337,14 @@ model SiteSettings {
   backgroundColor     String             @default("#ffffff")
   logoUrl             String?
   faviconUrl          String?
-  heroBackgroundType  HeroBackgroundType @default(IMAGE)
+  heroBackgroundType  HeroBackgroundType @default(COLOR)
   heroBackgroundImages String[]         @default([])
   heroOverlayOpacity  Int                @default(60)
-  heroTitle           String             @default("Votre inscription universitaire, simple et accessible.")
-  heroSubtitle        String             @default("Déposez votre dossier d'inscription en ligne en quelques étapes. Sélectionnez votre établissement, validez votre quitus et suivez l'avancement de votre dossier.")
+  heroTitle           String             @default("Votre demande de bourse nationale, simple et 100 % en ligne.")
+  heroSubtitle        String             @default("Déposez votre dossier, transmettez vos pièces justificatives et suivez son avancement, où que vous soyez.")
   ctaPrimaryLabel     String             @default("Se connecter")
   ctaPrimaryLink      String             @default("/login")
-  ctaSecondaryLabel   String             @default("Commencer mon inscription")
+  ctaSecondaryLabel   String             @default("Faire une demande de bourse")
   ctaSecondaryLink    String             @default("/login")
   homepageContent     Json               @default("{}")
   homepageNews        Json               @default("[]")

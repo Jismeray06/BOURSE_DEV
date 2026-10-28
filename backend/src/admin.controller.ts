@@ -55,7 +55,7 @@ export class AdminController {
   @Get('dashboard')
   async dashboard(@Headers('authorization') authorization?: string) {
     await this.authService.requireAdmin(authorization);
-    const staffRoles = [UserRole.ETABLISSEMENT, UserRole.ADMIN_ETABLISSEMENT, UserRole.SECRETAIRE, UserRole.SCOLARITE_CENTRALE];
+    const staffRoles = [UserRole.ETABLISSEMENT, UserRole.ADMIN_ETABLISSEMENT, UserRole.SECRETAIRE, UserRole.SCOLARITE_CENTRALE, UserRole.SECRETAIRE_SCOLARITE];
     const [students, unverifiedStudents, applications, byEstablishment, staff, inactiveStaff, trashed, pending, audit] = await Promise.all([
       this.prisma.user.count({ where: { role: UserRole.ETUDIANT, deletedAt: null } }),
       this.prisma.user.count({ where: { role: UserRole.ETUDIANT, deletedAt: null, emailVerified: false } }),
@@ -167,7 +167,7 @@ export class AdminController {
   async staffAccounts(@Headers('authorization') authorization?: string) {
     await this.authService.requireAdmin(authorization);
     return this.prisma.user.findMany({
-      where: { role: { in: [UserRole.ETABLISSEMENT, UserRole.ADMIN_ETABLISSEMENT, UserRole.SECRETAIRE, UserRole.SCOLARITE_CENTRALE] }, deletedAt: null },
+      where: { role: { in: [UserRole.ETABLISSEMENT, UserRole.ADMIN_ETABLISSEMENT, UserRole.SECRETAIRE, UserRole.SCOLARITE_CENTRALE, UserRole.SECRETAIRE_SCOLARITE] }, deletedAt: null },
       select: { id: true, fullName: true, email: true, role: true, establishment: true, active: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     });

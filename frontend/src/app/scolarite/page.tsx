@@ -15,6 +15,7 @@ import { AdminSettingsPanel } from "../../components/AdminSettingsPanel";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { AccountPanel } from "../../components/AccountPanel";
 import { CandidatureDocumentsPanel } from "../../components/CandidatureDocumentsPanel";
+import { CentralSecretariesPanel } from "../../components/CentralSecretariesPanel";
 import { HeaderToolbar } from "../../components/HeaderToolbar";
 import { usePolling } from "../../components/usePolling";
 import { useInterfaceSettings, useSystemDark } from "../../components/useInterfaceSettings";
@@ -38,6 +39,7 @@ import {
   Search,
   Settings,
   UserCog,
+  UserPlus,
   ShieldCheck,
   SlidersHorizontal,
   X,
@@ -48,7 +50,7 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 // Zone tactile confortable (44px) sur téléphone et tablette uniquement
 const touch = "max-[1024px]:min-h-[44px]";
 type Status = "SOUMIS" | "EN_REVISION" | "VALIDE" | "REFUSE";
-type Tab = "dashboard" | "applications" | "history" | "documents" | "account" | "settings";
+type Tab = "dashboard" | "applications" | "history" | "documents" | "secretaries" | "account" | "settings";
 type Application = {
   id: string;
   establishment: string;
@@ -90,6 +92,8 @@ export default function ScolaritePage() {
   const [settings, setSettings] = useInterfaceSettings("scolarite");
   const systemDark = useSystemDark();
   const [notes, setNotes] = useState<Record<string, string>>({});
+  // Le responsable de la scolarité gère les pièces demandées et les comptes secrétaires ; ses secrétaires traitent seulement les dossiers.
+  const [isManager, setIsManager] = useState(false);
   const request = (path: string, options: RequestInit = {}) => {
     const headers = new Headers(options.headers);
     headers.set(
@@ -100,13 +104,15 @@ export default function ScolaritePage() {
   };
   // `silent` : actualisation en arrière-plan, sans message ni indicateur de chargement.
   const load = async (silent = false) => {
+    const role = sessionStorage.getItem("user_role");
     if (
       !sessionStorage.getItem("auth_token") ||
-      sessionStorage.getItem("user_role") !== "SCOLARITE_CENTRALE"
+      (role !== "SCOLARITE_CENTRALE" && role !== "SECRETAIRE_SCOLARITE")
     ) {
       router.replace("/login");
       return;
     }
+    setIsManager(role === "SCOLARITE_CENTRALE");
     if (!silent) {
       setLoading(true);
       setMessage("");
@@ -209,7 +215,9 @@ export default function ScolaritePage() {
           ? "Historique des décisions"
           : activeTab === "documents"
             ? "Pièces du dépôt de dossier"
-            : activeTab === "account"
+            : activeTab === "secretaries"
+              ? "Comptes secrétaires"
+              : activeTab === "account"
               ? "Mon compte"
               : "Paramètres";
   return (
@@ -271,15 +279,26 @@ export default function ScolaritePage() {
                   {pending.length}
                 </span>
               </NavButton>
-              <NavButton
-                active={activeTab === "documents"}
-                onClick={() => { setActiveTab("documents"); setSidebarOpen(false); }}
-                icon={<FileText className="h-4 w-4" />}
-              >
-                Pièces à téléverser
-              </NavButton>
+              {isManager && (
+                <NavButton
+                  active={activeTab === "documents"}
+                  onClick={() => { setActiveTab("documents"); setSidebarOpen(false); }}
+                  icon={<FileText className="h-4 w-4" />}
+                >
+                  Pièces à téléverser
+                </NavButton>
+              )}
             </NavSection>
             <NavSection title="Configuration" separated>
+              {isManager && (
+                <NavButton
+                  active={activeTab === "secretaries"}
+                  onClick={() => { setActiveTab("secretaries"); setSidebarOpen(false); }}
+                  icon={<UserPlus className="h-4 w-4" />}
+                >
+                  Ajouter secrétaire
+                </NavButton>
+              )}
               <NavButton
                 active={activeTab === "account"}
                 onClick={() => { setActiveTab("account"); setSidebarOpen(false); }}
@@ -359,7 +378,7 @@ export default function ScolaritePage() {
             notificationsEmpty="Aucun dossier en attente."
             onSeeAllNotifications={() => setActiveTab("applications")}
             seeAllLabel="Voir tous les dossiers à traiter"
-            roleLabel="Scolarité centrale"
+            roleLabel={isManager ? "Scolarité centrale" : "Secrétaire de la scolarité"}
             menuItems={[
               { label: "Mon compte", icon: <UserCog className="h-4 w-4" />, onClick: () => setActiveTab("account") },
               { label: loading ? "Actualisation…" : "Actualiser les données", icon: <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />, onClick: () => void load() },
@@ -454,7 +473,8 @@ export default function ScolaritePage() {
               viewDossier={setDossierApplicationId}
             />
           )}
-          {activeTab === "documents" && <CandidatureDocumentsPanel />}
+          {activeTab === "documents" && isManager && <CandidatureDocumentsPanel />}
+          {activeTab === "secretaries" && isManager && <CentralSecretariesPanel />}
           {activeTab === "account" && <AccountPanel />}
           {activeTab === "settings" && (
             <section className="space-y-4 sm:space-y-6">

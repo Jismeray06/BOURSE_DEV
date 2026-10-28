@@ -147,6 +147,7 @@ export const translations: Record<Exclude<Language, 'fr'>, Dictionary> = {
     'nav.faq': 'FAQ',
     'nav.news': 'News',
     'hero.badge': 'National scholarship',
+    'hero.lead': 'A modern and secure platform for your national scholarship procedures.',
     'hero.tagline1': 'Study today',
     'hero.tagline2': 'Build tomorrow',
     'hero.info.title': 'Important information',
@@ -304,6 +305,7 @@ export const translations: Record<Exclude<Language, 'fr'>, Dictionary> = {
     'nav.faq': 'FAQ',
     'nav.news': 'Vaovao',
     'hero.badge': 'Bours nasionaly',
+    'hero.lead': "Sehatra maoderina sy azo antoka ho an'ny fangatahana bours nasionaly.",
     'hero.tagline1': 'Mianara anio',
     'hero.tagline2': 'Manorona rahampitso',
     'hero.info.title': 'Fampahalalana manan-danja',
@@ -328,6 +330,8 @@ export const settingTranslations: Record<Exclude<Language, 'fr'>, Dictionary> = 
   en: {
     'Votre demande de bourse nationale, désormais en ligne': 'Your national scholarship application, now online',
     'Votre inscription universitaire, simple et accessible.': 'Your university registration, simple and accessible.',
+    'Votre demande de bourse nationale, simple et 100 % en ligne.': 'Your national scholarship application, simple and 100% online.',
+    'Déposez votre dossier, transmettez vos pièces justificatives et suivez son avancement, où que vous soyez.': 'Submit your file, send your supporting documents and follow its progress, wherever you are.',
     "La plateforme numérique de l'Université de Mahajanga vous permet de déposer votre demande de bourse, transmettre les informations et pièces nécessaires et suivre l'évolution de votre dossier en ligne.":
       'The digital platform of the University of Mahajanga lets you submit your scholarship application, send the necessary information and documents and follow the progress of your file online.',
     "Déposez votre dossier d'inscription en ligne en quelques étapes. Sélectionnez votre établissement, validez votre quitus et suivez l'avancement de votre dossier.":
@@ -339,6 +343,8 @@ export const settingTranslations: Record<Exclude<Language, 'fr'>, Dictionary> = 
   mg: {
     'Votre demande de bourse nationale, désormais en ligne': 'Ny fangatahanao bours nasionaly, an-tserasera ankehitriny',
     'Votre inscription universitaire, simple et accessible.': "Ny fisoratanao anarana amin'ny oniversite, tsotra sy azo idirana.",
+    'Votre demande de bourse nationale, simple et 100 % en ligne.': 'Ny fangatahanao bours nasionaly, tsotra ary an-tserasera tanteraka.',
+    'Déposez votre dossier, transmettez vos pièces justificatives et suivez son avancement, où que vous soyez.': 'Alefaso ny taratasinao, ampitaso ny taratasy manamarina ary araho ny fandehany, na aiza na aiza misy anao.',
     "La plateforme numérique de l'Université de Mahajanga vous permet de déposer votre demande de bourse, transmettre les informations et pièces nécessaires et suivre l'évolution de votre dossier en ligne.":
       "Ny sehatra an-tserasera an'ny Oniversiten'i Mahajanga dia ahafahanao mandefa ny fangatahanao bours, mampita ny fampahalalana sy taratasy ilaina ary manara-maso an-tserasera ny fandehan'ny taratasinao.",
     "Déposez votre dossier d'inscription en ligne en quelques étapes. Sélectionnez votre établissement, validez votre quitus et suivez l'avancement de votre dossier.":
@@ -357,6 +363,7 @@ export const uiText: Record<Language, Dictionary> = {
     'search.open': 'Rechercher sur la page',
     'search.empty': 'Aucune rubrique trouvée.',
     'language.label': 'Choisir la langue',
+    'menu.label': 'Menu',
   },
   en: {
     'search.placeholder': 'Search a section…',
@@ -364,6 +371,7 @@ export const uiText: Record<Language, Dictionary> = {
     'search.open': 'Search the page',
     'search.empty': 'No section found.',
     'language.label': 'Choose the language',
+    'menu.label': 'Menu',
   },
   mg: {
     'search.placeholder': 'Hikaroka lohahevitra…',
@@ -371,5 +379,6 @@ export const uiText: Record<Language, Dictionary> = {
     'search.open': 'Hikaroka eto amin’ny pejy',
     'search.empty': 'Tsy nahita lohahevitra.',
     'language.label': 'Fidio ny fiteny',
+    'menu.label': 'Menio',
   },
 };

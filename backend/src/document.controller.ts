@@ -93,13 +93,13 @@ export class DocumentController {
     if (document) {
       if (user.role === UserRole.ETUDIANT && document.application.userId !== user.id) throw new BadRequestException('Pièce inaccessible.');
       if ((user.role === UserRole.ETABLISSEMENT || user.role === UserRole.ADMIN_ETABLISSEMENT || user.role === UserRole.SECRETAIRE) && document.application.establishment !== user.establishment) throw new BadRequestException('Pièce inaccessible pour cet établissement.');
-      if (![UserRole.ETUDIANT, UserRole.ADMIN, UserRole.SCOLARITE_CENTRALE, UserRole.ETABLISSEMENT, UserRole.ADMIN_ETABLISSEMENT, UserRole.SECRETAIRE].includes(user.role)) throw new BadRequestException('Accès interdit.');
+      if (![UserRole.ETUDIANT, UserRole.ADMIN, UserRole.SCOLARITE_CENTRALE, UserRole.SECRETAIRE_SCOLARITE, UserRole.ETABLISSEMENT, UserRole.ADMIN_ETABLISSEMENT, UserRole.SECRETAIRE].includes(user.role)) throw new BadRequestException('Accès interdit.');
       const result = await this.documents.file(id);
       return new StreamableFile(result.buffer, { type: result.document.mimeType, disposition: `inline; filename="${result.document.originalName.replace(/["]|[/\\]/g, '_')}"` });
     }
     const studentDocument = await this.prisma.enrolledStudentDocument.findUnique({ where: { id }, include: { enrolledStudent: { select: { establishment: true } } } });
     if (!studentDocument) throw new BadRequestException('Pièce introuvable.');
-    if (!([UserRole.ADMIN, UserRole.SCOLARITE_CENTRALE, UserRole.ETABLISSEMENT, UserRole.ADMIN_ETABLISSEMENT, UserRole.SECRETAIRE] as UserRole[]).includes(user.role)) throw new BadRequestException('Accès interdit.');
+    if (!([UserRole.ADMIN, UserRole.SCOLARITE_CENTRALE, UserRole.SECRETAIRE_SCOLARITE, UserRole.ETABLISSEMENT, UserRole.ADMIN_ETABLISSEMENT, UserRole.SECRETAIRE] as UserRole[]).includes(user.role)) throw new BadRequestException('Accès interdit.');
     if ((user.role === UserRole.ETABLISSEMENT || user.role === UserRole.ADMIN_ETABLISSEMENT || user.role === UserRole.SECRETAIRE) && studentDocument.enrolledStudent.establishment !== user.establishment) throw new BadRequestException('Pièce inaccessible pour cet établissement.');
     const result = await this.documents.fileForStudent(id);
     return new StreamableFile(result.buffer, { type: result.document.mimeType, disposition: `inline; filename="${result.document.originalName.replace(/["]|[/\\]/g, '_')}"` });
@@ -112,11 +112,14 @@ export class DocumentController {
   }
 
   private async dossierByApplication(applicationId: string) {
-    const dossier = await this.prisma.enrollmentApplication.findUnique({ where: { id: applicationId }, include: { user: { select: { id: true, fullName: true, email: true, establishment: true, level: true, program: true } }, quitus: { select: { code: true } } } });
+    const dossier = await this.prisma.enrollmentApplication.findUnique({ where: { id: applicationId }, include: { user: { select: { id: true, fullName: true, email: true, establishment: true, level: true, program: true } }, quitus: { select: { code: true, enrollment: true } } } });
     if (!dossier) throw new BadRequestException('Dossier introuvable.');
-    const enrolledStudent = dossier.user.email
-      ? await this.prisma.enrolledStudent.findFirst({ where: { email: dossier.user.email, establishment: dossier.establishment } })
-      : null;
+    // La fiche d'inscription est d'abord retrouvée par le quitus vérifié (lien sûr : l'étudiant a prouvé qu'il en est le titulaire),
+    // puis, à défaut, par l'adresse e-mail et l'établissement.
+    const enrolledStudent = dossier.quitus?.enrollment
+      ?? (dossier.user.email
+        ? await this.prisma.enrolledStudent.findFirst({ where: { email: dossier.user.email, establishment: dossier.establishment } })
+        : null);
     return {
       id: dossier.id,
       student: dossier.user,
@@ -125,7 +128,7 @@ export class DocumentController {
       program: dossier.program,
       status: dossier.status,
       submittedAt: dossier.submittedAt,
-      quitus: dossier.quitus,
+      quitus: dossier.quitus ? { code: dossier.quitus.code } : null,
       documents: await this.documents.list(dossier.id),
       ...(enrolledStudent ? { profile: this.enrolledProfileFields(enrolledStudent) } : {}),
     };

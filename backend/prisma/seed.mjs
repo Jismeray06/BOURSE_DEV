@@ -31,6 +31,7 @@ async function main() {
       fullName: process.env.ADMIN_NAME ?? 'Administrateur Université',
       passwordHash,
       role: UserRole.ADMIN,
+      emailVerified: true,
     },
   });
 

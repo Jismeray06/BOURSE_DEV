@@ -51,7 +51,7 @@ const statuses = ['BROUILLON', 'SOUMIS', 'EN_REVISION', 'VALIDE', 'REFUSE'] as c
 type Status = (typeof statuses)[number];
 type Tab = 'dashboard' | 'students' | 'establishments' | 'accounts' | 'users' | 'settings' | 'history' | 'trash' | 'account';
 type StaffRole = 'ETABLISSEMENT' | 'SCOLARITE_CENTRALE';
-type StaffAccountRole = 'ETABLISSEMENT' | 'ADMIN_ETABLISSEMENT' | 'SECRETAIRE' | 'SCOLARITE_CENTRALE';
+type StaffAccountRole = 'ETABLISSEMENT' | 'ADMIN_ETABLISSEMENT' | 'SECRETAIRE' | 'SCOLARITE_CENTRALE' | 'SECRETAIRE_SCOLARITE';
 type AnyUserRole = 'ETUDIANT' | 'ADMIN' | StaffAccountRole;
 type AnyUser = {
   id: string;
@@ -73,6 +73,7 @@ const roleLabels: Record<AnyUserRole, string> = {
   ADMIN_ETABLISSEMENT: 'Responsable établissement',
   SECRETAIRE: 'Secrétaire',
   SCOLARITE_CENTRALE: 'Scolarité centrale',
+  SECRETAIRE_SCOLARITE: 'Secrétaire de la scolarité',
 };
 type Student = {
   id: string;
@@ -88,6 +89,7 @@ type StaffAccount = { id: string; fullName: string; email: string; role: StaffAc
 const staffRoleLabel = (account: { role: AnyUserRole; establishment: string | null }) => {
   if (account.role === 'ETUDIANT' || account.role === 'ADMIN') return roleLabels[account.role];
   if (account.role === 'SCOLARITE_CENTRALE') return 'Scolarité centrale';
+  if (account.role === 'SECRETAIRE_SCOLARITE') return 'Secrétaire de la scolarité';
   if (account.role === 'SECRETAIRE') return `Secrétaire · ${account.establishment}`;
   return `Établissement · ${account.establishment}`;
 };

@@ -5,6 +5,7 @@ import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { AuthService } from './auth.service.js';
 import { MailService } from './mail.service.js';
+import { assertPasswordNotCommon } from './password-policy.js';
 import { PrismaService } from './prisma.service.js';
 
 const changeLifetimeInMs = 60 * 60 * 1000;
@@ -30,6 +31,7 @@ export class AccountService {
     await this.assertCurrentPassword(user.id, currentPassword);
     if (newPassword.length < 8) throw new BadRequestException('Le nouveau mot de passe doit contenir au moins 8 caractères.');
     if (newPassword === currentPassword) throw new BadRequestException("Le nouveau mot de passe doit être différent de l'actuel.");
+    assertPasswordNotCommon(newPassword, user.email);
     await this.prisma.user.update({ where: { id: user.id }, data: { passwordHash: await this.authService.hashPassword(newPassword) } });
     await this.audit('ACCOUNT_PASSWORD_CHANGED', user, user.fullName, 'Modifié par l’utilisateur lui-même');
     return { message: 'Votre mot de passe a été modifié.' };

@@ -3,6 +3,7 @@ import { AuditAction, HeroBackgroundType } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { assertFileMatchesType } from './file-signature.js';
 import { PrismaService } from './prisma.service.js';
 
 const settingsId = 'default';
@@ -31,6 +32,10 @@ export type UpdateSiteSettingsDto = {
 };
 
 const hexColor = /^#[0-9a-fA-F]{6}$/;
+// Seuls ces champs sont modifiables ici : logo, images et contenus passent par leurs propres routes.
+const editableTextFields = ['heroTitle', 'heroSubtitle', 'ctaPrimaryLabel', 'ctaPrimaryLink', 'ctaSecondaryLabel', 'ctaSecondaryLink'] as const;
+const maximumTextLength = 500;
+const safeLink = /^(\/(?!\/)|https?:\/\/)\S*$/;
 
 @Injectable()
 export class SiteSettingsService {
@@ -59,8 +64,25 @@ export class SiteSettingsService {
     if (dto.heroOverlayOpacity !== undefined && (dto.heroOverlayOpacity < 0 || dto.heroOverlayOpacity > 100)) {
       throw new BadRequestException('L’opacité doit être comprise entre 0 et 100.');
     }
+    const data: UpdateSiteSettingsDto = {};
+    for (const field of ['primaryColor', 'secondaryColor', 'backgroundColor'] as const) if (dto[field] !== undefined) data[field] = dto[field];
+    for (const field of editableTextFields) {
+      const value = dto[field];
+      if (value === undefined) continue;
+      if (typeof value !== 'string' || value.length > maximumTextLength) throw new BadRequestException(`Texte invalide : ${field}.`);
+      if (field.endsWith('Link') && !safeLink.test(value)) throw new BadRequestException('Lien invalide : utilisez un chemin (/login) ou une adresse http(s).');
+      data[field] = value;
+    }
+    if (dto.heroOverlayOpacity !== undefined) {
+      if (!Number.isInteger(dto.heroOverlayOpacity)) throw new BadRequestException('L’opacité doit être un nombre entier.');
+      data.heroOverlayOpacity = dto.heroOverlayOpacity;
+    }
+    if (dto.heroBackgroundType !== undefined) {
+      if (!Object.values(HeroBackgroundType).includes(dto.heroBackgroundType)) throw new BadRequestException('Type de fond invalide.');
+      data.heroBackgroundType = dto.heroBackgroundType;
+    }
     await this.get();
-    return this.prisma.siteSettings.update({ where: { id: settingsId }, data: dto });
+    return this.prisma.siteSettings.update({ where: { id: settingsId }, data });
   }
 
   async uploadAsset(asset: string, file: { buffer: Buffer; originalname: string; mimetype: string; size: number } | undefined) {
@@ -69,6 +91,7 @@ export class SiteSettingsService {
     const extension = logoMimeTypes[file.mimetype];
     if (!extension) throw new BadRequestException('Format accepté : PNG, JPG ou SVG.');
     if (file.size > maximumAssetSize) throw new BadRequestException('Le fichier ne doit pas dépasser 5 Mo.');
+    assertFileMatchesType(file);
 
     const storageName = await this.saveFile(file, extension);
 
@@ -85,6 +108,7 @@ export class SiteSettingsService {
     const extension = imageMimeTypes[file.mimetype];
     if (!extension) throw new BadRequestException('Format accepté : PNG ou JPG.');
     if (file.size > maximumAssetSize) throw new BadRequestException('Le fichier ne doit pas dépasser 5 Mo.');
+    assertFileMatchesType(file);
 
     const settings = await this.get();
     if (settings.heroBackgroundImages.length >= maximumHeroImages) throw new BadRequestException(`Maximum ${maximumHeroImages} photos.`);
@@ -112,7 +136,8 @@ export class SiteSettingsService {
     for (const url of settings.heroBackgroundImages) {
       await unlink(join(this.directory, url.replace('/uploads/site-settings/', ''))).catch(() => undefined);
     }
-    await this.prisma.siteSettings.delete({ where: { id: settingsId } }).catch(() => undefined);
+    // Une seule instruction : chaque colonne reprend sa valeur par défaut sans que la ligne disparaisse (une requête simultanée ne tombe plus sur « introuvable »).
+    await this.prisma.$executeRaw`UPDATE "SiteSettings" SET "primaryColor" = DEFAULT, "secondaryColor" = DEFAULT, "backgroundColor" = DEFAULT, "logoUrl" = DEFAULT, "faviconUrl" = DEFAULT, "heroBackgroundType" = DEFAULT, "heroBackgroundImages" = DEFAULT, "heroOverlayOpacity" = DEFAULT, "heroTitle" = DEFAULT, "heroSubtitle" = DEFAULT, "ctaPrimaryLabel" = DEFAULT, "ctaPrimaryLink" = DEFAULT, "ctaSecondaryLabel" = DEFAULT, "ctaSecondaryLink" = DEFAULT, "homepageContent" = DEFAULT, "homepageNews" = DEFAULT, "uniformCandidatureDocuments" = DEFAULT, "updatedAt" = NOW() WHERE "id" = ${settingsId}`;
     return this.get();
   }
 

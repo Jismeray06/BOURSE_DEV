@@ -13,6 +13,7 @@ import type { Request, Response } from 'express';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { AuthService } from './auth.service.js';
 import { GoogleAuthService } from './google-auth.service.js';
+import { assertPasswordNotCommon } from './password-policy.js';
 import { RateLimiter } from './rate-limiter.js';
 
 type Credentials = { email?: unknown; password?: unknown };
@@ -29,6 +30,10 @@ export class AuthController {
   // Échecs de connexion pour un même couple IP + adresse e-mail : ralentit le devinage d'un mot de passe sans bloquer le vrai titulaire du compte depuis un autre appareil.
   private readonly loginFailures = new RateLimiter(5, fifteenMinutes, 'Trop d’échecs de connexion pour ce compte. Réessayez dans 15 minutes.');
   private readonly registrations = new RateLimiter(5, 60 * 60 * 1000, 'Trop de créations de compte depuis cette adresse. Réessayez dans une heure.');
+  // Renvois de l'e-mail de vérification : 5 par heure et par adresse (évite d'inonder la boîte d'un tiers), plus un plafond large par IP
+  // (plusieurs étudiants peuvent partager la même connexion).
+  private readonly verificationResendsByEmail = new RateLimiter(5, 60 * 60 * 1000, "Trop de demandes d'envoi pour cette adresse. Réessayez dans une heure.");
+  private readonly verificationResendsByIp = new RateLimiter(30, 60 * 60 * 1000, "Trop de demandes d'envoi depuis cette adresse. Réessayez dans une heure.");
 
   constructor(
     private readonly authService: AuthService,
@@ -67,8 +72,11 @@ export class AuthController {
   }
 
   @Post('resend-verification-email')
-  resendVerificationEmail(@Body() body: Pick<Credentials, 'email'>) {
-    return this.authService.resendVerificationEmail(this.email(body.email));
+  resendVerificationEmail(@Body() body: Pick<Credentials, 'email'>, @Req() request: Request) {
+    const email = this.email(body.email);
+    this.verificationResendsByIp.consume(this.client(request));
+    this.verificationResendsByEmail.consume(email.toLowerCase());
+    return this.authService.resendVerificationEmail(email);
   }
 
   @Get('google')
@@ -133,6 +141,7 @@ export class AuthController {
     if (password.length < 8) {
       throw new BadRequestException('Le mot de passe doit contenir au moins 8 caractères.');
     }
+    assertPasswordNotCommon(password);
     return password;
   }
 

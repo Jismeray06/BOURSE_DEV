@@ -9,17 +9,9 @@ import { HeroBackground, HeroContent } from '../components/HomepageHero';
 import { HomeEditProvider, HomeText, useHomeEdit } from '../components/home/HomepageEditor';
 import { HomeNavbar } from '../components/home/HomeNavbar';
 import { HomeSetting } from '../components/home/HomeSetting';
-import { HeroStats, HeroTagline } from '../components/home/HeroExtras';
-import { BourseSection } from '../components/home/BourseSection';
-import { StepsSection } from '../components/home/StepsSection';
-import { PrepareSection } from '../components/home/PrepareSection';
-import { BenefitsSection } from '../components/home/BenefitsSection';
+import { HeroGlow, HeroStats } from '../components/home/HeroExtras';
 import { EstablishmentsSection } from '../components/home/EstablishmentsSection';
-import { StatusesSection } from '../components/home/StatusesSection';
-import { AnnouncementsList } from '../components/home/AnnouncementsList';
 import { FaqSection } from '../components/home/FaqSection';
-import { HelpSection } from '../components/home/HelpSection';
-import { FinalCta } from '../components/home/FinalCta';
 import { HomeFooter } from '../components/home/HomeFooter';
 import { LOGIN_PATH, useDashboardPath } from '../components/home/useHomeSession';
 import { assetUrl, defaultSiteSettings, fetchSiteSettings, type SiteSettings } from '../components/siteSettings';
@@ -91,12 +83,15 @@ function HomeBody({ settings, darkMode, onToggleTheme }: { settings: SiteSetting
     else router.push(link);
   };
   const showDefaultCarousel = settings.heroBackgroundType === 'IMAGE' && settings.heroBackgroundImages.length === 0;
+  // En mode clair, le fond « couleur unie » devient un fond blanc très légèrement bleuté avec un décor pâle ;
+  // les fonds en photos ou en dégradé choisis par l'administrateur restent sombres (texte blanc) dans les deux modes.
+  const lightHero = !darkMode && settings.heroBackgroundType === 'COLOR';
   return (
     <>
       <HomeNavbar settings={settings} darkMode={darkMode} onToggleTheme={onToggleTheme} />
 
       {/* --- HERO SECTION --- */}
-      <section id="accueil" className="relative flex min-h-[calc(100svh-4rem)] scroll-mt-16 flex-col overflow-hidden bg-[#06233b] lg:min-h-[calc(100svh-5rem)] lg:scroll-mt-20">
+      <section id="accueil" className={`relative flex min-h-[calc(100svh-4rem)] scroll-mt-16 flex-col overflow-hidden lg:min-h-[calc(100svh-5rem)] lg:scroll-mt-20 ${lightHero ? 'bg-gradient-to-b from-white via-sky-50/70 to-white' : 'bg-[#06233b]'}`}>
         {showDefaultCarousel ? (
           <div className="absolute inset-0">
             {CAMPUS_IMAGES.map((item, index) => (
@@ -120,19 +115,19 @@ function HomeBody({ settings, darkMode, onToggleTheme }: { settings: SiteSetting
               </div>
             ))}
             {/* Assombrissement pour la lisibilité du texte */}
-            <div className="absolute inset-0 bg-[#06233b]/55" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#06233b]/90 via-[#06233b]/55 to-[#06233b]/20" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#06233b]/80 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-[#06233b]/60" />
+            <div className="absolute inset-0 bg-gradient-to-b from-[#06233b]/80 via-[#0b4a5e]/35 to-[#06233b]/85" />
           </div>
-        ) : (
+        ) : lightHero ? null : (
           <HeroBackground settings={settings} />
         )}
+        {/* Décor lumineux : sur le carrousel par défaut et sur les fonds unis ou dégradés, pas sur des photos personnalisées. */}
+        {(showDefaultCarousel || settings.heroBackgroundType !== 'IMAGE') && <HeroGlow forceDark={!lightHero} />}
 
-        <HeroTagline />
-
-        <div className="relative z-10 grid w-full flex-1 items-center gap-10 px-5 py-12 sm:px-6 lg:gap-12 lg:px-8 lg:py-16">
+        <div className="relative z-10 flex w-full flex-1 items-center justify-center px-5 py-16 sm:px-6 lg:px-8 lg:py-20">
           <HeroContent
             settings={settings}
+            tone={lightHero ? 'light' : 'dark'}
             primary={
               dashboardPath
                 ? { label: <HomeText contentKey="navbar.1" />, onClick: () => router.push(dashboardPath) }
@@ -140,10 +135,6 @@ function HomeBody({ settings, darkMode, onToggleTheme }: { settings: SiteSetting
             }
             secondary={dashboardPath ? undefined : { label: <HomeText contentKey="hero.trackingLabel" />, onClick: () => router.push(LOGIN_PATH) }}
           />
-        </div>
-
-        <div className="relative z-10 w-full px-5 pb-12 sm:px-6 lg:px-8">
-          <HeroStats />
         </div>
 
         {editMode && (
@@ -174,17 +165,12 @@ function HomeBody({ settings, darkMode, onToggleTheme }: { settings: SiteSetting
           </>
         )}
       </section>
-
-      <BourseSection settings={settings} />
-      <StepsSection settings={settings} />
-      <PrepareSection settings={settings} />
-      <BenefitsSection />
+      {/* Chiffres clés : juste sous le hero pour que la première vue reste épurée. */}
+      <div className="bg-sky-50/70 px-5 py-8 sm:px-6 lg:px-8 dark:bg-[#06233b]">
+        <HeroStats />
+      </div>
       <EstablishmentsSection />
-      <StatusesSection />
-      <AnnouncementsList />
       <FaqSection />
-      <HelpSection />
-      <FinalCta settings={settings} />
       <HomeFooter settings={settings} />
     </>
   );

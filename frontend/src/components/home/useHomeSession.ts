@@ -28,9 +28,6 @@ export const REGISTER_PATH = '/login?mode=register';
 export const LOGIN_PATH = '/login';
 export const NAV_LINKS = [
   { href: '/#accueil', contentKey: 'nav.home' },
-  { href: '/#bourse', contentKey: 'nav.bourse' },
-  { href: '/#etapes', contentKey: 'nav.steps' },
   { href: '/#etablissements', contentKey: 'nav.establishments' },
   { href: '/#faq', contentKey: 'nav.faq' },
-  { href: '/#actualites', contentKey: 'nav.news' },
 ];

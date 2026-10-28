@@ -5,21 +5,61 @@ import { ArrowRight, CalendarDays, CircleHelp, FileText, GraduationCap, Megaphon
 import { useEstablishments } from '../establishments';
 import { HomeText, useHomeEdit } from './HomepageEditor';
 
-// Mot d'ordre manuscrit en haut à droite du hero (masqué sur petit écran).
-export function HeroTagline() {
+// Décor lumineux du hero : halo bleu-vert, points brillants et traits de lumière (purement décoratif).
+const GLOW_DOTS = [
+  { left: '66%', top: '14%', size: 12 },
+  { left: '22%', top: '36%', size: 9 },
+  { left: '78%', top: '60%', size: 14 },
+  { left: '14%', top: '72%', size: 8 },
+  { left: '86%', top: '28%', size: 7 },
+  { left: '36%', top: '18%', size: 6 },
+];
+const GLOW_LINES = [
+  { left: '58%', top: '18%', width: 130, rotate: -35 },
+  { left: '72%', top: '8%', width: 110, rotate: -35 },
+  { left: '30%', top: '78%', width: 120, rotate: -35 },
+];
+
+// Teintes sombres (fond bleu nuit) et claires (fond blanc). Sans `forceDark`, le décor suit le thème de la page ;
+// avec `forceDark`, il reste sombre même en mode clair (fond de bandeau en photos ou en dégradé).
+const GLOW_RADIAL = {
+  dark: 'bg-[radial-gradient(ellipse_at_50%_35%,rgba(34,211,238,0.20),transparent_62%)]',
+  auto: 'bg-[radial-gradient(ellipse_at_50%_35%,rgba(56,189,248,0.12),transparent_62%)] dark:bg-[radial-gradient(ellipse_at_50%_35%,rgba(34,211,238,0.20),transparent_62%)]',
+};
+const GLOW_LINE = {
+  dark: 'bg-gradient-to-r from-transparent via-cyan-300/80 to-transparent',
+  auto: 'bg-gradient-to-r from-transparent via-sky-400/70 to-transparent dark:via-cyan-300/80',
+};
+const GLOW_DOT = {
+  dark: 'bg-cyan-200 shadow-[0_0_14px_5px_rgba(103,232,249,0.55)]',
+  auto: 'bg-sky-400 shadow-[0_0_14px_5px_rgba(56,189,248,0.40)] dark:bg-cyan-200 dark:shadow-[0_0_14px_5px_rgba(103,232,249,0.55)]',
+};
+
+export function HeroGlow({ forceDark = false }: { forceDark?: boolean }) {
+  const tone = forceDark ? 'dark' : 'auto';
   return (
-    <p className="pointer-events-none absolute right-6 top-6 z-10 hidden -rotate-6 text-right font-[family-name:var(--font-script)] text-3xl leading-tight text-white/90 2xl:block 2xl:right-12 2xl:text-4xl">
-      <HomeText contentKey="hero.tagline1" />
-      <br />
-      <HomeText contentKey="hero.tagline2" />
-      <span className="mt-1 block h-0.5 w-40 rotate-6 rounded-full bg-white/70" aria-hidden />
-    </p>
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      <div className={`absolute inset-0 ${GLOW_RADIAL[tone]}`} />
+      {/* Grands disques pâles sur les bords : uniquement en mode clair. */}
+      {!forceDark && (
+        <>
+          <div className="absolute -left-[28rem] top-[14%] aspect-square h-[72%] rounded-full bg-sky-100/70 dark:hidden" />
+          <div className="absolute -right-[30rem] top-[2%] aspect-square h-[78%] rounded-full bg-sky-100/60 dark:hidden" />
+        </>
+      )}
+      {GLOW_LINES.map((line, index) => (
+        <span key={index} className={`absolute h-0.5 rounded-full ${GLOW_LINE[tone]}`} style={{ left: line.left, top: line.top, width: line.width, transform: `rotate(${line.rotate}deg)` }} />
+      ))}
+      {GLOW_DOTS.map((dot, index) => (
+        <span key={index} className={`absolute rounded-full ${GLOW_DOT[tone]}`} style={{ left: dot.left, top: dot.top, width: dot.size, height: dot.size }} />
+      ))}
+    </div>
   );
 }
 
 const INFO_ITEMS = [
-  { icon: CalendarDays, key: 'hero.info.1', href: '#bourse' },
-  { icon: FileText, key: 'hero.info.2', href: '#etapes' },
+  { icon: CalendarDays, key: 'hero.info.1', href: '#accueil' },
+  { icon: FileText, key: 'hero.info.2', href: '#faq' },
   { icon: CircleHelp, key: 'hero.info.3', href: '#faq' },
 ];
 
@@ -52,7 +92,7 @@ export function HeroInfoMenu() {
         aria-expanded={open}
         aria-label="Informations importantes"
         title="Informations importantes"
-        className={`relative cursor-pointer rounded-lg border border-white/25 p-2.5 text-white transition hover:bg-white/10 ${open ? 'bg-white/10' : ''}`}
+        className={`relative cursor-pointer rounded-lg border border-slate-200 p-2.5 text-slate-700 transition hover:bg-slate-100 dark:border-white/25 dark:text-white dark:hover:bg-white/10 ${open ? 'bg-slate-100 dark:bg-white/10' : ''}`}
       >
         <Megaphone className="h-5 w-5" aria-hidden />
         {editMode && <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-white" aria-hidden><Pencil className="h-2.5 w-2.5" /></span>}
@@ -78,7 +118,7 @@ export function HeroInfoMenu() {
               </li>
             ))}
           </ul>
-          <a href="#actualites" onClick={() => { if (!editMode) setOpen(false); }} className="flex items-center gap-3 bg-blue-50 px-5 py-3.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100">
+          <a href="#faq" onClick={() => { if (!editMode) setOpen(false); }} className="flex items-center gap-3 bg-blue-50 px-5 py-3.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100">
             <ArrowRight className="h-4 w-4" aria-hidden />
             <HomeText contentKey="hero.info.more" />
           </a>
@@ -98,13 +138,13 @@ export function HeroStats() {
     { icon: ShieldCheck, value: <HomeText contentKey="hero.stats.4.value" />, label: <HomeText contentKey="hero.stats.4.label" /> },
   ];
   return (
-    <ul className="grid grid-cols-1 gap-y-5 rounded-2xl border border-white/10 bg-[#0b2c55]/80 px-6 py-5 backdrop-blur sm:grid-cols-2 lg:grid-cols-4 lg:gap-y-0 lg:divide-x lg:divide-white/15">
+    <ul className="grid grid-cols-1 gap-y-5 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm sm:grid-cols-2 lg:grid-cols-4 lg:gap-y-0 lg:divide-x lg:divide-slate-200 dark:border-white/10 dark:bg-[#0b2c55]/80 dark:shadow-none dark:backdrop-blur dark:lg:divide-white/15">
       {stats.map(({ icon: Icon, value, label }, index) => (
         <li key={index} className="flex items-center gap-4 lg:justify-center lg:px-4">
-          <Icon className="h-9 w-9 shrink-0 text-slate-200" aria-hidden />
+          <Icon className="h-9 w-9 shrink-0 text-blue-600 dark:text-slate-200" aria-hidden />
           <span>
-            <b className="block text-lg font-bold leading-tight text-white">{value}</b>
-            <span className="block text-sm text-slate-300">{label}</span>
+            <b className="block text-lg font-bold leading-tight text-[#0b2c55] dark:text-white">{value}</b>
+            <span className="block text-sm text-slate-600 dark:text-slate-300">{label}</span>
           </span>
         </li>
       ))}

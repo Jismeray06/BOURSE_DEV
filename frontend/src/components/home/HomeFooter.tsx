@@ -96,8 +96,6 @@ export function HomeFooter({ settings }: { settings: SiteSettings }) {
               {!dashboardPath && <li><Link href={LOGIN_PATH} className={footerLink}><HomeText contentKey="footer.12" /></Link></li>}
               {!dashboardPath && <li><Link href={REGISTER_PATH} className={footerLink}><HomeText contentKey="footer.13" /></Link></li>}
               {dashboardPath && <li><Link href={dashboardPath} className={footerLink}><HomeText contentKey="footer.14" /></Link></li>}
-              <li><Link href="/#statuts" className={footerLink}><HomeText contentKey="footer.15" /></Link></li>
-              <li><Link href="/#aide" className={footerLink}><HomeText contentKey="footer.16" /></Link></li>
             </ul>
           </nav>
 

@@ -39,7 +39,7 @@ export function HomeThemeToggle({ darkMode, onToggle, className = '', onDark = f
       onClick={onToggle}
       aria-label={darkMode ? 'Passer en mode clair' : 'Passer en mode sombre'}
       title={darkMode ? 'Mode clair' : 'Mode sombre'}
-      className={`p-2.5 rounded-lg border transition cursor-pointer ${onDark ? 'border-white/25 text-white hover:bg-white/10' : 'border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'} ${className}`}
+      className={`p-2.5 rounded-lg border transition cursor-pointer ${onDark ? 'border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-white/25 dark:text-white dark:hover:bg-white/10' : 'border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'} ${className}`}
     >
       {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
     </button>

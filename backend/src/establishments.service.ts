@@ -3,6 +3,7 @@ import { UserRole } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { assertFileMatchesType } from './file-signature.js';
 import { PrismaService } from './prisma.service.js';
 
 const maximumLogoSize = 5 * 1024 * 1024;
@@ -91,6 +92,7 @@ export class EstablishmentsService {
     const extension = logoMimeTypes[file.mimetype];
     if (!extension) throw new BadRequestException('Format accepté : PNG, JPG ou WebP.');
     if (file.size > maximumLogoSize) throw new BadRequestException('Le logo ne doit pas dépasser 5 Mo.');
+    assertFileMatchesType(file);
     await mkdir(this.directory, { recursive: true });
     const storageName = `${randomUUID()}${extension}`;
     await writeFile(join(this.directory, storageName), file.buffer, { flag: 'wx' });

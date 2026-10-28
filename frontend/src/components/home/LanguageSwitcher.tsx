@@ -37,7 +37,7 @@ export function LanguageSwitcher() {
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={ui('language.label', language)}
-        className="flex items-center gap-1.5 rounded-lg p-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
+        className="flex items-center gap-1.5 rounded-lg p-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-white dark:hover:bg-white/10"
       >
         <Globe className="h-5 w-5" aria-hidden />
         <span>{current.short}</span>

@@ -1,13 +1,16 @@
-import { BadRequestException, Body, Controller, Delete, Get, Headers, Logger, Param, Patch, Post, Put, Query } from '@nestjs/common';
-import { DocumentRequirementContext, RegistrationStatus } from '@prisma/client';
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, Headers, Logger, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { DocumentRequirementContext, RegistrationStatus, UserRole } from '@prisma/client';
 import { AuthService } from './auth.service.js';
 import { ALL_ESTABLISHMENTS, documentTypeSlug } from './document-type.js';
 import { MailService } from './mail.service.js';
+import { assertPasswordNotCommon } from './password-policy.js';
 import { PrismaService } from './prisma.service.js';
 
 type DecisionBody = { status?: unknown; note?: unknown };
 type ModeBody = { uniform?: unknown };
 type DocumentRequirementBody = { establishment?: unknown; label?: unknown; active?: unknown };
+type SecretaryBody = { fullName?: unknown; email?: unknown; password?: unknown };
+type SecretaryUpdateBody = { fullName?: unknown; email?: unknown; password?: unknown };
 
 @Controller('scolarite')
 export class CentralRegistrarController {
@@ -40,7 +43,7 @@ export class CentralRegistrarController {
 
   @Put('document-requirements-mode')
   async setDocumentRequirementsMode(@Body() body: ModeBody, @Headers('authorization') authorization?: string) {
-    await this.authService.requireCentralRegistrar(authorization);
+    await this.authService.requireCentralRegistrarAdmin(authorization);
     if (typeof body.uniform !== 'boolean') throw new BadRequestException('Le mode doit être vrai ou faux.');
     const settings = await this.prisma.siteSettings.upsert({
       where: { id: 'default' }, update: { uniformCandidatureDocuments: body.uniform }, create: { id: 'default', uniformCandidatureDocuments: body.uniform },
@@ -60,7 +63,7 @@ export class CentralRegistrarController {
 
   @Post('document-requirements')
   async addDocumentRequirement(@Body() body: DocumentRequirementBody, @Headers('authorization') authorization?: string) {
-    await this.authService.requireCentralRegistrar(authorization);
+    await this.authService.requireCentralRegistrarAdmin(authorization);
     const establishment = await this.knownEstablishment(body.establishment);
     const label = this.label(body.label);
     const type = documentTypeSlug(undefined, label);
@@ -71,7 +74,7 @@ export class CentralRegistrarController {
 
   @Patch('document-requirements/:id')
   async updateDocumentRequirement(@Param('id') id: string, @Body() body: DocumentRequirementBody, @Headers('authorization') authorization?: string) {
-    await this.authService.requireCentralRegistrar(authorization);
+    await this.authService.requireCentralRegistrarAdmin(authorization);
     const existing = await this.prisma.documentRequirement.findFirst({ where: { id, context: DocumentRequirementContext.CANDIDATURE } });
     if (!existing) throw new BadRequestException('Pièce introuvable.');
     const data = {
@@ -84,7 +87,7 @@ export class CentralRegistrarController {
 
   @Delete('document-requirements/:id')
   async removeDocumentRequirement(@Param('id') id: string, @Headers('authorization') authorization?: string) {
-    await this.authService.requireCentralRegistrar(authorization);
+    await this.authService.requireCentralRegistrarAdmin(authorization);
     const result = await this.prisma.documentRequirement.deleteMany({ where: { id, context: DocumentRequirementContext.CANDIDATURE } });
     if (!result.count) throw new BadRequestException('Pièce introuvable.');
     return { deleted: true };
@@ -119,6 +122,139 @@ export class CentralRegistrarController {
       .sendApplicationDecisionEmail(updated.user.email, updated.user.fullName, body.status === RegistrationStatus.VALIDE, note || null)
       .catch((error: unknown) => this.logger.error(`E-mail de décision non envoyé à ${updated.user.email} (dossier ${id}) : ${error instanceof Error ? error.message : error}`));
     return updated;
+  }
+
+  // Comptes des secrétaires de la scolarité : créés et gérés par le responsable de la scolarité centrale.
+  // Un secrétaire traite les dossiers (consultation, validation, refus motivé) mais ne gère ni les comptes ni les pièces demandées.
+  @Get('secretaries')
+  async secretaries(@Headers('authorization') authorization?: string) {
+    await this.authService.requireCentralRegistrarAdmin(authorization);
+    return this.prisma.user.findMany({
+      where: { role: UserRole.SECRETAIRE_SCOLARITE, deletedAt: null },
+      select: { id: true, fullName: true, email: true, active: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  @Post('secretaries')
+  async addSecretary(@Body() body: SecretaryBody, @Headers('authorization') authorization?: string) {
+    const manager = await this.authService.requireCentralRegistrarAdmin(authorization);
+    const fullName = this.required(body.fullName, 'Le nom complet');
+    const email = this.required(body.email, 'L’adresse e-mail').toLowerCase();
+    const password = this.password(body.password, email);
+    const account = await this.authService.createStaffAccount(manager, fullName, email, password, UserRole.SECRETAIRE_SCOLARITE);
+    // L'e-mail n'est pas bloquant : si l'envoi échoue, le compte reste créé et l'interface le signale au responsable.
+    const emailSent = await this.mailService
+      .sendCentralSecretaryCreatedEmail(account.email, account.fullName, manager.fullName)
+      .then(() => true)
+      .catch((error: unknown) => {
+        this.logger.error(`E-mail de création de compte non envoyé à ${account.email} : ${error instanceof Error ? error.message : error}`);
+        return false;
+      });
+    return { ...account, emailSent };
+  }
+
+  @Patch('secretaries/:id/status')
+  async updateSecretaryStatus(@Param('id') id: string, @Body() body: { active?: unknown }, @Headers('authorization') authorization?: string) {
+    const manager = await this.authService.requireCentralRegistrarAdmin(authorization);
+    await this.secretaryAccount(id);
+    if (typeof body.active !== 'boolean') throw new BadRequestException('L’état du compte est invalide.');
+    return this.authService.setStaffAccountActive(manager, id, body.active);
+  }
+
+  // Modification du nom, de l'adresse e-mail et/ou du mot de passe (au moins un champ).
+  @Patch('secretaries/:id')
+  async updateSecretary(@Param('id') id: string, @Body() body: SecretaryUpdateBody, @Headers('authorization') authorization?: string) {
+    const manager = await this.authService.requireCentralRegistrarAdmin(authorization);
+    const account = await this.secretaryAccount(id);
+    const fullName = body.fullName === undefined ? undefined : this.required(body.fullName, 'Le nom complet');
+    const email = body.email === undefined ? undefined : this.required(body.email, 'L’adresse e-mail').toLowerCase();
+    const password = body.password === undefined ? undefined : this.password(body.password, email ?? account.email);
+    if (fullName === undefined && email === undefined && password === undefined) throw new BadRequestException('Aucune modification fournie.');
+    // L'adresse est changée en premier : un doublon est refusé avant toute autre modification.
+    const emailChange = email === undefined ? null : await this.authService.updateStaffAccountEmail(manager, id, email);
+    if (fullName !== undefined) await this.authService.updateStaffAccountName(manager, id, fullName);
+    if (password !== undefined) await this.authService.resetStaffPassword(manager, id, password);
+    // Alerte de sécurité envoyée à l'ancienne adresse ; non bloquante.
+    if (emailChange?.previousEmail) {
+      this.mailService
+        .sendEmailChangedNotice(emailChange.previousEmail, fullName ?? account.fullName, emailChange.email)
+        .catch((error: unknown) => this.logger.error(`Alerte de changement d’adresse non envoyée à ${emailChange.previousEmail} : ${error instanceof Error ? error.message : error}`));
+    }
+    return { id };
+  }
+
+  // Renvoie l'e-mail « votre compte a été créé » (message perdu, adresse corrigée…).
+  @Post('secretaries/:id/welcome-email')
+  async resendSecretaryWelcome(@Param('id') id: string, @Headers('authorization') authorization?: string) {
+    const manager = await this.authService.requireCentralRegistrarAdmin(authorization);
+    const account = await this.secretaryAccount(id);
+    const emailSent = await this.mailService
+      .sendCentralSecretaryCreatedEmail(account.email, account.fullName, manager.fullName)
+      .then(() => true)
+      .catch((error: unknown) => {
+        this.logger.error(`E-mail de création de compte non renvoyé à ${account.email} : ${error instanceof Error ? error.message : error}`);
+        return false;
+      });
+    return { emailSent };
+  }
+
+  // Suppression en deux temps, comme pour les comptes du personnel : corbeille (restaurable), puis suppression définitive.
+  @Get('secretaries/trash')
+  async trashedSecretaries(@Headers('authorization') authorization?: string) {
+    await this.authService.requireCentralRegistrarAdmin(authorization);
+    return this.prisma.user.findMany({
+      where: { role: UserRole.SECRETAIRE_SCOLARITE, deletedAt: { not: null } },
+      select: { id: true, fullName: true, email: true, deletedAt: true },
+      orderBy: { deletedAt: 'desc' },
+    });
+  }
+
+  @Delete('secretaries/:id')
+  async trashSecretary(@Param('id') id: string, @Headers('authorization') authorization?: string) {
+    const manager = await this.authService.requireCentralRegistrarAdmin(authorization);
+    await this.secretaryAccount(id);
+    return this.authService.trashStaffAccount(manager, id);
+  }
+
+  @Post('secretaries/:id/restore')
+  async restoreSecretary(@Param('id') id: string, @Headers('authorization') authorization?: string) {
+    const manager = await this.authService.requireCentralRegistrarAdmin(authorization);
+    await this.secretaryAccount(id, true);
+    return this.authService.restoreStaffAccount(manager, id);
+  }
+
+  @Delete('secretaries/:id/purge')
+  async purgeSecretary(@Param('id') id: string, @Headers('authorization') authorization?: string) {
+    const manager = await this.authService.requireCentralRegistrarAdmin(authorization);
+    await this.secretaryAccount(id, true);
+    // Les décisions déjà prises gardent le nom de l'agent : on ne supprime pas définitivement un compte qui a traité des dossiers.
+    const decisions = await this.prisma.enrollmentApplication.count({ where: { reviewedById: id } });
+    if (decisions > 0) {
+      throw new ConflictException(`Ce secrétaire a traité ${decisions} dossier(s) : sa suppression définitive effacerait son nom de l’historique des décisions. Laissez-le dans la corbeille.`);
+    }
+    return this.authService.purgeStaffAccount(manager, id);
+  }
+
+  private async secretaryAccount(id: string, trashed = false) {
+    const account = await this.prisma.user.findFirst({
+      where: { id, role: UserRole.SECRETAIRE_SCOLARITE, deletedAt: trashed ? { not: null } : null },
+      select: { id: true, fullName: true, email: true },
+    });
+    if (!account) throw new BadRequestException(trashed ? 'Compte introuvable dans la corbeille.' : 'Compte secrétaire introuvable.');
+    return account;
+  }
+
+  private required(value: unknown, label: string) {
+    if (typeof value !== 'string' || !value.trim()) throw new BadRequestException(`${label} est obligatoire.`);
+    return value.trim();
+  }
+
+  private password(value: unknown, email: string) {
+    const password = this.required(value, 'Le mot de passe');
+    if (password.length < 8) throw new BadRequestException('Le mot de passe doit contenir au moins 8 caractères.');
+    assertPasswordNotCommon(password, email);
+    return password;
   }
 
   private label(value: unknown) {

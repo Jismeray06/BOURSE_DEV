@@ -9,7 +9,7 @@ const scrypt = promisify(scryptCallback);
 const tokenLifetimeInSeconds = 8 * 60 * 60;
 const emailVerificationLifetimeInHours = 24;
 const googleLoginCodeLifetimeInMs = 60 * 1000;
-const STAFF_ROLES = [UserRole.ETABLISSEMENT, UserRole.ADMIN_ETABLISSEMENT, UserRole.SECRETAIRE, UserRole.SCOLARITE_CENTRALE];
+const STAFF_ROLES = [UserRole.ETABLISSEMENT, UserRole.ADMIN_ETABLISSEMENT, UserRole.SECRETAIRE, UserRole.SCOLARITE_CENTRALE, UserRole.SECRETAIRE_SCOLARITE];
 type TokenPayload = { sub: string; role: UserRole; exp: number };
 type Actor = { id: string; fullName: string };
 type LoginResponse = ReturnType<AuthService['loginResponse']>;
@@ -124,14 +124,23 @@ export class AuthService {
     return user;
   }
 
+  // Traitement des dossiers : le responsable de la scolarité centrale et ses secrétaires.
   async requireCentralRegistrar(authorization?: string) {
     const user = await this.userFromAuthorization(authorization);
-    if (user.role !== UserRole.SCOLARITE_CENTRALE) throw new UnauthorizedException('Accès réservé à la scolarité centrale.');
+    if (user.role !== UserRole.SCOLARITE_CENTRALE && user.role !== UserRole.SECRETAIRE_SCOLARITE) throw new UnauthorizedException('Accès réservé à la scolarité centrale.');
     return user;
   }
 
-  async createStaffAccount(actor: Actor, fullName: string, email: string, password: string, role: Extract<UserRole, 'ETABLISSEMENT' | 'ADMIN_ETABLISSEMENT' | 'SECRETAIRE' | 'SCOLARITE_CENTRALE'>, establishment?: string) {
+  // Configuration (pièces demandées, comptes des secrétaires) : réservée au responsable de la scolarité centrale.
+  async requireCentralRegistrarAdmin(authorization?: string) {
+    const user = await this.userFromAuthorization(authorization);
+    if (user.role !== UserRole.SCOLARITE_CENTRALE) throw new UnauthorizedException('Accès réservé au responsable de la scolarité centrale.');
+    return user;
+  }
+
+  async createStaffAccount(actor: Actor, fullName: string, email: string, password: string, role: Extract<UserRole, 'ETABLISSEMENT' | 'ADMIN_ETABLISSEMENT' | 'SECRETAIRE' | 'SCOLARITE_CENTRALE' | 'SECRETAIRE_SCOLARITE'>, establishment?: string) {
     const normalizedEmail = this.normalizeEmail(email);
+    this.assertValidEmail(normalizedEmail);
     let account;
     try {
       account = await this.prisma.user.create({
@@ -170,6 +179,22 @@ export class AuthService {
     const updated = await this.prisma.user.update({ where: { id: account.id }, data: { fullName: trimmed }, select: { id: true, fullName: true } });
     await this.logAudit('STAFF_ACCOUNT_NAME_UPDATED', actor, account.id, trimmed, `Ancien nom : ${account.fullName}`);
     return updated;
+  }
+
+  // Changement d'adresse décidé par un responsable (le titulaire du compte, lui, passe par un lien de confirmation).
+  async updateStaffAccountEmail(actor: Actor, id: string, email: string) {
+    const account = await this.findStaffAccount(id);
+    const normalized = this.normalizeEmail(email);
+    this.assertValidEmail(normalized);
+    if (normalized === account.email) return { id: account.id, email: account.email, previousEmail: null };
+    try {
+      await this.prisma.user.update({ where: { id: account.id }, data: { email: normalized } });
+    } catch (error: unknown) {
+      if (this.isUniqueEmailError(error)) throw new ConflictException('Cette adresse e-mail est déjà utilisée.');
+      throw error;
+    }
+    await this.logAudit('ACCOUNT_EMAIL_CHANGED', actor, account.id, account.fullName, `Ancienne adresse : ${account.email} — nouvelle adresse : ${normalized}`);
+    return { id: account.id, email: normalized, previousEmail: account.email };
   }
 
   async resetStaffPassword(actor: Actor, id: string, password: string) {
@@ -329,6 +354,10 @@ export class AuthService {
     return a.length === b.length && timingSafeEqual(a, b);
   }
   private normalizeEmail(email: string) { return email.trim().toLowerCase(); }
+  // Contrôle simple de forme (texte@domaine.xx) pour les comptes du personnel créés ou modifiés par un responsable.
+  private assertValidEmail(email: string) {
+    if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new BadRequestException("L'adresse e-mail n'est pas valide.");
+  }
   private async sendEmailVerification(user: { id: string; email: string; fullName: string }) {
     const token = randomBytes(32).toString('base64url');
     await this.prisma.emailVerificationToken.deleteMany({ where: { userId: user.id } });
