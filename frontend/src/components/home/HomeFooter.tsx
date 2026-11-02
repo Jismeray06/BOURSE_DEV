@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { EditPencil, HomeText, useContactInfo, useHomeEdit } from './HomepageEditor';
 import Link from 'next/link';
 import { ArrowUp, BellRing, Mail, MapPin, Phone } from 'lucide-react';
-import { assetUrl, DEFAULT_LOGO, type SiteSettings } from '../siteSettings';
+import { assetUrl, DEFAULT_LOGO, type SiteSettings } from './siteSettings';
 import { LOGIN_PATH, NAV_LINKS, REGISTER_PATH, useDashboardPath } from './useHomeSession';
 
 const columnTitle = 'text-sm font-semibold text-white';

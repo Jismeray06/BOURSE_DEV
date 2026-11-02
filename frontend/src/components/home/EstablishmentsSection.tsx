@@ -1,6 +1,6 @@
 'use client';
 
-import { EstablishmentIcon, logoSrc, useEstablishments } from '../establishments';
+import { EstablishmentIcon, logoSrc, useEstablishments } from '../panels/establishments';
 import { HomeText } from './HomepageEditor';
 import { SectionShell } from './SectionShell';
 

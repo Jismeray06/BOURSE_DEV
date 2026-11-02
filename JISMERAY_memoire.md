@@ -1031,6 +1031,8 @@ Dans notre projet, Nodemailer intervient notamment dans les situations suivantes
 
 - Lorsqu’un utilisateur souhaite modifier son adresse e-mail.
 
+- Lorsqu’un utilisateur a oublié son mot de passe et demande un lien de réinitialisation.
+
 - Lorsqu’un étudiant doit confirmer son quitus à l’aide d’un code de vérification envoyé par e-mail.
 
 - Lorsqu’une décision est prise concernant une demande de bourse et qu’un message doit être transmis à l’étudiant.
@@ -1218,7 +1220,7 @@ Les principaux modèles utilisés sont :
 
 - **DocumentRequirement :** définit les documents exigés, soit pour l’inscription, soit pour la demande de bourse, selon l’établissement et le cycle.
 
-- **EmailVerificationToken et EmailChangeRequest :** conservent les jetons de vérification d’adresse e-mail et les demandes de changement d’adresse.
+- **EmailVerificationToken, EmailChangeRequest et PasswordResetToken :** conservent les jetons de vérification d’adresse e-mail, les demandes de changement d’adresse et les liens de réinitialisation de mot de passe.
 
 - **SiteSettings :** conserve les paramètres de personnalisation du site.
 
@@ -1341,7 +1343,7 @@ Ces vérifications ont principalement porté sur :
 
 - Le fonctionnement des notifications et de l’historique des activités.
 
-Pour vérifier certaines situations particulières, nous avons également défini 17 scénarios de test, présentés avec leurs résultats au chapitre IV (Tableau 4.1).
+Pour vérifier certaines situations particulières, nous avons également défini 18 scénarios de test, présentés avec leurs résultats au chapitre IV (Tableau 4.1).
 
 Pour faciliter ces tests, nous avons utilisé des données fictives représentant différentes situations. Nous avons notamment créé **20 étudiants fictifs**, des quitus de démonstration ainsi que des dossiers présentant différents états, comme les brouillons, les dossiers validés et les dossiers refusés.
 
@@ -1657,13 +1659,13 @@ En plus de la vérification et du changement d’adresse e-mail, nous avons ajou
 
 - **Journal d’audit :** les modifications importantes, notamment les changements de mot de passe et d’adresse e-mail, sont enregistrées dans un journal d’audit. Cela permet de conserver un historique des opérations effectuées sur les comptes.
 
-Malgré ces différentes protections, certaines fonctionnalités restent encore à améliorer.
+Nous avons aussi prévu le cas d’un **mot de passe oublié**. Depuis la page de connexion, le lien « Mot de passe oublié ? » ouvre un écran où l’utilisateur saisit l’adresse e-mail de son compte. Le serveur répond toujours par le même message, que l’adresse corresponde ou non à un compte, afin de ne pas révéler quelles adresses sont inscrites.
 
-C’est notamment le cas de la récupération d’un mot de passe oublié. Pour le moment, notre plateforme ne propose pas encore de procédure automatique permettant à l’utilisateur de réinitialiser lui-même son mot de passe par e-mail.
+Si un compte actif correspond, un e-mail contenant un lien personnel est envoyé. Ce lien est valable une heure et ne peut servir qu’une seule fois ; une nouvelle demande annule le lien précédent, et seule son empreinte est conservée dans la base de données. En cliquant sur le lien, l’utilisateur arrive sur une page où il choisit un nouveau mot de passe, soumis aux mêmes règles que les autres (huit caractères au moins, pas de mot de passe trop courant).
 
-Lorsqu’un utilisateur oublie son mot de passe, il doit donc contacter le personnel habilité pour obtenir de l’aide.
+Une fois le mot de passe modifié, le lien est supprimé, l’opération est inscrite dans le journal d’audit et un e-mail d’alerte est envoyé au titulaire du compte. Comme l’utilisateur a reçu le lien dans sa boîte de réception, son adresse est considérée comme vérifiée. Le nombre de demandes est limité à cinq par heure et par adresse.
 
-Nous envisageons d’ajouter cette fonctionnalité dans une prochaine version afin de rendre la gestion des comptes plus autonome et de réduire les interventions du personnel administratif.
+Malgré ces différentes protections, la gestion des sessions reste à améliorer : une session ouverte avant la réinitialisation reste valable jusqu’à son expiration (huit heures), faute de mécanisme de révocation (voir la section 10.2).
 
 Dans l’ensemble, les différentes mesures que nous avons mises en place permettent de mieux protéger les comptes des utilisateurs et de contrôler les accès aux informations de la plateforme. Elles contribuent également à rendre l’authentification plus simple, tout en tenant compte des exigences de sécurité liées à la gestion des dossiers de bourse.
 
@@ -2119,7 +2121,7 @@ L’étudiant peut consulter ses notifications et les marquer comme lues, soit i
 
 Le deuxième moyen de communication concerne les e-mails envoyés automatiquement par le serveur. Nous avons prévu plusieurs types de messages selon les actions effectuées sur la plateforme.
 
-Ces e-mails concernent principalement la vérification de l’adresse électronique lors de la création d’un compte, l’envoi du code de vérification du quitus, la communication des décisions de la scolarité centrale, la confirmation d’un changement d’adresse e-mail et l’alerte envoyée à l’ancienne adresse après ce changement.
+Ces e-mails concernent principalement la vérification de l’adresse électronique lors de la création d’un compte, l’envoi du code de vérification du quitus, la communication des décisions de la scolarité centrale, la confirmation d’un changement d’adresse e-mail, l’alerte envoyée à l’ancienne adresse après ce changement, ainsi que le lien de réinitialisation d’un mot de passe oublié et l’alerte envoyée une fois le mot de passe modifié. Tous les e-mails reprennent le même gabarit, avec le logo de l’Université.
 
 Lorsqu’un dossier est refusé, le message envoyé à l’étudiant contient également le motif indiqué par la scolarité centrale. Cela lui permet de connaître les raisons du refus sans avoir besoin de se connecter immédiatement à la plateforme.
 
@@ -2272,6 +2274,7 @@ Le tableau suivant présente les scénarios retenus, les résultats attendus et 
 | 15     | Inscrire un étudiant, puis effectuer sa réinscription.                    | La fiche est créée, puis mise à jour avec sa nouvelle situation.       | À compléter           |
 | 16     | Générer les quitus manquants d’un établissement.                          | Chaque étudiant actif concerné reçoit un seul quitus.                  | À compléter           |
 | 17     | Modifier un texte de la page d’accueil avec un compte administrateur.     | La modification apparaît sur le site et dans le journal d’audit.       | À compléter           |
+| 18     | Demander la réinitialisation d’un mot de passe oublié, puis en choisir un nouveau avec le lien reçu. | Le lien fonctionne une seule fois et le nouveau mot de passe permet de se connecter. | À compléter           |
 
 Ces différents scénarios permettent de vérifier le fonctionnement des principales parties de l’application, depuis la création d’un compte jusqu’à la décision prise sur une demande de bourse.
 
@@ -2327,15 +2330,9 @@ Nous prévoyons d’étudier des solutions de stockage plus adaptées afin de li
 
 ##### d) Récupération des mots de passe oubliés
 
-La plateforme permet aux utilisateurs de modifier leur mot de passe lorsqu’ils connaissent encore l’ancien.
+Un utilisateur qui connaît son mot de passe peut le modifier depuis son espace. S’il l’a oublié, il peut le réinitialiser lui-même grâce au lien « Mot de passe oublié ? » de la page de connexion et à un lien à usage unique envoyé par e-mail, comme décrit à la section 3.2.
 
-En revanche, la récupération automatique d’un mot de passe oublié n’est pas encore disponible.
-
-L’utilisateur doit actuellement demander l’aide du personnel habilité pour résoudre ce problème.
-
-Nous envisageons donc d’ajouter une fonctionnalité permettant de réinitialiser son mot de passe à partir d’un lien sécurisé envoyé par e-mail.
-
-Cette amélioration permettrait aux utilisateurs de gérer leur compte de manière plus autonome.
+Cette fonctionnalité a été vérifiée manuellement ; elle n’est pas encore intégrée à la suite de tests automatisés. Les e-mails sont envoyés uniquement en français, même si la page de connexion est disponible en trois langues. Enfin, les sessions déjà ouvertes ne sont pas fermées au moment de la réinitialisation : leur révocation fait partie des améliorations prévues sur la gestion des sessions.
 
 ##### e) Gestion des demandes sur plusieurs années universitaires
 
@@ -2449,7 +2446,7 @@ Malgré les fonctionnalités développées, notre plateforme présente encore ce
 
 Tout d’abord, le système ne permet pas encore de gérer plusieurs demandes de bourse pour différentes années universitaires. Chaque étudiant ne peut actuellement disposer que d’un seul dossier. Il sera donc nécessaire de prévoir une gestion des campagnes annuelles afin de permettre le renouvellement des demandes.
 
-Ensuite, certaines fonctionnalités administratives restent incomplètes. Par exemple, la période de dépôt affichée dans le panneau « Informations importantes » de la page d’accueil ne permet pas encore de contrôler automatiquement l’ouverture et la fermeture des demandes. La récupération des mots de passe oubliés n’est pas non plus disponible.
+Ensuite, certaines fonctionnalités administratives restent incomplètes. Par exemple, la période de dépôt affichée dans le panneau « Informations importantes » de la page d’accueil ne permet pas encore de contrôler automatiquement l’ouverture et la fermeture des demandes.
 
 Sur le plan technique, certaines pages contiennent encore une quantité importante de code, ce qui peut compliquer leur maintenance. Les listes d’étudiants et de dossiers ne disposent pas encore d’un système de pagination adapté à un volume important de données.
 
@@ -2471,7 +2468,7 @@ Afin de rendre notre plateforme plus complète et plus adaptée aux besoins de l
 
 La première amélioration concerne la gestion des campagnes universitaires. Nous souhaitons permettre aux étudiants de déposer une nouvelle demande chaque année, tout en conservant l’historique de leurs anciens dossiers. Cette fonctionnalité pourrait également inclure la gestion automatique des périodes d’ouverture et de clôture des dépôts.
 
-Nous envisageons aussi d’ajouter un système de récupération des mots de passe oubliés, d’améliorer les notifications et de renforcer le suivi des dossiers. Par exemple, un statut « En révision » pourrait être attribué automatiquement lorsqu’un agent commence à examiner une demande.
+Nous envisageons aussi d’améliorer les notifications et de renforcer le suivi des dossiers. Par exemple, un statut « En révision » pourrait être attribué automatiquement lorsqu’un agent commence à examiner une demande.
 
 Sur le plan technique, nous souhaitons améliorer l’organisation du code, ajouter des tests automatisés et renforcer la sécurité des fichiers ainsi que la gestion des sessions. La mise en place d’un système de sauvegarde automatique constituerait également une amélioration importante.
 
@@ -2517,7 +2514,7 @@ La vérification du quitus permet aussi de limiter son utilisation par une perso
 
 Malgré ces résultats, notre travail présente encore certaines limites. Pour le développement et les démonstrations, nous avons principalement utilisé l’ISSTM comme établissement de référence. L’intégration complète des autres établissements de l’Université de Mahajanga reste donc à réaliser.
 
-Les parcours fonctionnels ont été vérifiés essentiellement à la main. Seule la sécurité dispose d’une série de 75 tests automatisés, tous réussis, et nous n’avons pas encore réalisé de tests de charge ni d’audit de sécurité externe. Certaines fonctionnalités restent également à développer, notamment la gestion des campagnes annuelles de bourse et la récupération automatique des mots de passe oubliés.
+Les parcours fonctionnels ont été vérifiés essentiellement à la main. Seule la sécurité dispose d’une série de 75 tests automatisés, tous réussis, et nous n’avons pas encore réalisé de tests de charge ni d’audit de sécurité externe. Certaines fonctionnalités restent également à développer, notamment la gestion des campagnes annuelles de bourse.
 
 Par ailleurs, notre plateforme ne prend pas encore en charge le calcul du montant de la bourse ni le paiement du quitus en ligne. Ces fonctionnalités dépassent le périmètre que nous avons retenu pour cette première version.
 

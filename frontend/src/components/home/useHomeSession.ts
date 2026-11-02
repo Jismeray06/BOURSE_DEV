@@ -1,10 +1,15 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
-import { dashboardPathForRole } from '../dashboardPath';
+import { SESSION_EVENT } from '../auth/authSession';
+import { dashboardPathForRole } from '../panels/dashboardPath';
 import { useHomeEdit } from './HomepageEditor';
 
-const subscribe = () => () => undefined;
+// La session peut changer sans rechargement (retrouvée auprès d'un autre onglet, connexion ou déconnexion ailleurs).
+const subscribe = (onChange: () => void) => {
+  window.addEventListener(SESSION_EVENT, onChange);
+  return () => window.removeEventListener(SESSION_EVENT, onChange);
+};
 
 // Chemin de l'espace personnel si une session est active dans ce navigateur, sinon null.
 export function useDashboardPath(): string | null {

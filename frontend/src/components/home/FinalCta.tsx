@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { HomeText } from './HomepageEditor';
-import type { SiteSettings } from '../siteSettings';
+import type { SiteSettings } from './siteSettings';
 import { LOGIN_PATH, REGISTER_PATH, useDashboardPath } from './useHomeSession';
 
 export function FinalCta({ settings }: { settings: SiteSettings }) {

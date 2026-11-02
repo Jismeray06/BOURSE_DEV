@@ -5,7 +5,7 @@ import { HomeText } from './HomepageEditor';
 import { CheckCircle2 } from 'lucide-react';
 import { SectionShell } from './SectionShell';
 import { REGISTER_PATH, useDashboardPath } from './useHomeSession';
-import type { SiteSettings } from '../siteSettings';
+import type { SiteSettings } from './siteSettings';
 
 const ITEMS = [
   'prepare.1',

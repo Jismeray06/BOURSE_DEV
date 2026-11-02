@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, CalendarDays, CircleHelp, FileText, GraduationCap, Megaphone, Pencil, ShieldCheck, Users } from 'lucide-react';
-import { useEstablishments } from '../establishments';
+import { useEstablishments } from '../panels/establishments';
 import { HomeText, useHomeEdit } from './HomepageEditor';
 
 // Décor lumineux du hero : halo bleu-vert, points brillants et traits de lumière (purement décoratif).

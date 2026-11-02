@@ -3,7 +3,7 @@
 import { ChevronRight, ClipboardList, Eye, FileUp, ReceiptText, UserPlus } from 'lucide-react';
 import { HomeText } from './HomepageEditor';
 import { SectionShell } from './SectionShell';
-import type { SiteSettings } from '../siteSettings';
+import type { SiteSettings } from './siteSettings';
 
 const STEPS = [
   { icon: UserPlus, short: <HomeText contentKey="steps.1" />, title: <HomeText contentKey="steps.2" />, text: <HomeText contentKey="steps.3" /> },

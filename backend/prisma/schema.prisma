@@ -74,6 +74,7 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   quitusChallenges   QuitusChallenge[]
   emailChangeRequests EmailChangeRequest[]
+  passwordResetTokens PasswordResetToken[]
   notifications      Notification[]
 }
 
@@ -127,6 +128,19 @@ model EmailChangeRequest {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   newEmail  String
   tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Réinitialisation d'un mot de passe oublié : lien à usage unique envoyé par e-mail (seul son empreinte est conservée), valable une heure.
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
 

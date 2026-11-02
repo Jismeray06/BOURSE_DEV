@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Pencil } from 'lucide-react';
-import { useHomeTheme } from '../components/HomeThemeToggle';
-import { HeroBackground, HeroContent } from '../components/HomepageHero';
+import { useHomeTheme } from '../components/theme/HomeThemeToggle';
+import { HeroBackground, HeroContent } from '../components/home/HomepageHero';
 import { HomeEditProvider, HomeText, useHomeEdit } from '../components/home/HomepageEditor';
 import { HomeNavbar } from '../components/home/HomeNavbar';
 import { HomeSetting } from '../components/home/HomeSetting';
@@ -14,7 +14,7 @@ import { EstablishmentsSection } from '../components/home/EstablishmentsSection'
 import { FaqSection } from '../components/home/FaqSection';
 import { HomeFooter } from '../components/home/HomeFooter';
 import { LOGIN_PATH, useDashboardPath } from '../components/home/useHomeSession';
-import { assetUrl, defaultSiteSettings, fetchSiteSettings, type SiteSettings } from '../components/siteSettings';
+import { assetUrl, defaultSiteSettings, fetchSiteSettings, type SiteSettings } from '../components/home/siteSettings';
 
 const CAMPUS_IMAGES = [
   {

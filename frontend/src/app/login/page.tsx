@@ -1,20 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Image from 'next/image';
+import { useEffect, useRef, useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, User as UserIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { dashboardPathForRole } from '../../components/dashboardPath';
-import { useHomeTheme } from '../../components/HomeThemeToggle';
-import { HeroGlow } from '../../components/home/HeroExtras';
-import { HomeNavbar } from '../../components/home/HomeNavbar';
-import { AwaitingEmailVerification } from '../../components/AwaitingEmailVerification';
+import { dashboardPathForRole } from '../../components/panels/dashboardPath';
+import { AuthShell } from '../../components/auth/AuthShell';
+import { AwaitingEmailVerification } from '../../components/auth/AwaitingEmailVerification';
+import { ForgotPasswordPanel } from '../../components/auth/ForgotPasswordPanel';
+import { eyeCls, fieldCls, iconCls, labelCls, linkCls } from '../../components/auth/authStyles';
 import { useLanguage } from '../../components/home/language';
 import { loginT, translateServerMessage } from '../../components/home/login-translations';
-import { defaultSiteSettings, fetchSiteSettings, type SiteSettings } from '../../components/siteSettings';
+import { startSession } from '../../components/auth/authSession';
+import { watchEmailVerified } from '../../components/auth/emailVerificationSync';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const googleAuthUrl = process.env.NEXT_PUBLIC_GOOGLE_AUTH_URL ?? `${apiUrl}/auth/google`;
+const VERIFIED_MESSAGE = 'Votre adresse e-mail a été vérifiée. Vous pouvez maintenant vous connecter.';
+// Intervalle et nombre maximal d'interrogations du serveur pendant l'attente (environ 10 minutes) ; un retour sur l'onglet relance une vérification.
+const VERIFICATION_POLL_MS = 5000;
+const VERIFICATION_POLL_MAX = 120;
 
 type ApiError = { message?: string | string[] };
 type UserRole = 'ETUDIANT' | 'ADMIN' | 'ETABLISSEMENT' | 'ADMIN_ETABLISSEMENT' | 'SECRETAIRE' | 'SCOLARITE_CENTRALE' | 'SECRETAIRE_SCOLARITE';
@@ -23,27 +27,16 @@ type LoginResponse = ApiError & {
   user?: { id?: string; fullName?: string; email?: string; role?: UserRole };
 };
 
-// Champs et boutons : fond blanc en mode clair, effet « verre » sur le fond sombre en mode sombre.
-const labelCls = 'mb-1.5 block text-sm font-medium text-slate-700 dark:text-white/90';
-const fieldCls = 'w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-3.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-white/25 dark:bg-white/10 dark:text-white dark:backdrop-blur-sm dark:placeholder:text-white/50 dark:focus:border-cyan-300/70 dark:focus:bg-white/15 dark:focus:ring-cyan-300/30';
-const iconCls = 'pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-white/60';
-const eyeCls = 'absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer p-1 text-slate-400 hover:text-slate-700 dark:text-white/60 dark:hover:text-white';
-const linkCls = 'cursor-pointer font-medium text-blue-600 hover:underline dark:text-sky-300';
-
 export default function AuthPage() {
   const router = useRouter();
-  const { darkMode, toggleTheme } = useHomeTheme();
   // Langue choisie avec le sélecteur de la barre de navigation (la même que sur l'accueil).
   // Les messages d'erreur sont conservés tels quels et traduits à l'affichage : ils changent de langue avec le sélecteur.
   const language = useLanguage();
   const t = (key: string) => loginT(key, language);
   const shown = (message: string) => translateServerMessage(message, language);
   const [isRegistering, setIsRegistering] = useState(false);
-  const [settings, setSettings] = useState<SiteSettings>(defaultSiteSettings);
-
-  useEffect(() => {
-    fetchSiteSettings().then(setSettings).catch(() => undefined);
-  }, []);
+  // Mot de passe oublié : l'écran de saisie de l'adresse remplace le formulaire (ouvert aussi par /login?mode=forgot).
+  const [forgotPassword, setForgotPassword] = useState(false);
 
   // Tant que cette vérification n'est pas faite, on n'affiche pas le formulaire :
   // ça évite qu'un utilisateur déjà connecté voie l'écran de connexion s'afficher
@@ -58,7 +51,9 @@ export default function AuthPage() {
         return;
       }
       // Le bouton « Créer mon compte » de l'accueil arrive ici avec ?mode=register.
-      if (new URLSearchParams(window.location.search).get('mode') === 'register') setIsRegistering(true);
+      const mode = new URLSearchParams(window.location.search).get('mode');
+      if (mode === 'register') setIsRegistering(true);
+      if (mode === 'forgot') setForgotPassword(true);
       setCheckingSession(false);
     };
     checkSession();
@@ -90,9 +85,75 @@ export default function AuthPage() {
     return () => window.clearTimeout(timer);
   }, [cooldown]);
 
-  const resetVerification = () => { setVerificationEmail(''); setCooldown(0); setErrorMsg(''); setSuccessMsg(''); };
+  // Identifiants gardés en mémoire seulement (jamais écrits dans un stockage) pendant l'attente de la vérification :
+  // dès que l'adresse est vérifiée, l'utilisateur est connecté sans avoir à les ressaisir.
+  const credentialsRef = useRef<{ email: string; password: string } | null>(null);
+  const resetVerification = () => { credentialsRef.current = null; setVerificationEmail(''); setCooldown(0); setErrorMsg(''); setSuccessMsg(''); };
   const chooseAnotherAddress = () => { resetVerification(); setPassword(''); setConfirmPassword(''); setIsRegistering(true); };
   const backToLogin = () => { resetVerification(); setPassword(''); setConfirmPassword(''); setIsRegistering(false); };
+
+  // Pendant l'attente, détecte la vérification de l'adresse : par l'onglet qui ouvre le lien de l'e-mail (instantané), puis par une
+  // interrogation régulière du serveur (lien ouvert dans un autre navigateur ou sur un téléphone). L'utilisateur est alors connecté
+  // automatiquement avec les identifiants qu'il vient de saisir.
+  useEffect(() => {
+    if (!verificationEmail) return;
+    let finished = false;
+    let polls = 0;
+    const backToForm = (message: string) => {
+      finished = true;
+      credentialsRef.current = null;
+      setVerificationEmail('');
+      setCooldown(0);
+      setPassword('');
+      setConfirmPassword('');
+      setIsRegistering(false);
+      setErrorMsg('');
+      setSuccessMsg(message);
+    };
+    const logIn = async (credentials: { email: string; password: string }) => {
+      try {
+        const response = await fetch(`${apiUrl}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(credentials) });
+        const data = (await response.json().catch(() => ({}))) as LoginResponse;
+        if (response.ok && data.accessToken && data.user?.role) {
+          credentialsRef.current = null;
+          startSession({ accessToken: data.accessToken, user: data.user });
+          router.replace(dashboardPathForRole(data.user.role) ?? '/student');
+          return;
+        }
+      } catch { /* réseau : on retombe sur la connexion manuelle */ }
+      backToForm(VERIFIED_MESSAGE);
+    };
+    const check = async () => {
+      const credentials = credentialsRef.current;
+      if (finished || !credentials) return;
+      try {
+        const response = await fetch(`${apiUrl}/auth/verification-status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(credentials) });
+        if (!response.ok) return; // refus ou limite atteinte : on réessaiera
+        const data = (await response.json().catch(() => ({}))) as { verified?: boolean };
+        if (data.verified && !finished) {
+          finished = true;
+          await logIn(credentials);
+        }
+      } catch { /* réseau : on réessaiera */ }
+    };
+    const stopWatching = watchEmailVerified(() => {
+      if (credentialsRef.current) void check();
+      else if (!finished) backToForm(VERIFIED_MESSAGE); // identifiants perdus (page rechargée) : l'utilisateur se connecte lui-même
+    });
+    const timer = window.setInterval(() => {
+      polls += 1;
+      if (polls > VERIFICATION_POLL_MAX) { window.clearInterval(timer); return; }
+      void check();
+    }, VERIFICATION_POLL_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') void check(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      finished = true;
+      window.clearInterval(timer);
+      stopWatching();
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [verificationEmail, router]);
 
   // Soumission par Email
   const handleSubmit = async (e: React.FormEvent) => {
@@ -136,6 +197,7 @@ export default function AuthPage() {
         const message = Array.isArray(data.message) ? data.message[0] : data.message;
         // Adresse pas encore vérifiée : on affiche l'écran d'attente plutôt qu'un simple message d'erreur.
         if (message?.includes("n'est pas encore vérifiée")) {
+          credentialsRef.current = { email: email.trim(), password };
           setVerificationReason('login');
           setVerificationEmail(email.trim());
           setCooldown(0);
@@ -145,6 +207,7 @@ export default function AuthPage() {
       }
 
       if (isRegistering) {
+        credentialsRef.current = { email: email.trim(), password };
         setVerificationReason('register');
         setVerificationEmail(email.trim());
         setCooldown(60);
@@ -154,9 +217,7 @@ export default function AuthPage() {
       if (!data.accessToken || !data.user?.role) {
         throw new Error('Réponse de connexion invalide.');
       }
-      sessionStorage.setItem('auth_token', data.accessToken);
-      sessionStorage.setItem('user_role', data.user.role);
-      sessionStorage.setItem('auth_user', JSON.stringify(data.user));
+      startSession({ accessToken: data.accessToken, user: data.user });
       router.replace(dashboardPathForRole(data.user.role) ?? '/student');
 
     } catch (err: unknown) {
@@ -196,33 +257,7 @@ export default function AuthPage() {
   }
 
   return (
-    <div className={`flex min-h-screen w-full flex-col bg-slate-100 dark:bg-slate-950 ${darkMode ? 'home-dark' : ''}`}>
-      <HomeNavbar
-        settings={settings}
-        darkMode={darkMode}
-        onToggleTheme={toggleTheme}
-        onSelectAuth={(mode) => { setIsRegistering(mode === 'register'); resetVerification(); }}
-      />
-
-      {/* Fond plein écran. Mode clair : blanc légèrement bleuté avec décor pâle, comme l'accueil.
-          Mode sombre : photo du campus assombrie, halo bleu-vert et points lumineux. */}
-      <main className="relative flex flex-1 items-center justify-center overflow-hidden bg-gradient-to-b from-white via-sky-50/70 to-white px-5 py-10 sm:px-6 dark:bg-[#06233b] dark:bg-none">
-        <div className="absolute inset-0 hidden dark:block">
-          <Image
-            src="/images/campus-2.jpg"
-            alt=""
-            aria-hidden
-            fill
-            sizes="100vw"
-            className="object-cover"
-          />
-          <div className="absolute inset-0 bg-[#06233b]/65" />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#06233b]/80 via-[#0b4a5e]/35 to-[#06233b]/85" />
-        </div>
-        <HeroGlow />
-
-        {/* --- Carte de connexion / inscription (blanche en mode clair, verre dépoli en mode sombre) --- */}
-        <div className="relative z-10 w-full max-w-md space-y-5 rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-xl shadow-sky-900/10 sm:p-8 dark:border-white/25 dark:bg-[#0a2a3f]/55 dark:text-white dark:shadow-2xl dark:shadow-black/40 dark:backdrop-blur-xl">
+    <AuthShell onSelectAuth={(mode) => { setIsRegistering(mode === 'register'); setForgotPassword(false); resetVerification(); }}>
           {verificationEmail ? (
             <AwaitingEmailVerification
               email={verificationEmail}
@@ -235,6 +270,8 @@ export default function AuthPage() {
               onChangeAddress={chooseAnotherAddress}
               onBackToLogin={backToLogin}
             />
+          ) : forgotPassword ? (
+            <ForgotPasswordPanel initialEmail={email} onBackToLogin={() => setForgotPassword(false)} />
           ) : (
           <>
           {/* Titre */}
@@ -320,7 +357,8 @@ export default function AuthPage() {
 
             {/* Option Se souvenir de moi (visible uniquement à la connexion) */}
             {!isRegistering && (
-              <div className="flex items-center gap-2 pt-1">
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   id="remember"
@@ -331,6 +369,10 @@ export default function AuthPage() {
                 <label htmlFor="remember" className="cursor-pointer select-none text-sm text-slate-700 dark:text-slate-100">
                   {t('remember')}
                 </label>
+                </div>
+                <button type="button" onClick={() => { setForgotPassword(true); setErrorMsg(''); setSuccessMsg(''); }} className={`${linkCls} text-sm`}>
+                  {t('forgot.link')}
+                </button>
               </div>
             )}
 
@@ -396,8 +438,6 @@ export default function AuthPage() {
           </p>
           </>
           )}
-        </div>
-      </main>
-    </div>
+    </AuthShell>
   );
 }

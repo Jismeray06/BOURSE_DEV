@@ -9,17 +9,17 @@ import {
   type SetStateAction,
 } from "react";
 import { useRouter } from "next/navigation";
-import { SidebarLogo } from "../../components/SidebarLogo";
-import { DossierViewer } from "../../components/DossierViewer";
-import { AdminSettingsPanel } from "../../components/AdminSettingsPanel";
-import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { AccountPanel } from "../../components/AccountPanel";
-import { CandidatureDocumentsPanel } from "../../components/CandidatureDocumentsPanel";
-import { CentralSecretariesPanel } from "../../components/CentralSecretariesPanel";
-import { HeaderToolbar } from "../../components/HeaderToolbar";
-import { usePolling } from "../../components/usePolling";
-import { useInterfaceSettings, useSystemDark } from "../../components/useInterfaceSettings";
-import { isDarkRendering, toggleLightDark } from "../../components/adminSettings";
+import { SidebarLogo } from "../../components/layout/SidebarLogo";
+import { DossierViewer } from "../../components/panels/DossierViewer";
+import { AdminSettingsPanel } from "../../components/theme/AdminSettingsPanel";
+import { ConfirmDialog } from "../../components/layout/ConfirmDialog";
+import { AccountPanel } from "../../components/panels/AccountPanel";
+import { CandidatureDocumentsPanel } from "../../components/panels/CandidatureDocumentsPanel";
+import { CentralSecretariesPanel } from "../../components/panels/CentralSecretariesPanel";
+import { HeaderToolbar } from "../../components/layout/HeaderToolbar";
+import { usePolling } from "../../components/hooks/usePolling";
+import { useInterfaceSettings, useSystemDark } from "../../components/theme/useInterfaceSettings";
+import { isDarkRendering, toggleLightDark } from "../../components/theme/adminSettings";
 import {
   Building2,
   CheckCircle2,
@@ -45,6 +45,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import { endSession } from '../../components/auth/authSession';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 // Zone tactile confortable (44px) sur téléphone et tablette uniquement
@@ -120,7 +121,7 @@ export default function ScolaritePage() {
     try {
       const response = await request("/scolarite/applications");
       if (response.status === 401) {
-        sessionStorage.clear();
+        endSession();
         router.replace("/login");
         return;
       }
@@ -203,7 +204,7 @@ export default function ScolaritePage() {
   );
   const logout = () => setLogoutConfirmOpen(true);
   const confirmLogout = () => {
-    sessionStorage.clear();
+    endSession();
     router.push("/login");
   };
   const title =

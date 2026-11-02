@@ -452,23 +452,23 @@ plateforme-inscription-mahajanga/
 | --- | --- |
 | [main.ts](backend/src/main.ts) | Démarrage, CORS (origine = `FRONTEND_URL`, méthodes GET/POST/PUT/PATCH/DELETE, en-têtes `Content-Type` et `Authorization`), fichiers statiques publics `/uploads/site-settings`, `/uploads/establishments` et `/uploads/avatars`, délai de tentative réseau porté à 5 s (corrige les timeouts vers Google), port `PORT` (3001) |
 | [app.module.ts](backend/src/app.module.ts) | Déclaration des **12 contrôleurs** et **11 fournisseurs** ; module d'observabilité conditionnel |
-| [auth.controller.ts](backend/src/auth.controller.ts) | Routes `/auth/*`, validation des entrées, flux Google |
-| [auth.service.ts](backend/src/auth.service.ts) | Inscription/connexion, jetons, vérification d'e-mail, gardes de rôle (`requireAdmin`, `requireEstablishmentManager`, `requireEstablishmentAdmin`, `requireCentralRegistrar`, `requireUser`), gestion des comptes du personnel, corbeille, journal d'audit |
-| [account.controller.ts](backend/src/account.controller.ts) / [account.service.ts](backend/src/account.service.ts) | `/account/*` : profil, photo, changement de mot de passe, changement d'e-mail en deux temps ; limitation des mots de passe erronés |
-| [notifications.controller.ts](backend/src/notifications.controller.ts) | `/notifications` : liste, « tout lire », lecture d'une notification |
-| [google-auth.service.ts](backend/src/google-auth.service.ts) | Client OAuth2 Google, vérification du jeton d'identité |
-| [mail.service.ts](backend/src/mail.service.ts) | E-mails de vérification, de décision, de code de quitus, de changement d'adresse et d'alerte |
-| [admin.controller.ts](backend/src/admin.controller.ts) | Routes `/admin/*` (tableau de bord, comptes, étudiants, journal d'audit) |
-| [establishment.controller.ts](backend/src/establishment.controller.ts) | Routes établissement (curriculum, pièces d'inscription, étudiants, corbeille, tableau de bord, secrétaires, paramètres, génération de quitus) et routes de vérification du quitus |
-| [establishments.controller.ts](backend/src/establishments.controller.ts) / [establishments.service.ts](backend/src/establishments.service.ts) | Table des établissements : liste publique, gestion par l'admin (création, renommage en cascade, logo, activation, suppression), identité de son propre établissement |
-| [quitus.service.ts](backend/src/quitus.service.ts) | Vérification du quitus en deux temps (code à 6 chiffres), rattachement au compte, limitation des essais |
-| [student.controller.ts](backend/src/student.controller.ts) | Routes `/student/*` (dossier de bourse, notification de soumission) |
-| [central-registrar.controller.ts](backend/src/central-registrar.controller.ts) | Routes `/scolarite/*` (liste, décision + notification, pièces du dépôt de dossier, mode « identique pour tous ») |
-| [document.controller.ts](backend/src/document.controller.ts) / [document.service.ts](backend/src/document.service.ts) | Téléversement, listage, lecture et suppression physique des pièces ; dossiers consultables |
-| [document-type.ts](backend/src/document-type.ts) | Clé technique d'une pièce (`documentTypeSlug`), clé d'établissement réservée `*`, portée des pièces du dépôt (`candidatureRequirementScope`) |
-| [site-settings.controller.ts](backend/src/site-settings.controller.ts) / [site-settings.service.ts](backend/src/site-settings.service.ts) | Réglages du site (couleurs, logo, favicon, hero) et journalisation des modifications |
-| [homepage.controller.ts](backend/src/homepage.controller.ts) / [homepage.service.ts](backend/src/homepage.service.ts) / [homepage-defaults.json](backend/src/homepage-defaults.json) | Textes modifiables de la page d'accueil (161 clés), titre/sous-titre/bouton du hero, actualités |
-| [prisma.service.ts](backend/src/prisma.service.ts) | Connexion Prisma |
+| [auth.controller.ts](backend/src/auth/auth.controller.ts) | Routes `/auth/*`, validation des entrées, flux Google |
+| [auth.service.ts](backend/src/auth/auth.service.ts) | Inscription/connexion, jetons, vérification d'e-mail, gardes de rôle (`requireAdmin`, `requireEstablishmentManager`, `requireEstablishmentAdmin`, `requireCentralRegistrar`, `requireUser`), gestion des comptes du personnel, corbeille, journal d'audit |
+| [account.controller.ts](backend/src/account/account.controller.ts) / [account.service.ts](backend/src/account/account.service.ts) | `/account/*` : profil, photo, changement de mot de passe, changement d'e-mail en deux temps ; limitation des mots de passe erronés |
+| [notifications.controller.ts](backend/src/notifications/notifications.controller.ts) | `/notifications` : liste, « tout lire », lecture d'une notification |
+| [google-auth.service.ts](backend/src/auth/google-auth.service.ts) | Client OAuth2 Google, vérification du jeton d'identité |
+| [mail.service.ts](backend/src/mail/mail.service.ts) | E-mails de vérification, de décision, de code de quitus, de changement d'adresse et d'alerte |
+| [admin.controller.ts](backend/src/admin/admin.controller.ts) | Routes `/admin/*` (tableau de bord, comptes, étudiants, journal d'audit) |
+| [establishment.controller.ts](backend/src/establishments/establishment.controller.ts) | Routes établissement (curriculum, pièces d'inscription, étudiants, corbeille, tableau de bord, secrétaires, paramètres, génération de quitus) et routes de vérification du quitus |
+| [establishments.controller.ts](backend/src/establishments/establishments.controller.ts) / [establishments.service.ts](backend/src/establishments/establishments.service.ts) | Table des établissements : liste publique, gestion par l'admin (création, renommage en cascade, logo, activation, suppression), identité de son propre établissement |
+| [quitus.service.ts](backend/src/students/quitus.service.ts) | Vérification du quitus en deux temps (code à 6 chiffres), rattachement au compte, limitation des essais |
+| [student.controller.ts](backend/src/students/student.controller.ts) | Routes `/student/*` (dossier de bourse, notification de soumission) |
+| [central-registrar.controller.ts](backend/src/admin/central-registrar.controller.ts) | Routes `/scolarite/*` (liste, décision + notification, pièces du dépôt de dossier, mode « identique pour tous ») |
+| [document.controller.ts](backend/src/documents/document.controller.ts) / [document.service.ts](backend/src/documents/document.service.ts) | Téléversement, listage, lecture et suppression physique des pièces ; dossiers consultables |
+| [document-type.ts](backend/src/documents/document-type.ts) | Clé technique d'une pièce (`documentTypeSlug`), clé d'établissement réservée `*`, portée des pièces du dépôt (`candidatureRequirementScope`) |
+| [site-settings.controller.ts](backend/src/homepage/site-settings.controller.ts) / [site-settings.service.ts](backend/src/homepage/site-settings.service.ts) | Réglages du site (couleurs, logo, favicon, hero) et journalisation des modifications |
+| [homepage.controller.ts](backend/src/homepage/homepage.controller.ts) / [homepage.service.ts](backend/src/homepage/homepage.service.ts) / [homepage-defaults.json](backend/src/homepage/homepage-defaults.json) | Textes modifiables de la page d'accueil (161 clés), titre/sous-titre/bouton du hero, actualités |
+| [prisma.service.ts](backend/src/common/prisma.service.ts) | Connexion Prisma |
 | [app.controller.ts](backend/src/app.controller.ts) | `GET /` → « Hello World! » (squelette NestJS) |
 
 Particularités d'implémentation : l'autorisation se fait **manuellement dans chaque route** (lecture de l'en-tête `Authorization`, appel à une méthode `require…`) ; il n'y a ni `Guard` Nest, ni `ValidationPipe`/DTO — la validation est écrite à la main dans chaque contrôleur.
@@ -674,26 +674,26 @@ Navigation par espace :
 
 | Composant | Rôle |
 | --- | --- |
-| [DossierViewer](frontend/src/components/DossierViewer.tsx) | Fenêtre de consultation d'un dossier (profil de 26 champs, pièces ouvrables/téléchargeables via blob) |
-| [ConfirmDialog](frontend/src/components/ConfirmDialog.tsx) | Confirmation de déconnexion |
-| [HeaderToolbar](frontend/src/components/HeaderToolbar.tsx) | En-tête commun des espaces connectés : bascule de thème, crayon de personnalisation (admin), cloche de notifications, menu du profil (photo, nom, rôle, Mon compte, Actualiser, Paramètres, Déconnexion) |
-| [AccountPanel](frontend/src/components/AccountPanel.tsx) | Page « Mon compte » : photo, adresse e-mail, mot de passe ; accepte des enfants (ex. identité de l'établissement) |
-| [SidebarLogo](frontend/src/components/SidebarLogo.tsx) | Logo **rond** de l'en-tête des menus latéraux : logo fourni, sinon logo du site, sinon `logo.png` |
-| [EstablishmentIdentityPanel](frontend/src/components/EstablishmentIdentityPanel.tsx) | Nom et logo de l'établissement (responsable) |
-| [EstablishmentsAdminPanel](frontend/src/components/EstablishmentsAdminPanel.tsx) | Gestion des établissements par l'admin |
-| [establishments.ts](frontend/src/components/establishments.ts) | Hook `useEstablishments`, `logoSrc`, `EstablishmentIcon` (pictogrammes de repli) et `EstablishmentBadge` (pastille ronde logo/pictogramme) |
-| [CandidatureDocumentsPanel](frontend/src/components/CandidatureDocumentsPanel.tsx) | Pièces du dépôt de dossier et mode « identique pour tous » (scolarité) |
-| [HomepageHero](frontend/src/components/HomepageHero.tsx) | Fond et contenu du hero |
-| [HomepageSettingsPanel](frontend/src/components/HomepageSettingsPanel.tsx) | Réglages de l'accueil dans l'espace admin (couleurs, logo, favicon, hero) |
+| [DossierViewer](frontend/src/components/panels/DossierViewer.tsx) | Fenêtre de consultation d'un dossier (profil de 26 champs, pièces ouvrables/téléchargeables via blob) |
+| [ConfirmDialog](frontend/src/components/layout/ConfirmDialog.tsx) | Confirmation de déconnexion |
+| [HeaderToolbar](frontend/src/components/layout/HeaderToolbar.tsx) | En-tête commun des espaces connectés : bascule de thème, crayon de personnalisation (admin), cloche de notifications, menu du profil (photo, nom, rôle, Mon compte, Actualiser, Paramètres, Déconnexion) |
+| [AccountPanel](frontend/src/components/panels/AccountPanel.tsx) | Page « Mon compte » : photo, adresse e-mail, mot de passe ; accepte des enfants (ex. identité de l'établissement) |
+| [SidebarLogo](frontend/src/components/layout/SidebarLogo.tsx) | Logo **rond** de l'en-tête des menus latéraux : logo fourni, sinon logo du site, sinon `logo.png` |
+| [EstablishmentIdentityPanel](frontend/src/components/panels/EstablishmentIdentityPanel.tsx) | Nom et logo de l'établissement (responsable) |
+| [EstablishmentsAdminPanel](frontend/src/components/panels/EstablishmentsAdminPanel.tsx) | Gestion des établissements par l'admin |
+| [establishments.ts](frontend/src/components/panels/establishments.ts) | Hook `useEstablishments`, `logoSrc`, `EstablishmentIcon` (pictogrammes de repli) et `EstablishmentBadge` (pastille ronde logo/pictogramme) |
+| [CandidatureDocumentsPanel](frontend/src/components/panels/CandidatureDocumentsPanel.tsx) | Pièces du dépôt de dossier et mode « identique pour tous » (scolarité) |
+| [HomepageHero](frontend/src/components/home/HomepageHero.tsx) | Fond et contenu du hero |
+| [HomepageSettingsPanel](frontend/src/components/home/HomepageSettingsPanel.tsx) | Réglages de l'accueil dans l'espace admin (couleurs, logo, favicon, hero) |
 | [components/home/](frontend/src/components/home/) | Sections de l'accueil (`HomeNavbar`, `HeroExtras`, `BourseSection`, `StepsSection`, `PrepareSection`, `BenefitsSection`, `EstablishmentsSection`, `StatusesSection`, `AnnouncementsList`, `FaqSection`, `HelpSection`, `FinalCta`, `HomeFooter`, `SectionShell`), édition en place (`HomepageEditor`, `HomepageEditModals`, `homepageStore`, `HomeText`), session (`useHomeSession`), valeurs par défaut (`homepage-defaults.json`, à garder **identique** à celle du backend) |
-| [AdminSettingsPanel](frontend/src/components/AdminSettingsPanel.tsx) | Panneau d'apparence commun aux 4 espaces |
-| [adminSettings.ts](frontend/src/components/adminSettings.ts) | Types, valeurs par défaut, migration d'anciens réglages, génération du CSS de thème |
-| [useInterfaceSettings](frontend/src/components/useInterfaceSettings.ts) | Hook de chargement/sauvegarde des réglages |
-| [useNotifications](frontend/src/components/useNotifications.ts) / [usePolling](frontend/src/components/usePolling.ts) / [useProfile](frontend/src/components/useProfile.ts) | Notifications (30 s), actualisation périodique tant que l'onglet est visible, profil de l'utilisateur connecté |
-| [PlatformThemeProvider](frontend/src/components/PlatformThemeProvider.tsx) | Applique le thème selon l'espace visité |
-| [HomeThemeToggle](frontend/src/components/HomeThemeToggle.tsx) | Bascule clair/sombre des pages publiques |
-| [dashboardPath.ts](frontend/src/components/dashboardPath.ts) | Rôle → chemin du tableau de bord |
-| [siteSettings.ts](frontend/src/components/siteSettings.ts) | Types, valeurs par défaut, `assetUrl`, `DEFAULT_LOGO` (`/logo.png`), récupération des réglages du site |
+| [AdminSettingsPanel](frontend/src/components/theme/AdminSettingsPanel.tsx) | Panneau d'apparence commun aux 4 espaces |
+| [adminSettings.ts](frontend/src/components/theme/adminSettings.ts) | Types, valeurs par défaut, migration d'anciens réglages, génération du CSS de thème |
+| [useInterfaceSettings](frontend/src/components/theme/useInterfaceSettings.ts) | Hook de chargement/sauvegarde des réglages |
+| [useNotifications](frontend/src/components/hooks/useNotifications.ts) / [usePolling](frontend/src/components/hooks/usePolling.ts) / [useProfile](frontend/src/components/hooks/useProfile.ts) | Notifications (30 s), actualisation périodique tant que l'onglet est visible, profil de l'utilisateur connecté |
+| [PlatformThemeProvider](frontend/src/components/theme/PlatformThemeProvider.tsx) | Applique le thème selon l'espace visité |
+| [HomeThemeToggle](frontend/src/components/theme/HomeThemeToggle.tsx) | Bascule clair/sombre des pages publiques |
+| [dashboardPath.ts](frontend/src/components/panels/dashboardPath.ts) | Rôle → chemin du tableau de bord |
+| [siteSettings.ts](frontend/src/components/home/siteSettings.ts) | Types, valeurs par défaut, `assetUrl`, `DEFAULT_LOGO` (`/logo.png`), récupération des réglages du site |
 
 ### 10.3 Variables d'environnement frontend
 

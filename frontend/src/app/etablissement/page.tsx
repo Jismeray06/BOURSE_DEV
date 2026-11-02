@@ -2,18 +2,18 @@
 
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { SidebarLogo } from "../../components/SidebarLogo";
-import { DossierViewer } from "../../components/DossierViewer";
-import { AdminSettingsPanel } from "../../components/AdminSettingsPanel";
-import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { defaultSettings, parseSettings } from "../../components/adminSettings";
-import { useInterfaceSettings, useSystemDark } from "../../components/useInterfaceSettings";
-import { EstablishmentIdentityPanel, type EstablishmentProfile } from "../../components/EstablishmentIdentityPanel";
-import { AccountPanel } from "../../components/AccountPanel";
-import { HeaderToolbar } from "../../components/HeaderToolbar";
-import { usePolling } from "../../components/usePolling";
-import { isDarkRendering, toggleLightDark } from "../../components/adminSettings";
-import { EstablishmentBadge } from "../../components/establishments";
+import { SidebarLogo } from "../../components/layout/SidebarLogo";
+import { DossierViewer } from "../../components/panels/DossierViewer";
+import { AdminSettingsPanel } from "../../components/theme/AdminSettingsPanel";
+import { ConfirmDialog } from "../../components/layout/ConfirmDialog";
+import { defaultSettings, parseSettings } from "../../components/theme/adminSettings";
+import { useInterfaceSettings, useSystemDark } from "../../components/theme/useInterfaceSettings";
+import { EstablishmentIdentityPanel, type EstablishmentProfile } from "../../components/panels/EstablishmentIdentityPanel";
+import { AccountPanel } from "../../components/panels/AccountPanel";
+import { HeaderToolbar } from "../../components/layout/HeaderToolbar";
+import { usePolling } from "../../components/hooks/usePolling";
+import { isDarkRendering, toggleLightDark } from "../../components/theme/adminSettings";
+import { EstablishmentBadge } from "../../components/panels/establishments";
 import {
   BookOpen,
   Building2,
@@ -41,6 +41,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { endSession } from '../../components/auth/authSession';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 // Zone tactile confortable (44px) sur téléphone et tablette uniquement
@@ -307,7 +308,7 @@ export default function EstablishmentPage() {
     const profileResponse = await request("/establishment/isstm/profile");
     if (profileResponse.ok) setProfile((await profileResponse.json()) as EstablishmentProfile);
     if (studentResponse.status === 401 || curriculumResponse.status === 401) {
-      sessionStorage.clear();
+      endSession();
       router.replace("/login");
       return;
     }
@@ -1463,7 +1464,7 @@ export default function EstablishmentPage() {
         message="Êtes-vous sûr de vouloir vous déconnecter ?"
         onCancel={() => setLogoutConfirmOpen(false)}
         onConfirm={() => {
-          sessionStorage.clear();
+          endSession();
           router.push("/login");
         }}
       />

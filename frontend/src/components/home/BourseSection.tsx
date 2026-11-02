@@ -6,7 +6,7 @@ import { AlertTriangle, CalendarDays } from 'lucide-react';
 import { SectionShell } from './SectionShell';
 import type { Campaign, CampaignStatus } from './campaign';
 import { LOGIN_PATH, REGISTER_PATH, useDashboardPath } from './useHomeSession';
-import type { SiteSettings } from '../siteSettings';
+import type { SiteSettings } from './siteSettings';
 
 const STATUS_LABEL: Record<CampaignStatus, string> = { A_VENIR: 'À venir', OUVERTE: 'Ouverte', CLOTUREE: 'Clôturée' };
 const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' });

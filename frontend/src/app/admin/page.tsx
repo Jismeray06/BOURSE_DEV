@@ -31,20 +31,21 @@ import {
   XCircle,
   X,
 } from 'lucide-react';
-import { DossierViewer } from '../../components/DossierViewer';
-import { AdminSettingsPanel } from '../../components/AdminSettingsPanel';
-import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { SidebarLogo } from '../../components/SidebarLogo';
-import { EstablishmentBadge } from '../../components/establishments';
-import { EstablishmentsAdminPanel, type Institution } from '../../components/EstablishmentsAdminPanel';
-import { ViewToggle, type ViewMode } from '../../components/ViewToggle';
-import { AccountPanel } from '../../components/AccountPanel';
-import { HeaderToolbar } from '../../components/HeaderToolbar';
-import { usePolling } from '../../components/usePolling';
-import { HomepageSettingsPanel } from '../../components/HomepageSettingsPanel';
+import { DossierViewer } from '../../components/panels/DossierViewer';
+import { AdminSettingsPanel } from '../../components/theme/AdminSettingsPanel';
+import { ConfirmDialog } from '../../components/layout/ConfirmDialog';
+import { SidebarLogo } from '../../components/layout/SidebarLogo';
+import { EstablishmentBadge } from '../../components/panels/establishments';
+import { EstablishmentsAdminPanel, type Institution } from '../../components/panels/EstablishmentsAdminPanel';
+import { ViewToggle, type ViewMode } from '../../components/layout/ViewToggle';
+import { AccountPanel } from '../../components/panels/AccountPanel';
+import { HeaderToolbar } from '../../components/layout/HeaderToolbar';
+import { usePolling } from '../../components/hooks/usePolling';
+import { HomepageSettingsPanel } from '../../components/home/HomepageSettingsPanel';
 import { EDIT_MODE_PATH } from '../../components/home/HomepageEditor';
-import { buildThemeCss, defaultSettings, isDarkRendering, loadSettings, saveSettings, toggleLightDark, type AdminSettings } from '../../components/adminSettings';
-import { useSystemDark } from '../../components/useInterfaceSettings';
+import { buildThemeCss, defaultSettings, isDarkRendering, loadSettings, saveSettings, toggleLightDark, type AdminSettings } from '../../components/theme/adminSettings';
+import { useSystemDark } from '../../components/theme/useInterfaceSettings';
+import { endSession } from '../../components/auth/authSession';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const statuses = ['BROUILLON', 'SOUMIS', 'EN_REVISION', 'VALIDE', 'REFUSE'] as const;
@@ -221,7 +222,7 @@ export default function AdminPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.status === 401) {
-        sessionStorage.clear();
+        endSession();
         router.replace('/login');
         return;
       }
@@ -550,7 +551,7 @@ export default function AdminPage() {
   const pendingCount = students.filter((student) => student.registrationStatus === 'SOUMIS' || student.registrationStatus === 'EN_REVISION').length;
   const logout = () => setLogoutConfirmOpen(true);
   const confirmLogout = () => {
-    sessionStorage.clear();
+    endSession();
     router.push('/login');
   };
   return (

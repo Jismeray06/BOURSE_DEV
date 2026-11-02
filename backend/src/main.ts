@@ -5,7 +5,7 @@ import 'dotenv/config';
 import { setDefaultAutoSelectFamilyAttemptTimeout } from 'node:net';
 import { join } from 'node:path';
 import { AppModule, ObserveInstrument } from './app.module.js';
-import { PrismaExceptionFilter } from './prisma-exception.filter.js';
+import { PrismaExceptionFilter } from './common/prisma-exception.filter.js';
 
 // Par défaut Node abandonne chaque tentative de connexion sortante après 250 ms ; sur un réseau
 // lent ou sans IPv6, l'appel à Google (échange du code OAuth) échouait alors en ETIMEDOUT.

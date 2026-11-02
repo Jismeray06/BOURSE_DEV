@@ -2,14 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { SidebarLogo } from '../../components/SidebarLogo';
-import { AdminSettingsPanel } from '../../components/AdminSettingsPanel';
-import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { useInterfaceSettings, useSystemDark } from '../../components/useInterfaceSettings';
-import { EstablishmentIcon, logoSrc, useEstablishments } from '../../components/establishments';
-import { HeaderToolbar } from '../../components/HeaderToolbar';
-import { useNotifications, type AppNotification } from '../../components/useNotifications';
-import { isDarkRendering, toggleLightDark } from '../../components/adminSettings';
+import { SidebarLogo } from '../../components/layout/SidebarLogo';
+import { AdminSettingsPanel } from '../../components/theme/AdminSettingsPanel';
+import { ConfirmDialog } from '../../components/layout/ConfirmDialog';
+import { useInterfaceSettings, useSystemDark } from '../../components/theme/useInterfaceSettings';
+import { EstablishmentIcon, logoSrc, useEstablishments } from '../../components/panels/establishments';
+import { HeaderToolbar } from '../../components/layout/HeaderToolbar';
+import { useNotifications, type AppNotification } from '../../components/hooks/useNotifications';
+import { isDarkRendering, toggleLightDark } from '../../components/theme/adminSettings';
 import { 
   GraduationCap, 
   LogOut, 
@@ -36,6 +36,7 @@ import {
   XCircle,
   Send,
 } from 'lucide-react';
+import { endSession } from '../../components/auth/authSession';
 
 const NIVEAUX = ['Licence 1 (L1)', 'Licence 2 (L2)', 'Licence 3 (L3)', 'Master 1 (M1)', 'Master 2 (M2)'];
 
@@ -150,7 +151,7 @@ export default function StudentPage() {
           }
         }
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'}/student/application`, { headers: { Authorization: `Bearer ${authToken}` } });
-        if (response.status === 401) { sessionStorage.clear(); router.replace('/login'); return; }
+        if (response.status === 401) { endSession(); router.replace('/login'); return; }
         if (!response.ok) throw new Error('Impossible de charger votre dossier.');
         const application = await response.json().catch(() => null) as SavedApplication | null;
         if (application) {
@@ -1111,7 +1112,7 @@ export default function StudentPage() {
         message="Êtes-vous sûr de vouloir vous déconnecter ?"
         onCancel={() => setLogoutConfirmOpen(false)}
         onConfirm={() => {
-          sessionStorage.clear();
+          endSession();
           router.push('/login');
         }}
       />

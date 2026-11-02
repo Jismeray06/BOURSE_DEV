@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Dancing_Script, Playfair_Display } from "next/font/google";
 import "./globals.css";
-import { PlatformThemeProvider } from "../components/PlatformThemeProvider";
-import { TopLoadingBar } from "../components/TopLoadingBar";
+import { AuthSessionSync } from "../components/auth/AuthSessionSync";
+import { PlatformThemeProvider } from "../components/theme/PlatformThemeProvider";
+import { TopLoadingBar } from "../components/layout/TopLoadingBar";
 
 const playfairDisplay = Playfair_Display({
   subsets: ["latin"],
@@ -38,7 +39,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="fr" className={`h-full antialiased ${playfairDisplay.variable} ${dancingScript.variable}`}>
       <body className="min-h-full flex flex-col">
         <TopLoadingBar />
-        <PlatformThemeProvider>{children}</PlatformThemeProvider>
+        <AuthSessionSync>
+          <PlatformThemeProvider>{children}</PlatformThemeProvider>
+        </AuthSessionSync>
       </body>
     </html>
   );

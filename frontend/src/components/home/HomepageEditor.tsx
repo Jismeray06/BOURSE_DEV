@@ -3,8 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, Eye, LogOut, Pencil, PencilRuler, TriangleAlert } from 'lucide-react';
-import { ConfirmDialog } from '../ConfirmDialog';
-import type { SiteSettings } from '../siteSettings';
+import { ConfirmDialog } from '../layout/ConfirmDialog';
+import type { SiteSettings } from './siteSettings';
 import { CarouselModal, FieldsModal, SingleImageModal, type EditField } from './HomepageEditModals';
 import { apiUrl, defaultContent, ensureHomepageLoaded, setHomepageContent, useHomepageContent, type HomeNews } from './homepageStore';
 import { ensureLanguageLoaded, useLanguage } from './language';

@@ -3,7 +3,8 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { dashboardPathForRole } from '../../../components/dashboardPath';
+import { dashboardPathForRole } from '../../../components/panels/dashboardPath';
+import { startSession } from '../../../components/auth/authSession';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
@@ -37,9 +38,7 @@ function GoogleLoginContent() {
         if (!response.ok) throw new Error((Array.isArray(data.message) ? data.message[0] : data.message) || 'La connexion Google a échoué.');
         const destination = dashboardPathForRole(data.user?.role ?? null);
         if (!data.accessToken || !data.user?.role || !destination) throw new Error('Réponse de connexion invalide.');
-        sessionStorage.setItem('auth_token', data.accessToken);
-        sessionStorage.setItem('user_role', data.user.role);
-        sessionStorage.setItem('auth_user', JSON.stringify(data.user));
+        startSession({ accessToken: data.accessToken, user: data.user });
         router.replace(destination);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Impossible de joindre le serveur.'));
