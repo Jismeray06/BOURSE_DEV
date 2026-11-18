@@ -9,6 +9,15 @@ export type NewsDto = { title?: unknown; body?: unknown; publishedAt?: unknown }
 export type HeroDto = { heroTitle?: unknown; heroSubtitle?: unknown; ctaSecondaryLabel?: unknown };
 type Actor = { id: string; fullName: string };
 
+// Mise en forme d'un texte : seules ces valeurs sont acceptées (jamais de CSS libre venant du navigateur).
+export const textFonts = ['titre', 'manuscrit', 'serif', 'mono'] as const;
+export const textSizes = ['petit', 'grand', 'tres-grand', 'enorme'] as const;
+export type TextStyle = { color?: string; font?: (typeof textFonts)[number]; size?: (typeof textSizes)[number]; bold?: boolean; italic?: boolean; underline?: boolean };
+const styleFields = ['color', 'font', 'size', 'bold', 'italic', 'underline'] as const;
+// Textes du bandeau d'accueil, stockés à part des autres textes mais stylables de la même façon.
+const heroStyleKeys = ['heroTitle', 'heroSubtitle', 'ctaSecondaryLabel'];
+const hexColor = /^#[0-9a-fA-F]{6}$/;
+
 const defaultContent: Record<string, string> = defaults;
 const maximumTextLength = 1000;
 const maximumKeysPerRequest = 40;
@@ -28,7 +37,11 @@ export class HomepageService {
   /** Textes (valeurs d'origine + modifications) et actualités, tels qu'affichés sur la page publique. */
   async get() {
     const settings = await this.siteSettings.get();
-    return { content: { ...defaultContent, ...this.storedContent(settings.homepageContent) }, news: this.sortedNews(settings.homepageNews) };
+    return {
+      content: { ...defaultContent, ...this.storedContent(settings.homepageContent) },
+      news: this.sortedNews(settings.homepageNews),
+      styles: this.storedStyles(settings.homepageStyles),
+    };
   }
 
   async updateContent(actor: Actor, body: unknown) {
@@ -53,6 +66,26 @@ export class HomepageService {
     }
     await this.prisma.siteSettings.update({ where: { id: settings.id }, data: { homepageContent: content } });
     await this.siteSettings.audit(actor, 'HOMEPAGE_CONTENT_UPDATED', this.contentLabel(entries.map(([key]) => key)), entries.map(([key]) => key).join(', '));
+    return this.get();
+  }
+
+  /** Enregistre la mise en forme des textes. `null` pour une clé = retour à l'apparence d'origine. */
+  async updateStyles(actor: Actor, body: unknown) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new BadRequestException('Données invalides.');
+    const entries = Object.entries(body as Record<string, unknown>);
+    if (!entries.length) throw new BadRequestException('Aucune modification reçue.');
+    if (entries.length > maximumKeysPerRequest) throw new BadRequestException('Trop de modifications en une seule fois.');
+
+    const settings = await this.siteSettings.get();
+    const styles = this.storedStyles(settings.homepageStyles);
+    for (const [key, raw] of entries) {
+      if (!(key in defaultContent) && !heroStyleKeys.includes(key)) throw new BadRequestException(`Élément inconnu : ${key}.`);
+      const style = raw === null ? null : this.validateStyle(raw);
+      if (style && Object.keys(style).length) styles[key] = style;
+      else delete styles[key];
+    }
+    await this.prisma.siteSettings.update({ where: { id: settings.id }, data: { homepageStyles: styles } });
+    await this.siteSettings.audit(actor, 'HOMEPAGE_CONTENT_UPDATED', this.contentLabel(entries.map(([key]) => key)), 'Mise en forme du texte');
     return this.get();
   }
 
@@ -136,6 +169,49 @@ export class HomepageService {
   private storedContent(value: unknown): Record<string, string> {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
     return Object.fromEntries(Object.entries(value).filter(([key, text]) => key in defaultContent && typeof text === 'string')) as Record<string, string>;
+  }
+
+  private validateStyle(raw: unknown): TextStyle {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new BadRequestException('Mise en forme invalide.');
+    const input = raw as Record<string, unknown>;
+    for (const field of Object.keys(input)) {
+      if (!(styleFields as readonly string[]).includes(field)) throw new BadRequestException(`Option de mise en forme inconnue : ${field}.`);
+    }
+    const style: TextStyle = {};
+    const { color, font, size } = input;
+    if (color !== undefined && color !== null && color !== '') {
+      if (typeof color !== 'string' || !hexColor.test(color)) throw new BadRequestException('Couleur invalide (format #rrggbb attendu).');
+      style.color = color.toLowerCase();
+    }
+    if (font !== undefined && font !== null && font !== '') {
+      if (!(textFonts as readonly unknown[]).includes(font)) throw new BadRequestException('Police invalide.');
+      style.font = font as TextStyle['font'];
+    }
+    if (size !== undefined && size !== null && size !== '') {
+      if (!(textSizes as readonly unknown[]).includes(size)) throw new BadRequestException('Taille invalide.');
+      style.size = size as TextStyle['size'];
+    }
+    for (const flag of ['bold', 'italic', 'underline'] as const) {
+      const value = input[flag];
+      if (value === undefined || value === null || value === false) continue;
+      if (value !== true) throw new BadRequestException('Mise en forme invalide.');
+      style[flag] = true;
+    }
+    return style;
+  }
+
+  // Relecture défensive : une valeur inattendue en base est ignorée plutôt que renvoyée à la page publique.
+  private storedStyles(value: unknown): Record<string, TextStyle> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    const result: Record<string, TextStyle> = {};
+    for (const [key, raw] of Object.entries(value)) {
+      if (!(key in defaultContent) && !heroStyleKeys.includes(key)) continue;
+      try {
+        const style = this.validateStyle(raw);
+        if (Object.keys(style).length) result[key] = style;
+      } catch { /* mise en forme illisible : ignorée */ }
+    }
+    return result;
   }
 
   private sortedNews(value: unknown): HomepageNews[] {

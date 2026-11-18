@@ -3,7 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module.js';
 
-describe('AppController (e2e)', () => {
+describe('API (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
@@ -15,11 +15,14 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  it('/homepage (GET) renvoie les textes et les actualités sans connexion', async () => {
+    const response = await request(app.getHttpServer()).get('/homepage').expect(200);
+    expect(response.body).toHaveProperty('content');
+    expect(Array.isArray(response.body.news)).toBe(true);
+  });
+
+  it('/admin/homepage (GET) est refusé sans jeton', () => {
+    return request(app.getHttpServer()).get('/admin/homepage').expect(401);
   });
 
   afterEach(async () => {

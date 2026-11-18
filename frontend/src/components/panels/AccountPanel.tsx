@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Camera, Eye, EyeOff, KeyRound, Mail, Trash2 } from 'lucide-react';
+import { Camera, Eye, EyeOff, KeyRound, Mail, Trash2, UserRound } from 'lucide-react';
 import { avatarSrc, notifyProfileChanged, useProfile } from '../hooks/useProfile';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -22,13 +22,15 @@ async function accountRequest(path: string, method: string, body?: unknown) {
 }
 
 // Modification, par l'utilisateur lui-même, de son mot de passe et de son adresse e-mail.
-// Utilisable dans n'importe quel espace connecté.
-export function AccountPanel({ children }: { children?: ReactNode }) {
+// Utilisable dans n'importe quel espace connecté. `canEditName` ajoute la modification du nom (réservée aux étudiants,
+// le serveur le vérifie) ; `onNameChanged` permet à la page de mettre à jour le nom qu'elle affiche.
+export function AccountPanel({ children, canEditName = false, onNameChanged }: { children?: ReactNode; canEditName?: boolean; onNameChanged?: (fullName: string) => void }) {
   const profile = useProfile();
 
   return (
     <div className="space-y-4 sm:space-y-6">
       <AvatarSection fullName={profile?.fullName ?? ''} email={profile?.email ?? ''} avatarUrl={profile?.avatarUrl ?? null} loaded={Boolean(profile)} />
+      {canEditName && profile && <NameForm key={profile.fullName} currentName={profile.fullName} onChanged={onNameChanged} />}
       <div className="grid gap-4 sm:gap-6 xl:grid-cols-2">
         <EmailForm currentEmail={profile?.email ?? ''} />
         <PasswordForm />
@@ -119,6 +121,48 @@ function AvatarSection({ fullName, email, avatarUrl, loaded }: { fullName: strin
       </div>
       {feedback && <p role="status" className={`mt-4 break-words rounded-xl border p-3 text-xs ${feedback.ok ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-rose-500/30 bg-rose-500/10 text-rose-200'}`}>{feedback.text}</p>}
     </section>
+  );
+}
+
+function NameForm({ currentName, onChanged }: { currentName: string; onChanged?: (fullName: string) => void }) {
+  const [fullName, setFullName] = useState(currentName);
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState<Feedback>(null);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setFeedback(null);
+    try {
+      const result = await accountRequest('/name', 'PATCH', { fullName });
+      setFeedback({ text: String(result.message), ok: true });
+      notifyProfileChanged();
+      onChanged?.(String(result.fullName ?? fullName));
+    } catch (error) {
+      setFeedback({ text: error instanceof Error ? error.message : 'Une erreur est survenue.', ok: false });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="min-w-0 rounded-3xl border border-slate-800/80 bg-slate-900/90 p-4 sm:p-6">
+      <div className="mb-4 flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400"><UserRound className="h-5 w-5" /></div>
+        <div className="min-w-0">
+          <h3 className="text-base font-bold text-white">Nom</h3>
+          <p className="mt-0.5 text-xs text-slate-400">Corrigez votre nom tant que votre dossier n’est pas déposé. Une fois le dossier déposé, le nom ne peut plus être modifié ici.</p>
+        </div>
+      </div>
+      <div className="space-y-3">
+        <div>
+          <label htmlFor="account-name" className="mb-1 block text-xs font-semibold text-slate-300">Nom complet</label>
+          <input id="account-name" required minLength={2} maxLength={100} autoComplete="name" value={fullName} onChange={(event) => setFullName(event.target.value)} className={fieldCls} />
+        </div>
+        {feedback && <p role="status" className={`break-words rounded-xl border p-3 text-xs ${feedback.ok ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-rose-500/30 bg-rose-500/10 text-rose-200'}`}>{feedback.text}</p>}
+        <button disabled={busy || fullName.trim() === currentName} className={`w-full rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-blue-500 disabled:opacity-50 sm:w-auto ${touch}`}>{busy ? 'Enregistrement…' : 'Enregistrer le nom'}</button>
+      </div>
+    </form>
   );
 }
 

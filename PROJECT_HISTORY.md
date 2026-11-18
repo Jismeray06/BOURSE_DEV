@@ -120,7 +120,6 @@ Racine : `backend/src/`
 | `document.service.ts` | Logique de stockage des fichiers sur disque (`uploads/documents/`), validation du type MIME et de la taille, remplacement d'une pièce existante du même type. |
 | `site-settings.controller.ts` / `site-settings.service.ts` | Réglages visuels du site public (page d'accueil) : couleurs, logo, favicon, type de fond du hero (couleur/dégradé/image), textes, liens des boutons d'action. Upload d'images limité à l'ADMIN. |
 | `prisma.service.ts` | Connexion Prisma/PostgreSQL, injectée dans tous les services ayant besoin de la base. |
-| `app.controller.ts` / `app.service.ts` | Route de base héritée du squelette NestJS (`GET /`). |
 
 ### Base de données (`backend/prisma/schema.prisma`)
 

@@ -26,6 +26,12 @@ export class HomepageController {
     return this.homepage.updateContent(admin, body);
   }
 
+  @Patch('admin/homepage/styles')
+  async updateStyles(@Body() body: unknown, @Headers('authorization') authorization?: string) {
+    const admin = await this.authService.requireAdmin(authorization);
+    return this.homepage.updateStyles(admin, body);
+  }
+
   @Patch('admin/homepage/hero')
   async updateHero(@Body() body: HeroDto, @Headers('authorization') authorization?: string) {
     const admin = await this.authService.requireAdmin(authorization);

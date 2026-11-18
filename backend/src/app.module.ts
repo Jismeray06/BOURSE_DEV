@@ -1,7 +1,5 @@
 import { Module } from '@nestjs/common';
 import { createObserveModule } from '@nestjs/observe';
-import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
 import { AuthController } from './auth/auth.controller.js';
 import { AuthService } from './auth/auth.service.js';
 import { GoogleAuthService } from './auth/google-auth.service.js';
@@ -42,7 +40,7 @@ const observeImports =
     ...observeImports,
     // controllers...
   ],
-  controllers: [AppController, AuthController, AdminController, EstablishmentController, StudentController, CentralRegistrarController, DocumentController, SiteSettingsController, HomepageController, EstablishmentsController, AccountController, NotificationsController],
-  providers: [AppService, AuthService, GoogleAuthService, PrismaService, MailService, DocumentService, SiteSettingsService, HomepageService, EstablishmentsService, QuitusService, AccountService],
+  controllers: [AuthController, AdminController, EstablishmentController, StudentController, CentralRegistrarController, DocumentController, SiteSettingsController, HomepageController, EstablishmentsController, AccountController, NotificationsController],
+  providers: [AuthService, GoogleAuthService, PrismaService, MailService, DocumentService, SiteSettingsService, HomepageService, EstablishmentsService, QuitusService, AccountService],
 })
 export class AppModule {}

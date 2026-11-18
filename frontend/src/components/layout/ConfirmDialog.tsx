@@ -54,7 +54,7 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            className="min-h-[44px] flex-1 rounded-xl bg-rose-500 px-4 text-xs font-semibold text-white shadow-lg shadow-rose-500/20 transition hover:bg-rose-600 cursor-pointer"
+            className="min-h-[44px] flex-1 rounded-xl bg-rose-500 px-4 text-xs font-semibold text-white transition hover:bg-rose-600 cursor-pointer"
           >
             {confirmLabel}
           </button>

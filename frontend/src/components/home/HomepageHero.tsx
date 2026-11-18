@@ -7,6 +7,8 @@ import { Eye, FileText } from 'lucide-react';
 import { EditPencil, HomeText, useHomeEdit } from './HomepageEditor';
 import { useLanguage } from './language';
 import { translateSetting } from './translate';
+import { useHomepageContent } from './homepageStore';
+import { styleToCss } from './textStyle';
 
 // La partie « bourse nationale » du titre est mise en valeur sur sa propre ligne ; un titre sans cette expression reste uniforme.
 function HighlightedTitle({ title }: { title: string }) {
@@ -87,18 +89,19 @@ export function HeroContent({
   tone?: 'light' | 'dark';
 }) {
   const { editMode, editHero } = useHomeEdit();
+  const { styles } = useHomepageContent();
   const language = useLanguage();
   const shown = (value: string) => (editMode ? value : translateSetting(value, language));
   const light = tone === 'light';
   return (
     <div className="mx-auto max-w-3xl space-y-6 text-center">
       <h1 className={`font-[family-name:var(--font-heading)] text-4xl font-bold leading-[1.15] tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl ${light ? 'text-[#0b2c55]' : 'text-white'}`}>
-        <HighlightedTitle title={shown(settings.heroTitle)} />
+        <span style={styleToCss(styles.heroTitle)}><HighlightedTitle title={shown(settings.heroTitle)} /></span>
         <EditPencil label="Modifier le titre" onClick={() => editHero('heroTitle')} className="ml-2" />
       </h1>
 
       <p className={`mx-auto max-w-xl text-base leading-relaxed sm:text-lg ${light ? 'text-slate-800' : 'text-slate-100'}`}>
-        {shown(settings.heroSubtitle)}
+        <span style={styleToCss(styles.heroSubtitle)}>{shown(settings.heroSubtitle)}</span>
         <EditPencil label="Modifier le sous-titre" onClick={() => editHero('heroSubtitle')} className="ml-2" />
       </p>
 
@@ -110,10 +113,10 @@ export function HeroContent({
           <button
             type="button"
             onClick={primary.onClick}
-            className={`flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-500 ${light ? 'shadow-[0_8px_24px_rgba(37,99,235,0.35)]' : 'shadow-[0_0_28px_rgba(37,99,235,0.55)]'} ${editMode && primary.editable ? 'flex-1 sm:flex-none' : ''}`}
+            className={`flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-blue-500 ${editMode && primary.editable ? 'flex-1 sm:flex-none' : ''}`}
           >
             <FileText className="h-4 w-4" aria-hidden />
-            <span>{primary.label}</span>
+            <span style={styleToCss(styles.ctaSecondaryLabel)}>{primary.label}</span>
           </button>
           {primary.editable && <EditPencil label="Modifier le texte du bouton" onClick={() => editHero('ctaSecondaryLabel')} />}
         </div>

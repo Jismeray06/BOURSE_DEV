@@ -25,7 +25,7 @@ function BackToTop({ color, textColor }: { color: string; textColor: string }) {
       type="button"
       onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
       aria-label="Retour en haut de la page"
-      className={`fixed right-5 z-30 flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition hover:brightness-110 ${editMode ? 'bottom-20' : 'bottom-5'}`}
+      className={`fixed right-5 z-30 flex h-12 w-12 items-center justify-center rounded-full transition hover:opacity-90 ${editMode ? 'bottom-20' : 'bottom-5'}`}
       style={{ backgroundColor: color, color: textColor }}
     >
       <ArrowUp className="h-5 w-5" />

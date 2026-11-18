@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ImagePlus, Loader2, Trash2, X } from 'lucide-react';
+import { Bold, ImagePlus, Italic, Loader2, RotateCcw, Trash2, Underline, X } from 'lucide-react';
 import { assetUrl } from './siteSettings';
+import { COLOR_SWATCHES, FONT_OPTIONS, SIZE_OPTIONS, cleanStyle, isEmptyStyle, styleToCss, type TextFont, type TextSize, type TextStyle } from './textStyle';
 
 const fieldCls = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-white sm:text-sm';
 const primaryBtn = 'inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60';
@@ -39,9 +40,80 @@ function ModalShell({ title, onClose, busy, children }: { title: string; onClose
   );
 }
 
+// Vrai si la couleur est très claire : l'aperçu passe alors sur fond sombre pour que le texte reste lisible.
+const isLightColor = (hex: string | undefined) => {
+  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex)) return false;
+  const [r, g, b] = [1, 3, 5].map((index) => parseInt(hex.slice(index, index + 2), 16));
+  return 0.299 * r + 0.587 * g + 0.114 * b > 200;
+};
+const toggleCls = (active: boolean) => `inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1 rounded-lg border px-3 text-xs font-semibold transition ${active ? 'border-orange-500 bg-orange-500 text-white' : 'border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800'}`;
+
+/** Choix de la couleur, de la police, de la taille et du gras / italique / souligné, avec aperçu en direct. */
+function StylePanel({ style, onChange, sample, disabled }: { style: TextStyle; onChange: (style: TextStyle) => void; sample: string; disabled: boolean }) {
+  const patch = (change: Partial<TextStyle>) => onChange({ ...style, ...change });
+  const label = 'mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300';
+  return (
+    <fieldset disabled={disabled} className="space-y-4 rounded-2xl border border-orange-500/40 bg-orange-500/5 p-4">
+      <legend className="px-2 text-xs font-bold uppercase tracking-wide text-orange-700 dark:text-orange-300">Mise en forme</legend>
+
+      <div>
+        <span className={label}>Couleur du texte</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => patch({ color: undefined })} aria-pressed={!style.color} className={toggleCls(!style.color)}>Couleur d’origine</button>
+          {COLOR_SWATCHES.map((color) => (
+            <button key={color} type="button" title={color} aria-label={`Couleur ${color}`} aria-pressed={style.color === color} onClick={() => patch({ color })} style={{ backgroundColor: color }} className={`h-8 w-8 rounded-full border-2 transition hover:scale-110 ${style.color === color ? 'border-orange-500' : 'border-slate-300 dark:border-slate-600'}`} />
+          ))}
+          <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+            <input type="color" value={style.color ?? '#2563eb'} onChange={(event) => patch({ color: event.target.value })} aria-label="Couleur personnalisée" className="h-8 w-10 cursor-pointer rounded-lg border border-slate-300 bg-transparent p-0.5 dark:border-slate-600" />
+            Autre
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="home-style-font" className={label}>Police</label>
+        <select id="home-style-font" value={style.font ?? ''} onChange={(event) => patch({ font: (event.target.value || undefined) as TextFont | undefined })} className={fieldCls}>
+          {FONT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </div>
+
+      <div>
+        <span className={label}>Taille</span>
+        <div className="flex flex-wrap gap-2">
+          {SIZE_OPTIONS.map((option) => (
+            <button key={option.value || 'normal'} type="button" aria-pressed={(style.size ?? '') === option.value} onClick={() => patch({ size: (option.value || undefined) as TextSize | undefined })} className={toggleCls((style.size ?? '') === option.value)}>{option.label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <span className={label}>Style</span>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" aria-pressed={Boolean(style.bold)} onClick={() => patch({ bold: !style.bold })} className={toggleCls(Boolean(style.bold))}><Bold className="h-4 w-4" aria-hidden />Gras</button>
+          <button type="button" aria-pressed={Boolean(style.italic)} onClick={() => patch({ italic: !style.italic })} className={toggleCls(Boolean(style.italic))}><Italic className="h-4 w-4" aria-hidden />Italique</button>
+          <button type="button" aria-pressed={Boolean(style.underline)} onClick={() => patch({ underline: !style.underline })} className={toggleCls(Boolean(style.underline))}><Underline className="h-4 w-4" aria-hidden />Souligné</button>
+        </div>
+      </div>
+
+      <div>
+        <span className={label}>Aperçu</span>
+        <p className={`max-h-32 overflow-auto rounded-xl border border-slate-300 px-3 py-3 text-base leading-snug dark:border-slate-700 ${isLightColor(style.color) ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-800'}`}>
+          <span style={styleToCss(style)}>{sample || 'Texte d’exemple'}</span>
+        </p>
+      </div>
+
+      {!isEmptyStyle(style) && (
+        <button type="button" onClick={() => onChange({})} className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-700 hover:underline dark:text-orange-300"><RotateCcw className="h-3.5 w-3.5" aria-hidden />Rétablir la mise en forme d’origine</button>
+      )}
+    </fieldset>
+  );
+}
+
 // Formulaire d'édition générique (un ou plusieurs champs texte) avec validation, état de chargement et erreurs.
-export function FieldsModal({ title, fields, onSave, onClose }: { title: string; fields: EditField[]; onSave: (values: Record<string, string>) => Promise<void>; onClose: () => void }) {
+// Avec `initialStyle`, il propose aussi la mise en forme du texte (couleur, police, taille…) et la transmet à `onSave`.
+export function FieldsModal({ title, fields, onSave, onClose, initialStyle }: { title: string; fields: EditField[]; onSave: (values: Record<string, string>, style: TextStyle) => Promise<void>; onClose: () => void; initialStyle?: TextStyle }) {
   const [values, setValues] = useState(() => Object.fromEntries(fields.map((field) => [field.id, field.value])));
+  const [style, setStyle] = useState<TextStyle>(() => cleanStyle(initialStyle ?? {}));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const submitting = useRef(false);
@@ -57,7 +129,7 @@ export function FieldsModal({ title, fields, onSave, onClose }: { title: string;
     setSaving(true);
     setError('');
     try {
-      await onSave(Object.fromEntries(fields.map((field) => [field.id, (values[field.id] ?? '').trim()])));
+      await onSave(Object.fromEntries(fields.map((field) => [field.id, (values[field.id] ?? '').trim()])), cleanStyle(style));
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Impossible d’enregistrer la modification.');
       submitting.current = false;
@@ -89,6 +161,7 @@ export function FieldsModal({ title, fields, onSave, onClose }: { title: string;
             </div>
           );
         })}
+        {initialStyle !== undefined && <StylePanel style={style} onChange={setStyle} sample={(values[fields[0]?.id] ?? '').trim()} disabled={saving} />}
         {error && <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-700 dark:text-rose-300">{error}</p>}
         <div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:justify-end">
           <button type="button" onClick={onClose} disabled={saving} className={secondaryBtn}>Annuler</button>
@@ -207,7 +280,7 @@ export function CarouselModal({ images, max, backgroundIsImage, onAdd, onRemove,
             <li key={url} className="relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={assetUrl(url) ?? ''} alt={`Image ${index + 1} du carrousel`} className="aspect-video w-full object-cover" />
-              <button type="button" disabled={saving} onClick={() => onRemove(index)} aria-label={`Supprimer l’image ${index + 1}`} title="Supprimer" className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-lg bg-rose-600 text-white shadow transition hover:bg-rose-700 disabled:opacity-60"><Trash2 className="h-4 w-4" /></button>
+              <button type="button" disabled={saving} onClick={() => onRemove(index)} aria-label={`Supprimer l’image ${index + 1}`} title="Supprimer" className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-lg bg-rose-600 text-white transition hover:bg-rose-700 disabled:opacity-60"><Trash2 className="h-4 w-4" /></button>
             </li>
           ))}
         </ul>

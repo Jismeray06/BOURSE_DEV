@@ -68,7 +68,7 @@ export function AwaitingEmailVerification({ email, reason, loading, cooldown, me
         type="button"
         onClick={onResend}
         disabled={loading || waiting}
-        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-blue-600 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(37,99,235,0.35)] transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:shadow-[0_0_24px_rgba(37,99,235,0.5)]"
+        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden /> : <RefreshCw className="h-4 w-4" aria-hidden />}
         {waiting ? t('await.resendIn', { seconds: cooldown }) : t('await.resend')}

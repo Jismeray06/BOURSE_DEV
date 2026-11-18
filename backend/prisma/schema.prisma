@@ -88,6 +88,7 @@ enum AuditAction {
   STAFF_ACCOUNT_PURGED
   ACCOUNT_PASSWORD_CHANGED
   ACCOUNT_EMAIL_CHANGED
+  ACCOUNT_NAME_CHANGED
   HOMEPAGE_CONTENT_UPDATED
   HOMEPAGE_IMAGE_UPDATED
   HOMEPAGE_CAROUSEL_UPDATED
@@ -362,6 +363,8 @@ model SiteSettings {
   ctaSecondaryLink    String             @default("/login")
   homepageContent     Json               @default("{}")
   homepageNews        Json               @default("[]")
+  // Mise en forme des textes de la page d'accueil (couleur, police, taille…), par clé de texte.
+  homepageStyles      Json               @default("{}")
   // Pièces du dépôt de dossier étudiant : true = une seule liste pour tous les établissements.
   uniformCandidatureDocuments Boolean    @default(false)
   updatedAt           DateTime           @updatedAt

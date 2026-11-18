@@ -2,19 +2,20 @@
 
 import { useSyncExternalStore } from 'react';
 import defaults from './homepage-defaults.json';
+import type { TextStyle } from './textStyle';
 
 // Contenu personnalisable de la page d'accueil (textes + actualités), partagé par toutes les pages publiques
 // qui affichent la barre de navigation ou le pied de page. Les textes d'origine (homepage-defaults.json) servent
 // de valeur de repli : la page reste complète si l'API est indisponible.
 export type HomeNews = { id: string; title: string; body: string; publishedAt: string };
-type HomepageState = { content: Record<string, string>; news: HomeNews[] };
-type HomepagePayload = { content?: Record<string, string>; news?: HomeNews[] };
+type HomepageState = { content: Record<string, string>; news: HomeNews[]; styles: Record<string, TextStyle> };
+type HomepagePayload = { content?: Record<string, string>; news?: HomeNews[]; styles?: Record<string, TextStyle> };
 
 export const defaultContent: Record<string, string> = defaults;
 export const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 const CACHE_KEY = 'home_content_cache';
-let state: HomepageState = { content: defaultContent, news: [] };
+let state: HomepageState = { content: defaultContent, news: [], styles: {} };
 let loading: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
@@ -25,8 +26,8 @@ const subscribe = (listener: () => void) => {
 };
 
 export function setHomepageContent(payload: HomepagePayload) {
-  state = { content: { ...defaultContent, ...payload.content }, news: payload.news ?? state.news };
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ content: payload.content ?? {}, news: state.news })); } catch { /* stockage indisponible */ }
+  state = { content: { ...defaultContent, ...payload.content }, news: payload.news ?? state.news, styles: payload.styles ?? state.styles };
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ content: payload.content ?? {}, news: state.news, styles: state.styles })); } catch { /* stockage indisponible */ }
   listeners.forEach((listener) => listener());
 }
 
@@ -38,7 +39,7 @@ export function ensureHomepageLoaded() {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
       const parsed = JSON.parse(cached) as HomepagePayload;
-      state = { content: { ...defaultContent, ...parsed.content }, news: parsed.news ?? [] };
+      state = { content: { ...defaultContent, ...parsed.content }, news: parsed.news ?? [], styles: parsed.styles ?? {} };
       listeners.forEach((listener) => listener());
     }
   } catch { /* cache absent ou illisible */ }

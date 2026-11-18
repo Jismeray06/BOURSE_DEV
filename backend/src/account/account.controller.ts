@@ -4,6 +4,7 @@ import { AccountService } from './account.service.js';
 import { AuthService } from '../auth/auth.service.js';
 
 type PasswordBody = { currentPassword?: unknown; newPassword?: unknown };
+type NameBody = { fullName?: unknown };
 type EmailBody = { newEmail?: unknown; currentPassword?: unknown };
 
 @Controller('account')
@@ -33,6 +34,12 @@ export class AccountController {
   async changePassword(@Body() body: PasswordBody, @Headers('authorization') authorization?: string) {
     const user = await this.authService.requireUser(authorization);
     return this.account.changePassword(user, this.text(body.currentPassword, 'Le mot de passe actuel'), this.text(body.newPassword, 'Le nouveau mot de passe'));
+  }
+
+  @Patch('name')
+  async changeName(@Body() body: NameBody, @Headers('authorization') authorization?: string) {
+    const user = await this.authService.requireUser(authorization);
+    return this.account.changeName(user, this.text(body.fullName, 'Le nom'));
   }
 
   @Post('email')

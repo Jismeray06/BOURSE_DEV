@@ -45,6 +45,13 @@ video {
   }
 }
 
+/* Mode clair de la page d'accueil et de la connexion (hors .home-dark) : fine bordure grise sur les éléments
+   blancs arrondis qui n'en ont pas, pour qu'ils se détachent du fond. Le contour ne décale pas la mise en page. */
+:is(.bg-white)[class*="rounded"]:not([class*="border"]):not(:focus-visible):not(.home-dark *, .platform-theme *) {
+  outline: 1px solid #cbd5e1;
+  outline-offset: -1px;
+}
+
 .AccountInput {
   width: 100%;
   border: 1px solid #334155;

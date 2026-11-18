@@ -137,7 +137,7 @@ export class SiteSettingsService {
       await unlink(join(this.directory, url.replace('/uploads/site-settings/', ''))).catch(() => undefined);
     }
     // Une seule instruction : chaque colonne reprend sa valeur par défaut sans que la ligne disparaisse (une requête simultanée ne tombe plus sur « introuvable »).
-    await this.prisma.$executeRaw`UPDATE "SiteSettings" SET "primaryColor" = DEFAULT, "secondaryColor" = DEFAULT, "backgroundColor" = DEFAULT, "logoUrl" = DEFAULT, "faviconUrl" = DEFAULT, "heroBackgroundType" = DEFAULT, "heroBackgroundImages" = DEFAULT, "heroOverlayOpacity" = DEFAULT, "heroTitle" = DEFAULT, "heroSubtitle" = DEFAULT, "ctaPrimaryLabel" = DEFAULT, "ctaPrimaryLink" = DEFAULT, "ctaSecondaryLabel" = DEFAULT, "ctaSecondaryLink" = DEFAULT, "homepageContent" = DEFAULT, "homepageNews" = DEFAULT, "uniformCandidatureDocuments" = DEFAULT, "updatedAt" = NOW() WHERE "id" = ${settingsId}`;
+    await this.prisma.$executeRaw`UPDATE "SiteSettings" SET "primaryColor" = DEFAULT, "secondaryColor" = DEFAULT, "backgroundColor" = DEFAULT, "logoUrl" = DEFAULT, "faviconUrl" = DEFAULT, "heroBackgroundType" = DEFAULT, "heroBackgroundImages" = DEFAULT, "heroOverlayOpacity" = DEFAULT, "heroTitle" = DEFAULT, "heroSubtitle" = DEFAULT, "ctaPrimaryLabel" = DEFAULT, "ctaPrimaryLink" = DEFAULT, "ctaSecondaryLabel" = DEFAULT, "ctaSecondaryLink" = DEFAULT, "homepageContent" = DEFAULT, "homepageNews" = DEFAULT, "homepageStyles" = DEFAULT, "uniformCandidatureDocuments" = DEFAULT, "updatedAt" = NOW() WHERE "id" = ${settingsId}`;
     return this.get();
   }
 

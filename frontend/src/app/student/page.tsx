@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SidebarLogo } from '../../components/layout/SidebarLogo';
+import { AccountPanel } from '../../components/panels/AccountPanel';
 import { AdminSettingsPanel } from '../../components/theme/AdminSettingsPanel';
 import { ConfirmDialog } from '../../components/layout/ConfirmDialog';
 import { useInterfaceSettings, useSystemDark } from '../../components/theme/useInterfaceSettings';
@@ -35,6 +36,7 @@ import {
   FolderOpen,
   XCircle,
   Send,
+  UserCog,
 } from 'lucide-react';
 import { endSession } from '../../components/auth/authSession';
 
@@ -87,7 +89,7 @@ const DOCUMENT_SUBTITLES: Record<string, string> = {
 };
 export default function StudentPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'mydossier' | 'notifications' | 'notabene' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'mydossier' | 'notifications' | 'notabene' | 'account' | 'settings'>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [settings, setSettings] = useInterfaceSettings('student');
@@ -431,7 +433,7 @@ export default function StudentPage() {
               onClick={() => { setActiveTab('dashboard'); setSidebarOpen(false); }}
               className={`w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                 activeTab === 'dashboard'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  ? 'bg-blue-600 text-white'
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
               }`}
             >
@@ -447,7 +449,7 @@ export default function StudentPage() {
                 !quitusVerified
                   ? 'text-slate-600 opacity-50 cursor-not-allowed'
                   : activeTab === 'mydossier'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 cursor-pointer'
+                  ? 'bg-blue-600 text-white cursor-pointer'
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 cursor-pointer'
               }`}
             >
@@ -459,7 +461,7 @@ export default function StudentPage() {
               onClick={() => { setActiveTab('notifications'); setSidebarOpen(false); }}
               className={`w-full min-h-[44px] flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                 activeTab === 'notifications'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  ? 'bg-blue-600 text-white'
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
               }`}
             >
@@ -478,12 +480,25 @@ export default function StudentPage() {
               onClick={() => { setActiveTab('notabene'); setSidebarOpen(false); }}
               className={`w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
                 activeTab === 'notabene'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
+                  ? 'bg-blue-600 text-white'
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
               }`}
             >
               <AlertTriangle className="w-4 h-4" />
               <span>Nota Bene</span>
+            </button>
+
+            {/* Toujours disponible : l'étudiant peut gérer son compte avant même d'avoir déposé son dossier. */}
+            <button
+              onClick={() => { setActiveTab('account'); setSidebarOpen(false); }}
+              className={`w-full min-h-[44px] flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                activeTab === 'account'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+              }`}
+            >
+              <UserCog className="w-4 h-4" />
+              <span>Mon compte</span>
             </button>
 
             <button
@@ -494,7 +509,7 @@ export default function StudentPage() {
                 !isSubmitted
                   ? 'text-slate-600 opacity-50 cursor-not-allowed'
                   : activeTab === 'settings'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 cursor-pointer'
+                  ? 'bg-blue-600 text-white cursor-pointer'
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 cursor-pointer'
               }`}
             >
@@ -544,6 +559,7 @@ export default function StudentPage() {
             roleLabel="Étudiant"
             menuItems={[
               { label: 'Notifications', icon: <Bell className="h-4 w-4" />, onClick: () => setActiveTab('notifications') },
+              { label: 'Mon compte', icon: <UserCog className="h-4 w-4" />, onClick: () => setActiveTab('account') },
               { label: 'Déconnexion', icon: <LogOut className="h-4 w-4" />, onClick: () => setLogoutConfirmOpen(true), danger: true },
             ]}
           />
@@ -659,7 +675,7 @@ export default function StudentPage() {
                   </div>
 
                   <div className="pt-2 flex justify-end">
-                    <button type="button" onClick={handleNextStep} className={`px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-blue-600/20 ${touch}`}>
+                    <button type="button" onClick={handleNextStep} className={`px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer ${touch}`}>
                       <span>Suivant</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
@@ -706,7 +722,7 @@ export default function StudentPage() {
                       <ArrowLeft className="w-4 h-4" />
                       <span>Précédent</span>
                     </button>
-                    <button type="button" onClick={handleNextStep} className={`px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-blue-600/20 ${touch}`}>
+                    <button type="button" onClick={handleNextStep} className={`px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer ${touch}`}>
                       <span>Suivant</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
@@ -764,7 +780,7 @@ export default function StudentPage() {
                       <ArrowLeft className="w-4 h-4" />
                       <span>Précédent</span>
                     </button>
-                    <button type="button" onClick={handleNextStep} className={`px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-blue-600/20 ${touch}`}>
+                    <button type="button" onClick={handleNextStep} className={`px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer ${touch}`}>
                       <span>Suivant</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
@@ -824,7 +840,7 @@ export default function StudentPage() {
                       <span>Précédent</span>
                     </button>
 
-                    <button type="submit" disabled={quitusLoading || !studentData.quitusNumero.trim()} className={`px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed ${touch}`}>
+                    <button type="submit" disabled={quitusLoading || !studentData.quitusNumero.trim()} className={`px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${touch}`}>
                       <Search className="w-4 h-4" />
                       <span>{quitusLoading ? 'Vérification...' : quitusVerified ? 'Quitus Validé...' : otpMaskedEmail ? 'Valider le code' : 'Vérifier le quitus'}</span>
                     </button>
@@ -882,7 +898,7 @@ export default function StudentPage() {
                   <button
                     disabled={applicationStatus !== 'VALIDE'}
                     onClick={() => setShowAttestation(true)}
-                    className="w-full sm:w-auto min-h-[44px] px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full sm:w-auto min-h-[44px] px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Download className="w-4 h-4 shrink-0" />
                     <span>{applicationStatus === 'VALIDE' ? 'Télécharger l’attestation (PDF)' : 'Attestation après validation'}</span>
@@ -1022,7 +1038,7 @@ export default function StudentPage() {
                   <ArrowLeft className="w-4 h-4" />
                   <span>Précédent</span>
                 </button>
-                <button type="button" disabled={submittingApplication || applicationLoading || !quitusVerified || !documentsComplete} onClick={() => void submitApplication()} className={`px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20 disabled:cursor-not-allowed disabled:opacity-50 ${touch}`}>
+                <button type="button" disabled={submittingApplication || applicationLoading || !quitusVerified || !documentsComplete} onClick={() => void submitApplication()} className={`px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${touch}`}>
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{submittingApplication ? 'Envoi du dossier…' : 'Finaliser le dépôt'}</span>
                 </button>
@@ -1051,25 +1067,24 @@ export default function StudentPage() {
             </div>
           )}
 
-          {/* ONGLET PARAMÈTRES */}
-          {activeTab === 'settings' && (
-            <div className="space-y-4 sm:space-y-6">
-              <AdminSettingsPanel settings={settings} onChange={setSettings} />
-              <div className="bg-slate-900/90 border border-slate-800/80 p-4 sm:p-6 rounded-3xl space-y-4">
-              <h2 className="text-base font-bold text-white">Paramètres du Compte</h2>
-              <div className="space-y-3 text-xs">
-                <div>
-                  <label className="text-slate-400 block mb-1">Nom complet</label>
-                  <input type="text" readOnly value={`${studentData.prenom} ${studentData.nom}`} className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-300 max-[1024px]:min-h-[44px]" />
-                </div>
-                <div>
-                  <label className="text-slate-400 block mb-1">Adresse email</label>
-                  <input type="email" readOnly value={studentData.email} className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-300 max-[1024px]:min-h-[44px]" />
-                </div>
-              </div>
-              </div>
-            </div>
+          {/* ONGLET MON COMPTE : photo, adresse e-mail et mot de passe (le serveur n'agit que sur le compte connecté) */}
+          {activeTab === 'account' && (
+            <AccountPanel
+              canEditName
+              onNameChanged={(fullName) => {
+                // La page lit le nom une seule fois au chargement : on le met à jour ici pour que « Bienvenue, … » suive.
+                const parts = fullName.trim().split(/\s+/);
+                setStudentData((current) => ({ ...current, prenom: parts[0], nom: parts.slice(1).join(' ') || parts[0] }));
+                try {
+                  const stored = JSON.parse(sessionStorage.getItem('auth_user') ?? '{}') as Record<string, unknown>;
+                  sessionStorage.setItem('auth_user', JSON.stringify({ ...stored, fullName }));
+                } catch { /* stockage indisponible */ }
+              }}
+            />
           )}
+
+          {/* ONGLET PARAMÈTRES */}
+          {activeTab === 'settings' && <AdminSettingsPanel settings={settings} onChange={setSettings} />}
 
           {/* ONGLET NOTA BENE */}
           {activeTab === 'notabene' && (

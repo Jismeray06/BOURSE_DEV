@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
-import { AuditAction } from '@prisma/client';
+import { AuditAction, RegistrationStatus, UserRole } from '@prisma/client';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -35,6 +35,23 @@ export class AccountService {
     await this.prisma.user.update({ where: { id: user.id }, data: { passwordHash: await this.authService.hashPassword(newPassword) } });
     await this.audit('ACCOUNT_PASSWORD_CHANGED', user, user.fullName, 'Modifié par l’utilisateur lui-même');
     return { message: 'Votre mot de passe a été modifié.' };
+  }
+
+  // Un étudiant corrige son propre nom tant que son dossier n'est pas déposé (ou s'il a été refusé) : une fois soumis, la scolarité
+  // examine le dossier sous ce nom, qui ne doit plus changer sous ses yeux. Le personnel passe par son responsable.
+  async changeName(user: Self & { role: UserRole }, rawName: string) {
+    if (user.role !== UserRole.ETUDIANT) throw new BadRequestException('Seuls les étudiants modifient leur nom depuis cette page.');
+    const fullName = rawName.trim().replace(/\s+/g, ' ');
+    if (fullName.length < 2 || fullName.length > 100) throw new BadRequestException('Le nom doit contenir entre 2 et 100 caractères.');
+    if (!/^[\p{L}\p{M}'’.\- ]+$/u.test(fullName)) throw new BadRequestException('Le nom ne doit contenir que des lettres, espaces, apostrophes, points et tirets.');
+    if (fullName === user.fullName) throw new BadRequestException('C’est déjà le nom de votre compte.');
+    const application = await this.prisma.enrollmentApplication.findUnique({ where: { userId: user.id }, select: { status: true } });
+    if (application && application.status !== RegistrationStatus.BROUILLON && application.status !== RegistrationStatus.REFUSE) {
+      throw new BadRequestException('Votre dossier a été déposé : votre nom ne peut plus être modifié. Contactez la scolarité si une correction est nécessaire.');
+    }
+    await this.prisma.user.update({ where: { id: user.id }, data: { fullName } });
+    await this.audit('ACCOUNT_NAME_CHANGED', { id: user.id, fullName }, fullName, `Ancien nom : ${user.fullName}`);
+    return { message: 'Votre nom a été modifié.', fullName };
   }
 
   // Étape 1 : un lien de confirmation part vers la NOUVELLE adresse ; rien ne change avant le clic.

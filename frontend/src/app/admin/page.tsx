@@ -105,7 +105,7 @@ type AdminDashboard = {
   recentActions: AuditLogEntry[];
 };
 type TrashedAccount = { id: string; fullName: string; email: string; role: AnyUserRole; establishment: string | null; deletedAt: string };
-type AuditAction = 'STAFF_ACCOUNT_CREATED' | 'STAFF_ACCOUNT_STATUS_CHANGED' | 'STAFF_ACCOUNT_NAME_UPDATED' | 'STAFF_ACCOUNT_PASSWORD_RESET' | 'STAFF_ACCOUNT_TRASHED' | 'STAFF_ACCOUNT_RESTORED' | 'STAFF_ACCOUNT_PURGED' | 'ACCOUNT_PASSWORD_CHANGED' | 'ACCOUNT_EMAIL_CHANGED' | 'HOMEPAGE_CONTENT_UPDATED' | 'HOMEPAGE_IMAGE_UPDATED' | 'HOMEPAGE_CAROUSEL_UPDATED' | 'HOMEPAGE_NEWS_CREATED' | 'HOMEPAGE_NEWS_UPDATED' | 'HOMEPAGE_NEWS_DELETED';
+type AuditAction = 'ACCOUNT_NAME_CHANGED' | 'STAFF_ACCOUNT_CREATED' | 'STAFF_ACCOUNT_STATUS_CHANGED' | 'STAFF_ACCOUNT_NAME_UPDATED' | 'STAFF_ACCOUNT_PASSWORD_RESET' | 'STAFF_ACCOUNT_TRASHED' | 'STAFF_ACCOUNT_RESTORED' | 'STAFF_ACCOUNT_PURGED' | 'ACCOUNT_PASSWORD_CHANGED' | 'ACCOUNT_EMAIL_CHANGED' | 'HOMEPAGE_CONTENT_UPDATED' | 'HOMEPAGE_IMAGE_UPDATED' | 'HOMEPAGE_CAROUSEL_UPDATED' | 'HOMEPAGE_NEWS_CREATED' | 'HOMEPAGE_NEWS_UPDATED' | 'HOMEPAGE_NEWS_DELETED';
 type AuditLogEntry = { id: string; action: AuditAction; actorName: string; targetName: string; detail: string | null; createdAt: string };
 const auditActionLabels: Record<AuditAction, string> = {
   STAFF_ACCOUNT_CREATED: 'a créé le compte',
@@ -117,6 +117,7 @@ const auditActionLabels: Record<AuditAction, string> = {
   STAFF_ACCOUNT_PURGED: 'a supprimé définitivement',
   ACCOUNT_PASSWORD_CHANGED: 'a modifié le mot de passe de',
   ACCOUNT_EMAIL_CHANGED: 'a modifié l’e-mail de',
+  ACCOUNT_NAME_CHANGED: 'a modifié son nom :',
   HOMEPAGE_CONTENT_UPDATED: 'a modifié le contenu de la page d’accueil :',
   HOMEPAGE_IMAGE_UPDATED: 'a modifié une image de la page d’accueil :',
   HOMEPAGE_CAROUSEL_UPDATED: 'a modifié le carrousel :',
@@ -919,7 +920,7 @@ function NavSection({ title, separated, children }: { title: string; separated?:
 }
 
 function NavButton({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
-  return <button onClick={onClick} className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition ${active ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'}`}>{icon}{children}</button>;
+  return <button onClick={onClick} className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition ${active ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'}`}>{icon}{children}</button>;
 }
 
 function IconButton({ title, onClick, children, tone = 'default' }: { title: string; onClick: () => void; children: React.ReactNode; tone?: 'default' | 'danger' }) {
@@ -976,7 +977,7 @@ function DashboardPanel({ data, names, loading, openStudents, openHistory }: { d
           <h2 className="mb-1 text-base font-bold text-white">Dossiers de bourse</h2>
           <p className="mb-4 text-xs text-slate-400">Répartition par statut des dossiers déposés.</p>
           <ul className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">
-            {statuses.map((status) => <li key={status} className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3"><p className="text-slate-400">{statusLabels[status]}</p><p className="mt-1 text-2xl font-bold text-white">{applications[status] ?? 0}</p></li>)}
+            {statuses.map((status) => <li key={status} className={`rounded-2xl border p-3 ${status === 'VALIDE' ? 'border-emerald-500/30 bg-emerald-500/10' : status === 'REFUSE' ? 'border-rose-500/30 bg-rose-500/10' : 'border-slate-800 bg-slate-950/60'}`}><p className="text-slate-400">{statusLabels[status]}</p><p className="mt-1 text-2xl font-bold text-white">{applications[status] ?? 0}</p></li>)}
           </ul>
         </section>
         <section className={card}>

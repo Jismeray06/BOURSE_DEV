@@ -380,7 +380,7 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full cursor-pointer rounded-full bg-blue-600 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(37,99,235,0.35)] transition hover:bg-blue-500 disabled:opacity-50 dark:shadow-[0_0_24px_rgba(37,99,235,0.5)]"
+              className="w-full cursor-pointer rounded-full bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
             >
               {t(loading ? 'submit.loading' : isRegistering ? 'submit.register' : 'submit.login')}
             </button>

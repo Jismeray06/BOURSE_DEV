@@ -469,7 +469,6 @@ plateforme-inscription-mahajanga/
 | [site-settings.controller.ts](backend/src/homepage/site-settings.controller.ts) / [site-settings.service.ts](backend/src/homepage/site-settings.service.ts) | Réglages du site (couleurs, logo, favicon, hero) et journalisation des modifications |
 | [homepage.controller.ts](backend/src/homepage/homepage.controller.ts) / [homepage.service.ts](backend/src/homepage/homepage.service.ts) / [homepage-defaults.json](backend/src/homepage/homepage-defaults.json) | Textes modifiables de la page d'accueil (161 clés), titre/sous-titre/bouton du hero, actualités |
 | [prisma.service.ts](backend/src/common/prisma.service.ts) | Connexion Prisma |
-| [app.controller.ts](backend/src/app.controller.ts) | `GET /` → « Hello World! » (squelette NestJS) |
 
 Particularités d'implémentation : l'autorisation se fait **manuellement dans chaque route** (lecture de l'en-tête `Authorization`, appel à une méthode `require…`) ; il n'y a ni `Guard` Nest, ni `ValidationPipe`/DTO — la validation est écrite à la main dans chaque contrôleur.
 
@@ -531,6 +530,7 @@ Toutes les routes protégées attendent `Authorization: Bearer <jeton>`. Les err
 | POST | `/auth/google/exchange` | `code` | Public. Échange le code à usage unique (60 s) contre `{ accessToken, user }` |
 | GET | `/account/me` | – | Connecté. `{ id, fullName, email, role, avatarUrl }` |
 | POST / DELETE | `/account/avatar` | multipart `file` (≤ 3 Mo) | Connecté. Ajoute / supprime la photo de profil |
+| PATCH | `/account/name` | `{ fullName }` | Étudiant seulement, tant que le dossier n'est pas déposé (ou après un refus). Inscrit au journal d'audit |
 | PATCH | `/account/password` | `{ currentPassword, newPassword }` | Connecté. Change le mot de passe (5 échecs / 15 min) |
 | POST | `/account/email` | `{ newEmail, currentPassword }` | Connecté. Envoie le lien de confirmation à la nouvelle adresse |
 | POST | `/account/email/confirm` | `{ token }` | Public (le jeton fait foi). Applique le changement d'adresse |
@@ -634,6 +634,7 @@ L'établissement visé est celui du compte connecté. Le préfixe `isstm` est un
 | POST | `/admin/site-settings/reset` | Réinitialise tout |
 | GET | `/admin/homepage` | Contenu de l'accueil ; sert aussi à confirmer qu'une session est `ADMIN` |
 | PATCH | `/admin/homepage/content` | Modifie des textes `{ clé: texte \| null }` |
+| PATCH | `/admin/homepage/styles` | Mise en forme des textes `{ clé: { color, font, size, bold, italic, underline } \| null }` |
 | PATCH | `/admin/homepage/hero` | `heroTitle`, `heroSubtitle`, `ctaSecondaryLabel` |
 | POST | `/admin/homepage/news` | Ajoute une actualité `{ title, body, publishedAt? }` |
 | PATCH / DELETE | `/admin/homepage/news/:id` | Modifie / supprime une actualité |
@@ -826,8 +827,9 @@ Les établissements viennent des migrations (`add_establishments`, `add_missing_
 
 | Élément | État |
 | --- | --- |
-| Test unitaire | 1 seul test : [app.controller.spec.ts](backend/src/app.controller.spec.ts) (« Hello World! ») |
-| Test e2e | Squelette [app.e2e-spec.ts](backend/test/app.e2e-spec.ts) (non revu en détail ; le type `App` de Supertest n'y est plus importé) |
+| Test unitaire | [password-policy.spec.ts](backend/src/auth/password-policy.spec.ts) : 4 tests sur le refus des mots de passe courants |
+| Test unitaire | [homepage-styles.spec.ts](backend/src/homepage/homepage-styles.spec.ts) : 6 tests sur la validation de la mise en forme des textes |
+| Test d'API | [app.e2e-spec.ts](backend/test/app.e2e-spec.ts) (Supertest) : 2 tests, `GET /homepage` public et `GET /admin/homepage` refusé sans jeton |
 | Tests frontend | Aucun |
 | Couverture des règles métier (soumission, décision, quitus, droits) | **Aucune** |
 | Lint | oxlint (backend), ESLint 9 + `eslint-config-next` (frontend) |

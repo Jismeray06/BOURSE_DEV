@@ -191,6 +191,35 @@ export function buildThemeCss(settings: AdminSettings, systemDark: boolean): str
   if (light || mode === 'minuit' || background || settings.contrast) SLATE_TOKENS.forEach((token) => css.push(rule(token)));
   STATUS_TOKENS.forEach((token) => css.push(rule(token)));
   ACCENT_TOKENS.forEach((token) => css.push(rule(token)));
+  if (light) {
+    // Mode clair : les blocs blancs doivent se détacher du fond. Bordure un peu plus marquée que le blanc,
+    // et contour fin (sans décaler la mise en page) pour les éléments blancs arrondis qui n'en ont pas.
+    const edge = palette['700'];
+    ['border-slate-800', 'border-slate-800/70', 'border-slate-800/80'].forEach((token) => {
+      const selector = `.${escapeClass(token)}`;
+      css.push(`.platform-theme${selector}, .platform-theme ${selector}{border-color:${edge}!important}`);
+    });
+    css.push(`.platform-theme :is(.bg-white,.bg-slate-900,.bg-slate-900\\/90,.bg-slate-900\\/95)[class*="rounded"]:not([class*="border"]):not(:focus-visible){outline:1px solid ${edge};outline-offset:-1px}`);
+
+    // Barre latérale bleu profond (dérivée de la couleur d'accent) avec texte blanc ; le contenu reste clair.
+    const side = `.platform-theme aside[class*="inset-y-0"][class*="left-0"]`;
+    const glass = (opacity: number) => `rgba(255,255,255,${opacity})`;
+    const sideRule = (selectors: string[], declaration: string) => css.push(`${selectors.map((item) => `${side} ${item}`).join(',')}{${declaration}!important}`);
+    css.push(`${side}{background-color:${mix(accent, '#000000', 38)}!important;border-color:transparent!important;color:#ffffff}`);
+    sideRule(['.text-white', '.text-slate-100', '.text-slate-200', '.text-slate-300', '.hover\\:text-slate-200:hover', '.text-blue-200', '.text-blue-300'], 'color:#ffffff');
+    sideRule(['.text-slate-400'], `color:${glass(0.78)}`);
+    sideRule(['.text-slate-500', '.text-slate-600', '.hover\\:text-slate-300:hover'], `color:${glass(0.62)}`);
+    sideRule(['.text-blue-400'], 'color:#bfdbfe');
+    sideRule(['.bg-blue-600'], `background-color:${mix(accent, '#38bdf8', 45)}!important;color:#ffffff`);
+    sideRule(['.bg-blue-600\\/20'], `background-color:${glass(0.2)}`);
+    sideRule(['.bg-blue-500\\/5'], `background-color:${glass(0.12)}`);
+    sideRule(['.bg-blue-500\\/20', '.bg-slate-800', '.bg-slate-800\\/60', '.hover\\:bg-slate-800:hover', '.hover\\:bg-slate-800\\/60:hover'], `background-color:${glass(0.16)}`);
+    sideRule(['.bg-slate-950', '.bg-slate-950\\/50', '.bg-slate-950\\/60', '.bg-slate-950\\/70'], `background-color:${glass(0.1)}`);
+    sideRule(['.border-slate-800', '.border-slate-800\\/70', '.border-slate-800\\/60', '.border-slate-800\\/80', '.border-blue-500\\/20', '.border-blue-500\\/30'], `border-color:${glass(0.18)}`);
+    sideRule(['.border-slate-700', '.border-slate-600'], `border-color:${glass(0.28)}`);
+    sideRule(['.hover\\:text-rose-400:hover'], 'color:#fecdd3');
+    sideRule(['.bg-clip-text'], 'background-image:none!important;-webkit-text-fill-color:#ffffff!important;color:#ffffff');
+  }
   css.push(`.platform-theme [class*="from-blue-600"]{background-image:linear-gradient(to top right,${accentPalette['600']},${accentPalette['500']})!important}`);
   css.push(`.platform-theme .AccountInput{background-color:${palette['950']}!important;color:${palette['100']}!important;border-color:${palette['700']}!important}.platform-theme .AccountInput::placeholder{color:${palette['500']}!important}.platform-theme option{background-color:${palette['900']};color:${palette['100']}}`);
   if (settings.background === 'degrade') css.push(`.platform-theme{background-image:radial-gradient(900px circle at 0% 0%,${alpha(accentPalette['600'], 22)},transparent 60%),radial-gradient(900px circle at 100% 100%,${alpha(accentPalette['600'], 14)},transparent 60%);background-attachment:fixed}`);

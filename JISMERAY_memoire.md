@@ -214,6 +214,7 @@ Nous remercions aussi nos camarades de promotion pour les bons moments partagés
       - [7.1 Tableau de bord et dossiers à traiter](#71-tableau-de-bord-et-dossiers-à-traiter)
       - [7.2 Décision : validation ou refus motivé](#72-décision--validation-ou-refus-motivé)
       - [7.3 Définition des pièces à téléverser](#73-définition-des-pièces-à-téléverser)
+      - [7.4 Comptes des secrétaires de la scolarité centrale](#74-comptes-des-secrétaires-de-la-scolarité-centrale)
     - [8 Espace administrateur et supervision multi-établissements](#8-espace-administrateur-et-supervision-multi-établissements)
       - [8.1 Gestion des établissements et des comptes](#81-gestion-des-établissements-et-des-comptes)
       - [8.2 Suivi des dossiers et journal d’audit](#82-suivi-des-dossiers-et-journal-daudit)
@@ -331,7 +332,6 @@ Nous remercions aussi nos camarades de promotion pour les bons moments partagés
 - [Tableau 2.1 : Les différentes étapes du processus actuel de demande de bourse nationale](#_Toc2026109125)
 - [Tableau 2.2 : Limites du système actuel et solutions apportées par la plateforme](#_Toc2026109126)
 - [Tableau 3.1 : Technologies et outils utilisés dans le développement de la plateforme](#_Toc2026109128)
-- [Tableau 3.2 : Couverture des tests de sécurité automatisés](#_Toc2026109132)
 - [Tableau 4.1 : Scénarios de validation fonctionnelle de la plateforme](#_Toc2026109157)
 
 # PRÉSENTATION DE L’ISSTM
@@ -728,6 +728,8 @@ La plateforme doit lui permettre de :
 
 - Consulter l’historique des décisions prises sur les demandes.
 
+Le responsable de la scolarité centrale peut aussi créer des comptes de secrétaires pour se faire aider. Un secrétaire traite les dossiers (consultation, validation, refus motivé), mais il ne modifie ni les pièces demandées ni les comptes.
+
 **Pour l’administrateur :**
 
 L’administrateur est chargé d’assurer la gestion générale de la plateforme. Il dispose de fonctionnalités lui permettant de superviser les établissements, les utilisateurs et certaines opérations du système.
@@ -810,6 +812,8 @@ Après vérification, elle peut valider ou refuser une demande. En cas de refus,
 
 La scolarité centrale peut également définir les pièces justificatives exigées pour les demandes de bourse et suivre les dossiers à travers un tableau de bord et un historique des décisions.
 
+Son responsable peut aussi créer des comptes de secrétaires pour partager le travail. Ces secrétaires consultent les dossiers et peuvent les valider ou les refuser, mais seul le responsable définit les pièces exigées et gère leurs comptes.
+
 ##### 4. L’administrateur
 
 L’administrateur assure la gestion générale de la plateforme. Son rôle consiste principalement à superviser les établissements, les comptes du personnel et les informations publiées sur le site.
@@ -843,7 +847,7 @@ Les cas d’utilisation retenus sont les suivants :
 | Étudiant                    | Se connecter, remplir une demande, vérifier le quitus, ajouter les documents, soumettre le dossier, suivre la demande, consulter les notifications et imprimer l’attestation.   |
 | Responsable d’établissement | Inscrire ou réinscrire les étudiants, gérer leurs informations, générer les quitus, organiser les niveaux et parcours, définir les pièces nécessaires et gérer les secrétaires. |
 | Secrétaire                  | Consulter les étudiants, effectuer les inscriptions et les réinscriptions, modifier les fiches et ajouter des documents.                                                        |
-| Scolarité centrale          | Consulter les demandes, vérifier les dossiers, valider ou refuser une demande, définir les pièces justificatives et suivre les décisions.                                       |
+| Scolarité centrale          | Consulter les demandes, vérifier les dossiers, valider ou refuser une demande, définir les pièces justificatives et suivre les décisions. Le responsable gère aussi les comptes de ses secrétaires.                                       |
 | Administrateur              | Gérer les établissements, gérer les comptes du personnel, personnaliser la page d’accueil, consulter l’historique et intervenir sur le statut des dossiers.                     |
 
 > **DIAGRAMME À INSÉRER ICI**  
@@ -939,7 +943,7 @@ Pour développer la partie serveur de notre application, nous avons choisi d’u
 
 **NestJS** est un framework basé sur Node.js et utilisant TypeScript. Nous l’avons choisi parce qu’il permet de développer une application serveur de manière structurée.
 
-Son fonctionnement repose notamment sur l’utilisation de contrôleurs et de services. Les contrôleurs reçoivent les requêtes envoyées par le frontend, tandis que les services contiennent les traitements nécessaires pour répondre à ces requêtes.
+Son fonctionnement repose notamment sur l’utilisation de contrôleurs et de services. Les contrôleurs reçoivent les requêtes envoyées par le frontend, tandis que les services contiennent les traitements nécessaires pour répondre à ces requêtes. Le code est rangé par fonctionnalité (authentification, comptes, administration, étudiants, documents, établissements, page d’accueil, notifications, e-mails et outils communs) : chaque dossier regroupe les contrôleurs et les services concernés, ce qui permet de faire évoluer une fonctionnalité sans toucher aux autres.
 
 Dans notre projet, cette organisation nous a permis de séparer les différentes fonctionnalités, comme la gestion des utilisateurs, des étudiants, des établissements, des quitus, des dossiers de bourse et des notifications.
 
@@ -1071,7 +1075,6 @@ Afin de présenter de manière synthétique les principaux outils utilisés pour
 | Base de données              | PostgreSQL               | 16          |
 | Envoi d’e-mails              | Nodemailer               | 10          |
 | Authentification avec Google | google-auth-library      | 10          |
-| Tests de bout en bout        | Playwright               | 1.60        |
 
 *Source : Environnement technique utilisé pour le développement de notre application.*
 
@@ -1177,7 +1180,7 @@ Dans notre projet, nous avons identifié cinq acteurs principaux :
 
 - **Le secrétaire :** il participe aux tâches administratives courantes, notamment l’inscription des étudiants, la consultation et la modification de leurs informations, selon les autorisations qui lui sont accordées.
 
-- **La scolarité centrale :** elle consulte les demandes de bourse, vérifie les documents et peut valider ou refuser les dossiers en indiquant les motifs nécessaires.
+- **La scolarité centrale :** elle consulte les demandes de bourse, vérifie les documents et peut valider ou refuser les dossiers en indiquant les motifs nécessaires. Son responsable peut créer des comptes de secrétaires, qui traitent les dossiers avec des droits plus limités.
 
 - **L’administrateur :** il assure la gestion générale de la plateforme, notamment les établissements, les comptes du personnel, la personnalisation du site et le suivi des activités importantes.
 
@@ -1263,6 +1266,8 @@ Notre application comprend notamment :
 
 Nous avons également utilisé plusieurs composants React, comme les boutons, les formulaires, les menus et les tableaux. Ces composants peuvent être réutilisés dans différentes pages, ce qui évite de réécrire plusieurs fois le même code.
 
+Les composants sont rangés par thème dans le dossier components : connexion et session (auth), grands panneaux des tableaux de bord (panels), thème et apparence (theme), éléments communs comme la fenêtre de confirmation et l’en-tête (layout), fonctions de chargement des données (hooks) et page d’accueil (home).
+
 Cette organisation nous a permis de garder une présentation cohérente, de faciliter les modifications et de mieux préparer les futures améliorations de notre application.
 
 Le schéma suivant présente l’organisation générale des pages et des principaux composants de notre plateforme.
@@ -1280,36 +1285,13 @@ Pour vérifier le bon fonctionnement de notre plateforme, nous avons utilisé de
 
 Pour cela, nous avons utilisé plusieurs outils :
 
-- **Playwright :** il permet de réaliser des tests de bout en bout. Il pilote un vrai navigateur (Chromium) et peut aussi envoyer directement des requêtes à l’API, ce qui permet de tester la plateforme comme le ferait un utilisateur, ou comme le ferait une personne mal intentionnée.
-
 - **Vitest :** permet de tester certaines parties du code, notamment les fonctions et les services.
 
 - **Supertest :** permet de vérifier le fonctionnement des routes de notre API en envoyant des requêtes HTTP et en analysant les réponses du serveur.
 
 - **@nestjs/testing :** facilite la préparation et l’exécution des tests sur les différents éléments de NestJS.
 
-Nous avons surtout utilisé Playwright pour la sécurité. Le dossier e2e du projet contient **75 tests**, organisés selon les grandes catégories du classement OWASP Top 10 (édition 2021), une référence en matière de risques de sécurité des applications web. Ils sont exécutés contre une instance de test dotée d’une base de données jetable, jamais contre des données réelles. Lors de la dernière exécution, le 23 octobre 2026, les 75 tests ont réussi en une trentaine de secondes. Quelques-uns sont de simples constats informatifs, par exemple la présence de l’en-tête HSTS ou le comportement du jeton après la déconnexion.
-
-Le tableau suivant résume ce que ces tests vérifient.
-
-<span id="_Toc2026109132" class="anchor"></span>**Tableau 3.2 : Couverture des tests de sécurité automatisés**
-
-| **Catégorie**                | **Vérifications automatisées**                                                                                                                                                                                  |
-|------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| A01 – Contrôle des accès     | Routes protégées refusées sans jeton ; jeton falsifié rejeté ; un étudiant ne peut pas appeler les routes d’administration, d’établissement ou de scolarité ; attribution d’un rôle ou d’un statut impossible ; redirection vers la connexion. |
-| A02 – Données sensibles      | Aucun mot de passe haché ni secret dans les réponses du serveur.                                                                                                                                                |
-| A03 – Injection              | Injections SQL, accès à des dossiers hors du répertoire prévu, injection de scripts dans les textes d’accueil et dans le nom d’inscription.                                                                      |
-| A04 – Conception             | Limitation des tentatives de connexion, des renvois d’e-mail de vérification et des essais de code de quitus.                                                                                                   |
-| A05 – Configuration          | En-têtes de sécurité du frontend et de l’API, partage entre origines (CORS), erreurs sans trace d’exécution, méthodes HTTP dangereuses refusées.                                                                |
-| A07 – Authentification       | Message identique pour un e-mail inconnu et un mauvais mot de passe, mots de passe faibles ou courants refusés, jeton modifié ou expiré rejeté.                                                                  |
-| A08 – Fichiers téléversés    | Page HTML déguisée en image, image SVG contenant un script, fichier exécutable, faux PDF et fichier trop volumineux refusés ; vrais PDF, PNG et logos acceptés.                                                  |
-| A09 – Journalisation         | La création d’un compte du personnel figure dans le journal d’audit.                                                                                                                                            |
-| A10 – Requêtes sortantes     | Aucun paramètre d’adresse sortante n’est accepté par le serveur.                                                                                                                                                |
-| Robustesse et non-régression | Réglages invalides refusés (erreur 400) ; doublons et éléments introuvables correctement signalés ; réinitialisation du site ; aucune violation de la politique de sécurité (CSP) sur les pages publiques et sur les quatre espaces. |
-
-*Source : Tests de bout en bout du dossier e2e (Playwright), exécutés le 23 octobre 2026.*
-
-Les tests unitaires du backend, réalisés avec Vitest et Supertest, restent en revanche limités : le projet contient principalement un test de base. Les tests de bout en bout portent sur la sécurité et sur le chargement des pages, mais pas encore sur l’ensemble des parcours fonctionnels, comme le dépôt complet d’un dossier ou les décisions de la scolarité centrale.
+Les tests automatisés du backend, réalisés avec Vitest et Supertest, restent limités : le projet contient dix tests unitaires (politique des mots de passe et mise en forme des textes de la page d’accueil) et deux tests d’API sur la page d’accueil publique. Les parcours fonctionnels, comme le dépôt complet d’un dossier ou les décisions de la scolarité centrale, ne sont donc pas encore couverts par des tests automatisés.
 
 En complément, nous avons utilisé **ESLint et oxlint** pour repérer certaines erreurs dans le code, ainsi que **Prettier** pour améliorer sa présentation. TypeScript nous a également aidés à détecter des problèmes pendant le développement.
 
@@ -1319,7 +1301,7 @@ Même si ces outils nous ont permis d’améliorer la qualité de notre applicat
 
 ##### a) Tests manuels et validation fonctionnelle
 
-Comme les tests automatisés ne couvrent pas encore tous les parcours fonctionnels de notre application, nous avons effectué des **tests manuels** pendant le développement, en complément des tests de sécurité automatisés décrits ci-dessus.
+Comme les tests automatisés ne couvrent pas encore tous les parcours fonctionnels de notre application, nous avons effectué des **tests manuels** pendant le développement, en complément des quelques tests automatisés décrits ci-dessus.
 
 Après la réalisation de chaque fonctionnalité, nous avons procédé à différentes vérifications pour nous assurer qu’elle fonctionne correctement et qu’elle répond aux besoins définis au début du projet.
 
@@ -1343,7 +1325,7 @@ Ces vérifications ont principalement porté sur :
 
 - Le fonctionnement des notifications et de l’historique des activités.
 
-Pour vérifier certaines situations particulières, nous avons également défini 18 scénarios de test, présentés avec leurs résultats au chapitre IV (Tableau 4.1).
+Pour vérifier certaines situations particulières, nous avons également défini 20 scénarios de test, présentés avec leurs résultats au chapitre IV (Tableau 4.1).
 
 Pour faciliter ces tests, nous avons utilisé des données fictives représentant différentes situations. Nous avons notamment créé **20 étudiants fictifs**, des quitus de démonstration ainsi que des dossiers présentant différents états, comme les brouillons, les dossiers validés et les dossiers refusés.
 
@@ -1470,6 +1452,8 @@ Grâce à ce mode, l’administrateur peut effectuer plusieurs modifications :
 
 - Modifier les titres, les descriptions et les textes des différentes sections.
 
+- Changer la mise en forme d’un texte depuis la même fenêtre : sa couleur, sa police (élégante, manuscrite, classique ou machine à écrire), sa taille, le gras, l’italique et le souligné. Un aperçu s’affiche pendant le choix, et un bouton rétablit la mise en forme d’origine.
+
 - Remplacer les photos du bandeau et le logo de la plateforme.
 
 - Modifier les questions de la foire aux questions, les chiffres clés et les informations du panneau « Informations importantes ».
@@ -1587,6 +1571,8 @@ Grâce à ce fonctionnement, nous évitons de faire apparaître directement les 
 
 Une fois l’authentification réussie, le serveur fournit à l’utilisateur un jeton signé qui permet de reconnaître son identité pendant sa session. Ce jeton reste valable pendant 8 heures.
 
+Le jeton est conservé dans le stockage de session du navigateur, jamais dans un cookie lisible. Le navigateur ne garde qu’une seule session pour la plateforme, partagée entre tous les onglets : ils s’échangent le jeton par un canal limité au même site (BroadcastChannel). Une nouvelle connexion remplace l’ancienne session dans tous les onglets, une déconnexion les ferme tous en même temps, et un nouvel onglet récupère la session auprès des onglets déjà ouverts. Si le navigateur est fermé puis rouvert, aucun onglet ne détient plus le jeton et il faut se reconnecter. Seul un repère sans secret (identifiant, rôle et numéro de session) est inscrit dans le stockage local, pour savoir quel compte est actif.
+
 À chaque fois que l’utilisateur souhaite accéder à une fonctionnalité protégée, le serveur vérifie la validité de son jeton ainsi que les autorisations associées à son rôle.
 
 En effet, tous les utilisateurs ne disposent pas des mêmes droits sur la plateforme.
@@ -1595,7 +1581,7 @@ L’étudiant peut consulter et gérer uniquement son propre dossier. Le respons
 
 Nous avons également limité la création des comptes du personnel. Contrairement aux étudiants, les responsables administratifs ne peuvent pas s’inscrire librement.
 
-Les comptes des responsables d’établissement et des agents de la scolarité centrale sont créés par l’administrateur. Chaque responsable d’établissement peut ensuite créer les comptes de ses secrétaires.
+Les comptes des responsables d’établissement et des agents de la scolarité centrale sont créés par l’administrateur. Chaque responsable d’établissement peut ensuite créer les comptes de ses secrétaires, et le responsable de la scolarité centrale fait de même pour les siens.
 
 L’administrateur peut aussi activer ou désactiver certains comptes, les placer dans la corbeille ou les restaurer lorsque cela est nécessaire.
 
@@ -1764,7 +1750,7 @@ Cette organisation permet de réduire les risques de dossiers incomplets et faci
 
 Après sa connexion, l’étudiant accède à un espace personnel qui lui permet de gérer sa demande de bourse et de suivre son avancement.
 
-Cet espace a été conçu pour regrouper les fonctionnalités nécessaires dans une seule interface. Il comprend cinq rubriques principales, accessibles depuis un menu latéral : « Dépôt de dossier », « Mon dossier », « Notifications », « Nota-bene » et « Paramètres ».
+Cet espace a été conçu pour regrouper les fonctionnalités nécessaires dans une seule interface. Il comprend six rubriques principales, accessibles depuis un menu latéral : « Dépôt de dossier », « Mon dossier », « Notifications », « Nota-bene », « Mon compte » et « Paramètres ».
 
 La rubrique « Dépôt de dossier » permet à l’étudiant de commencer sa demande ou de reprendre un brouillon déjà enregistré.
 
@@ -1778,7 +1764,9 @@ Pour éviter que l’étudiant soit obligé de recharger manuellement la page, n
 
 La rubrique « Nota-bene » contient également des informations importantes concernant les demandes de bourse. Elle rappelle notamment que l’attribution d’une bourse nationale n’est pas automatique et que les dossiers incomplets ne peuvent pas être pris en compte.
 
-Enfin, la rubrique « Paramètres » permet à l’étudiant d’accéder aux options disponibles pour son compte et à la personnalisation de son interface, selon l’état d’avancement de sa demande.
+La rubrique « Mon compte » est disponible dès la connexion, même avant le dépôt du dossier. Elle permet à l’étudiant d’ajouter ou de changer sa photo de profil, de corriger son nom, de modifier son adresse e-mail (avec un lien de confirmation envoyé à la nouvelle adresse) et de changer son mot de passe en saisissant l’ancien. Le nom ne peut être modifié que tant que le dossier n’est pas déposé, ou après un refus : une fois le dossier soumis, la scolarité l’examine sous ce nom et il ne change plus. Comme dans l’espace établissement, chaque étudiant ne peut modifier que son propre compte.
+
+Enfin, la rubrique « Paramètres » permet à l’étudiant de personnaliser son interface (thème, couleurs). Elle devient accessible une fois le dossier déposé.
 
 À travers cette organisation, nous avons cherché à permettre aux étudiants de retrouver facilement leurs informations et de suivre leur demande sans avoir à se déplacer régulièrement auprès des services administratifs.
 
@@ -2031,6 +2019,14 @@ Cette fonctionnalité permet à la scolarité centrale d’adapter les exigences
 
 Elle facilite également la mise à jour des pièces demandées lorsque les conditions de dépôt évoluent d’une année universitaire à une autre.
 
+#### 7.4 Comptes des secrétaires de la scolarité centrale
+
+Le responsable de la scolarité centrale peut se faire aider par des secrétaires. Il crée leurs comptes depuis l’onglet « Comptes secrétaires » de son espace, en saisissant le nom, l’adresse e-mail et un mot de passe. Le secrétaire reçoit un e-mail qui l’informe de la création de son compte. Si l’envoi échoue, le compte est quand même créé, l’interface le signale et le responsable peut renvoyer le message.
+
+Le responsable peut ensuite modifier le nom, l’adresse e-mail ou le mot de passe d’un secrétaire, activer ou désactiver son compte, le placer dans la corbeille puis le restaurer. Quand l’adresse e-mail change, une alerte est envoyée à l’ancienne adresse. La suppression définitive est refusée si le secrétaire a déjà traité des dossiers, pour que son nom reste dans l’historique des décisions.
+
+Les droits d’un secrétaire sont plus limités que ceux du responsable. Il consulte les dossiers, les ouvre, puis les valide ou les refuse avec un motif, comme un agent. En revanche, il n’a pas accès aux onglets des pièces demandées et des comptes secrétaires. Le serveur refuse aussi ces opérations si elles lui sont demandées directement.
+
 ### 8 Espace administrateur et supervision multi-établissements
 
 #### 8.1 Gestion des établissements et des comptes
@@ -2179,7 +2175,7 @@ Lorsqu’une personne se connecte, elle est dirigée vers l’espace corresponda
 
 C’est pourquoi les autorisations sont également vérifiées par le serveur avant l’exécution des opérations protégées.
 
-Par exemple, un secrétaire ne peut pas générer un quitus, même s’il tente d’accéder directement à la fonctionnalité en utilisant une requête vers le serveur.
+Par exemple, un secrétaire ne peut pas générer un quitus, même s’il tente d’accéder directement à la fonctionnalité en utilisant une requête vers le serveur. De même, un secrétaire de la scolarité centrale peut valider ou refuser un dossier, mais le serveur lui refuse la modification des pièces demandées et la gestion des comptes.
 
 Cette vérification permet de limiter les risques d’accès non autorisé aux différentes fonctionnalités.
 
@@ -2229,7 +2225,7 @@ Nous avons également limité l’accès aux pièces justificatives. Seuls les u
 
 ##### g) En-têtes de sécurité
 
-Le frontend et le serveur ajoutent à chaque réponse des en-têtes de sécurité. Une politique de sécurité du contenu (CSP) limite les sources autorisées pour les scripts, les images et les connexions, ce qui réduit l’effet d’une éventuelle injection de script. D’autres en-têtes empêchent d’afficher la plateforme dans une page tierce (protection contre le détournement de clic), interdisent au navigateur de deviner le type des fichiers et limitent les informations transmises aux autres sites. Le serveur masque aussi la technologie utilisée et refuse les méthodes HTTP inutiles. Des tests automatisés vérifient que ces en-têtes sont présents et que les pages continuent de fonctionner sans erreur.
+Le frontend et le serveur ajoutent à chaque réponse des en-têtes de sécurité. Une politique de sécurité du contenu (CSP) limite les sources autorisées pour les scripts, les images et les connexions, ce qui réduit l’effet d’une éventuelle injection de script. D’autres en-têtes empêchent d’afficher la plateforme dans une page tierce (protection contre le détournement de clic), interdisent au navigateur de deviner le type des fichiers et limitent les informations transmises aux autres sites. Le serveur masque aussi la technologie utilisée et refuse les méthodes HTTP inutiles.
 
 ##### h) Gestion des erreurs et validation des données
 
@@ -2243,7 +2239,7 @@ Ces différentes protections permettent d’améliorer la sécurité de notre pl
 
 Après le développement des différentes fonctionnalités, nous avons défini plusieurs scénarios de test afin de vérifier le comportement de notre plateforme dans des situations proches de son utilisation réelle.
 
-Ces vérifications reposent sur des tests manuels pour les parcours fonctionnels et sur des tests automatisés de bout en bout pour la sécurité, comme nous l’avons expliqué à la section 7 du chapitre III.
+Ces vérifications reposent surtout sur des tests manuels, car les tests automatisés restent limités, comme nous l’avons expliqué à la section 7 du chapitre III.
 
 Pour effectuer ces vérifications, nous avons utilisé des données fictives, en prenant l’Institut Supérieur des Sciences et Technologies de Mahajanga (ISSTM) comme établissement de démonstration.
 
@@ -2262,7 +2258,7 @@ Le tableau suivant présente les scénarios retenus, les résultats attendus et 
 | 3      | Se connecter avec Google, avec un nouveau compte puis un compte existant. | La connexion fonctionne et un compte étudiant est créé si nécessaire.  | À compléter           |
 | 4      | Déposer une demande complète en suivant les cinq étapes.                  | Le dossier passe au statut « Soumis » et une notification est envoyée. | À compléter           |
 | 5      | Essayer de soumettre un dossier auquel il manque une pièce obligatoire.   | La soumission est refusée.                                             | À compléter           |
-| 6      | Envoyer un document de plus de 10 Mo ou dans un format non autorisé.      | Le fichier est refusé.                                                 | Réussi (test automatisé, 23 oct. 2026) |
+| 6      | Envoyer un document de plus de 10 Mo ou dans un format non autorisé.      | Le fichier est refusé.                                                 | À compléter           |
 | 7      | Saisir un quitus provenant d’un autre établissement.                      | Le quitus n’est pas accepté.                                           | À compléter           |
 | 8      | Refuser un dossier sans préciser de motif.                                | Le système empêche l’enregistrement du refus.                          | À compléter           |
 | 9      | Refuser un dossier avec un motif, puis en valider un autre.               | Les statuts sont mis à jour et les e-mails sont envoyés.               | À compléter           |
@@ -2270,17 +2266,19 @@ Le tableau suivant présente les scénarios retenus, les résultats attendus et 
 | 11     | Valider un dossier et accéder à son attestation.                          | L’attestation est disponible et le dossier ne peut plus être modifié.  | À compléter           |
 | 12     | Essayer d’accéder au dossier d’un étudiant d’un autre établissement.      | L’accès est refusé au responsable non autorisé.                        | À compléter           |
 | 13     | Tenter de générer un quitus avec un compte secrétaire.                    | Le système refuse l’opération.                                         | À compléter           |
-| 14     | Effectuer plusieurs tentatives de connexion incorrectes.                  | Un blocage temporaire est appliqué.                                    | Réussi (test automatisé, 23 oct. 2026) |
+| 14     | Effectuer plusieurs tentatives de connexion incorrectes.                  | Un blocage temporaire est appliqué.                                    | À compléter           |
 | 15     | Inscrire un étudiant, puis effectuer sa réinscription.                    | La fiche est créée, puis mise à jour avec sa nouvelle situation.       | À compléter           |
 | 16     | Générer les quitus manquants d’un établissement.                          | Chaque étudiant actif concerné reçoit un seul quitus.                  | À compléter           |
 | 17     | Modifier un texte de la page d’accueil avec un compte administrateur.     | La modification apparaît sur le site et dans le journal d’audit.       | À compléter           |
 | 18     | Demander la réinitialisation d’un mot de passe oublié, puis en choisir un nouveau avec le lien reçu. | Le lien fonctionne une seule fois et le nouveau mot de passe permet de se connecter. | À compléter           |
+| 19     | Se connecter avec un compte secrétaire de la scolarité, traiter un dossier, puis essayer de modifier les pièces demandées. | Le dossier est traité, mais la modification des pièces est refusée. | À compléter           |
+| 20     | Se connecter dans un onglet, en ouvrir un second, puis se déconnecter dans l’un des deux. | Le second onglet reprend la session ouverte, et la déconnexion s’applique aux deux onglets. | À compléter           |
 
 Ces différents scénarios permettent de vérifier le fonctionnement des principales parties de l’application, depuis la création d’un compte jusqu’à la décision prise sur une demande de bourse.
 
 Ils permettent également de repérer d’éventuels problèmes liés aux formulaires, aux documents déposés ou aux autorisations des utilisateurs.
 
-Les scénarios 6 et 14 sont couverts par les tests de sécurité automatisés, qui ont tous réussi lors de l’exécution du 23 octobre 2026 (75 tests sur 75). Les autres scénarios sont des parcours fonctionnels vérifiés à la main. Leurs résultats devront être renseignés après l’exécution de chaque scénario, en précisant le nombre de tests réussis, les difficultés rencontrées et les corrections apportées.
+Ces scénarios sont des parcours vérifiés à la main. Leurs résultats devront être renseignés après l’exécution de chaque scénario, en précisant le nombre de tests réussis, les difficultés rencontrées et les corrections apportées.
 
 *Remarque : cette partie sera complétée avec les résultats réels des tests manuels effectués sur la plateforme.*
 
@@ -2292,9 +2290,9 @@ Au cours du développement et de l’analyse du code, nous avons identifié plus
 
 ##### a) Amélioration des tests automatisés
 
-Actuellement, la sécurité dispose de 75 tests automatisés de bout en bout, mais les parcours fonctionnels sont surtout vérifiés à la main.
+Actuellement, les parcours fonctionnels sont surtout vérifiés à la main.
 
-Les tests unitaires du backend sont encore peu développés : le projet contient principalement un test de base.
+Les tests du backend sont encore peu développés : le projet contient dix tests unitaires (politique des mots de passe et mise en forme des textes de la page d’accueil) et deux tests d’API sur la page d’accueil publique.
 
 Nous prévoyons donc d’ajouter des tests automatisés pour les parcours fonctionnels, notamment la vérification des quitus, le dépôt des dossiers et les décisions de la scolarité centrale, ainsi que des tests unitaires pour le backend.
 
@@ -2310,7 +2308,7 @@ Cela signifie qu’elles sont perdues lorsque le serveur redémarre. De plus, si
 
 Une solution serait d’utiliser un système de stockage commun afin de conserver ces données et de rendre les limitations plus fiables.
 
-Nous avons également constaté que les jetons de session sont conservés dans le stockage de session du navigateur (sessionStorage). Ce stockage est effacé à la fermeture de l’onglet, mais il reste lisible par les scripts exécutés sur la page. Un test automatisé confirme que le jeton n’est ni dans le stockage local ni dans un cookie lisible.
+Nous avons également constaté que les jetons de session sont conservés dans le stockage de session du navigateur (sessionStorage). Ce stockage est effacé à la fermeture de l’onglet, mais il reste lisible par les scripts exécutés sur la page.
 
 Cette situation représente un risque supplémentaire en cas de faille permettant l’exécution d’un script malveillant. La politique de sécurité du contenu (CSP) et le contrôle des textes affichés réduisent ce risque sans le supprimer.
 
@@ -2332,7 +2330,7 @@ Nous prévoyons d’étudier des solutions de stockage plus adaptées afin de li
 
 Un utilisateur qui connaît son mot de passe peut le modifier depuis son espace. S’il l’a oublié, il peut le réinitialiser lui-même grâce au lien « Mot de passe oublié ? » de la page de connexion et à un lien à usage unique envoyé par e-mail, comme décrit à la section 3.2.
 
-Cette fonctionnalité a été vérifiée manuellement ; elle n’est pas encore intégrée à la suite de tests automatisés. Les e-mails sont envoyés uniquement en français, même si la page de connexion est disponible en trois langues. Enfin, les sessions déjà ouvertes ne sont pas fermées au moment de la réinitialisation : leur révocation fait partie des améliorations prévues sur la gestion des sessions.
+Cette fonctionnalité a été vérifiée manuellement ; elle n’est pas encore couverte par des tests automatisés. Les e-mails sont envoyés uniquement en français, même si la page de connexion est disponible en trois langues. Enfin, les sessions déjà ouvertes ne sont pas fermées au moment de la réinitialisation : leur révocation fait partie des améliorations prévues sur la gestion des sessions.
 
 ##### e) Gestion des demandes sur plusieurs années universitaires
 
@@ -2414,9 +2412,9 @@ Concernant la sécurité, plusieurs mécanismes ont été intégrés afin de pro
 
 Les mots de passe sont protégés par un système de hachage utilisant l’algorithme scrypt. L’authentification repose sur des jetons signés, tandis que les autorisations sont contrôlées selon les rôles des utilisateurs. Ainsi, un étudiant peut accéder à son propre dossier, alors qu’un responsable d’établissement peut uniquement consulter les informations relevant de son établissement.
 
-Nous avons également mis en place des limitations de tentatives de connexion, une vérification des adresses e-mail, un refus des mots de passe trop courants, des contrôles sur le contenu réel des fichiers déposés et des en-têtes de sécurité. Ces protections sont vérifiées par 75 tests automatisés de bout en bout, tous réussis.
+Nous avons également mis en place des limitations de tentatives de connexion, une vérification des adresses e-mail, un refus des mots de passe trop courants, des contrôles sur le contenu réel des fichiers déposés et des en-têtes de sécurité.
 
-Malgré ces protections, certaines améliorations restent nécessaires. Les tests automatisés des parcours fonctionnels sont encore limités et aucun test de charge n’a été réalisé pour mesurer le comportement du système avec un grand nombre d’utilisateurs simultanés. De plus, le stockage des documents et la gestion des sessions devront être renforcés avant un déploiement à grande échelle.
+Malgré ces protections, certaines améliorations restent nécessaires. Les tests automatisés sont encore très limités et aucun test de charge n’a été réalisé pour mesurer le comportement du système avec un grand nombre d’utilisateurs simultanés. De plus, le stockage des documents et la gestion des sessions devront être renforcés avant un déploiement à grande échelle.
 
 Dans son état actuel, la plateforme constitue donc une première version fonctionnelle, principalement adaptée à un environnement de développement et de démonstration.
 
@@ -2450,7 +2448,7 @@ Ensuite, certaines fonctionnalités administratives restent incomplètes. Par ex
 
 Sur le plan technique, certaines pages contiennent encore une quantité importante de code, ce qui peut compliquer leur maintenance. Les listes d’étudiants et de dossiers ne disposent pas encore d’un système de pagination adapté à un volume important de données.
 
-Les tests automatisés couvrent surtout la sécurité : les parcours fonctionnels restent à automatiser pour garantir leur bon fonctionnement dans différentes situations.
+Les tests automatisés sont encore très limités : les parcours fonctionnels, vérifiés surtout à la main, restent à automatiser pour garantir leur bon fonctionnement dans différentes situations.
 
 Par ailleurs, la traduction en anglais et en malgache ne concerne pour l’instant que la page d’accueil, et la page d’accueil a été volontairement allégée : les rubriques d’information détaillées et la section d’actualités ne sont plus affichées.
 
@@ -2514,7 +2512,7 @@ La vérification du quitus permet aussi de limiter son utilisation par une perso
 
 Malgré ces résultats, notre travail présente encore certaines limites. Pour le développement et les démonstrations, nous avons principalement utilisé l’ISSTM comme établissement de référence. L’intégration complète des autres établissements de l’Université de Mahajanga reste donc à réaliser.
 
-Les parcours fonctionnels ont été vérifiés essentiellement à la main. Seule la sécurité dispose d’une série de 75 tests automatisés, tous réussis, et nous n’avons pas encore réalisé de tests de charge ni d’audit de sécurité externe. Certaines fonctionnalités restent également à développer, notamment la gestion des campagnes annuelles de bourse.
+Les parcours fonctionnels ont été vérifiés essentiellement à la main, les tests automatisés restent très limités, et nous n’avons pas encore réalisé de tests de charge ni d’audit de sécurité externe. Certaines fonctionnalités restent également à développer, notamment la gestion des campagnes annuelles de bourse.
 
 Par ailleurs, notre plateforme ne prend pas encore en charge le calcul du montant de la bourse ni le paiement du quitus en ligne. Ces fonctionnalités dépassent le périmètre que nous avons retenu pour cette première version.
 
@@ -2651,12 +2649,6 @@ https://github.com/ladjs/supertest
 Disponible sur :
 
 https://git-scm.com/doc
-
-\[22\] MICROSOFT. Playwright Documentation. Documentation officielle de l’outil de tests de bout en bout.
-
-Disponible sur :
-
-https://playwright.dev
 
 IV\. SOURCES POUR LA COMPARAISON AVEC L’EXISTANT
 

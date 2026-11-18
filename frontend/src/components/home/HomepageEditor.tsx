@@ -9,6 +9,7 @@ import { CarouselModal, FieldsModal, SingleImageModal, type EditField } from './
 import { apiUrl, defaultContent, ensureHomepageLoaded, setHomepageContent, useHomepageContent, type HomeNews } from './homepageStore';
 import { ensureLanguageLoaded, useLanguage } from './language';
 import { translateKey } from './translate';
+import { cleanStyle, sameStyle, styleToCss, type TextStyle } from './textStyle';
 
 // Mode personnalisation de la page d'accueil : ouvert par un administrateur depuis son tableau de bord
 // (/?mode=personnalisation). Hors de ce mode, aucun contrôle d'édition n'est rendu : les visiteurs voient la page finale.
@@ -89,7 +90,8 @@ async function request<T>(path: string, init: { method?: string; body?: unknown;
   return response.json() as Promise<T>;
 }
 
-const pencilCls = 'inline-flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border border-blue-500/50 bg-white align-middle text-blue-600 shadow-sm transition hover:bg-blue-600 hover:text-white dark:bg-slate-800 dark:text-blue-300 dark:hover:bg-blue-500 dark:hover:text-white';
+// Crayon orange vif à contour blanc : bien visible sur fond clair, sombre ou sur la photo du bandeau (captures d'écran comprises).
+const pencilCls = 'inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-orange-500 align-middle text-white ring-1 ring-orange-700/40 transition hover:scale-110 hover:bg-orange-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600';
 
 /** Petite icône crayon cliquable, visible uniquement en mode personnalisation. */
 export function EditPencil({ label, onClick, className = '' }: { label: string; onClick: () => void; className?: string }) {
@@ -106,23 +108,24 @@ export function EditPencil({ label, onClick, className = '' }: { label: string; 
       onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') activate(event); }}
       className={`${pencilCls} ${className}`}
     >
-      <Pencil className="h-3 w-3" aria-hidden />
+      <Pencil className="h-4 w-4" strokeWidth={2.5} aria-hidden />
     </span>
   );
 }
 
 /** Texte modifiable de la page d'accueil. Sans mode personnalisation, rend simplement le texte (aucun élément en plus). */
 export function HomeText({ contentKey }: { contentKey: string }) {
-  const { content } = useHomepageContent();
+  const { content, styles } = useHomepageContent();
   const { editMode, editText } = useHomeEdit();
   const language = useLanguage();
   useEffect(() => { ensureHomepageLoaded(); ensureLanguageLoaded(); }, []);
   // Le mode personnalisation travaille toujours sur le texte français.
   const text = editMode ? content[contentKey] ?? defaultContent[contentKey] ?? '' : translateKey(contentKey, content, language);
-  if (!editMode) return <>{text}</>;
+  const css = styleToCss(styles[contentKey]);
+  if (!editMode) return css ? <span style={css}>{text}</span> : <>{text}</>;
   return (
     <span className="rounded-sm outline-1 outline-offset-2 outline-dashed outline-blue-500/40 transition hover:outline-blue-500">
-      {text}
+      <span style={css}>{text}</span>
       <EditPencil label="Modifier ce texte" onClick={() => editText(contentKey)} className="ml-1" />
     </span>
   );
@@ -150,7 +153,7 @@ export function HomeEditProvider({ settings, onSettingsChange, children }: Provi
   const [pending, setPending] = useState<Pending | null>(null);
   const [toast, setToast] = useState<{ text: string; error: boolean } | null>(null);
   const deleting = useRef(false);
-  const { content } = useHomepageContent();
+  const { content, styles } = useHomepageContent();
   const editMode = access === 'admin' && verified;
 
   // Le serveur confirme que la session est bien celle d'un administrateur ; sinon on revient à la page publique.
@@ -158,7 +161,7 @@ export function HomeEditProvider({ settings, onSettingsChange, children }: Provi
     if (access === 'denied') { router.replace('/'); return; }
     if (access !== 'admin') return;
     let cancelled = false;
-    request<{ content: Record<string, string>; news: HomeNews[] }>('/admin/homepage')
+    request<{ content: Record<string, string>; news: HomeNews[]; styles: Record<string, TextStyle> }>('/admin/homepage')
       .then((data) => { if (!cancelled) { setHomepageContent(data); setVerified(true); } })
       .catch(() => { if (!cancelled) router.replace('/'); });
     return () => { cancelled = true; };
@@ -175,6 +178,12 @@ export function HomeEditProvider({ settings, onSettingsChange, children }: Provi
 
   const saveContent = async (values: Record<string, string | null>) => {
     setHomepageContent(await request('/admin/homepage/content', { method: 'PATCH', body: values }));
+  };
+  // Enregistre la mise en forme d'un texte seulement si elle a changé (une mise en forme vide rétablit l'apparence d'origine).
+  const saveStyle = async (key: string, before: TextStyle | undefined, after: TextStyle) => {
+    if (sameStyle(before, after)) return;
+    const cleaned = cleanStyle(after);
+    setHomepageContent(await request('/admin/homepage/styles', { method: 'PATCH', body: { [key]: Object.keys(cleaned).length ? cleaned : null } }));
   };
   const saveNews = async (item: HomeNews | null, values: Record<string, string>) => {
     const body = { title: values.title, body: values.body, publishedAt: values.publishedAt ? new Date(`${values.publishedAt}T12:00:00`).toISOString() : undefined };
@@ -222,8 +231,13 @@ export function HomeEditProvider({ settings, onSettingsChange, children }: Provi
       <FieldsModal
         title={section ? `Modifier le texte — ${section}` : 'Modifier le texte'}
         fields={[{ id: modal.key, label: 'Texte', value: content[modal.key] ?? original, original, required: true, maxLength: 1000 }]}
+        initialStyle={styles[modal.key] ?? {}}
         onClose={close}
-        onSave={async (values) => { await saveContent({ [modal.key]: values[modal.key] === original ? null : values[modal.key] }); succeed(); }}
+        onSave={async (values, style) => {
+          await saveContent({ [modal.key]: values[modal.key] === original ? null : values[modal.key] });
+          await saveStyle(modal.key, styles[modal.key], style);
+          succeed();
+        }}
       />
     );
   } else if (editMode && modal?.kind === 'contact') {
@@ -242,10 +256,12 @@ export function HomeEditProvider({ settings, onSettingsChange, children }: Provi
       <FieldsModal
         title={spec.title}
         fields={[{ id: field, label: spec.label, value: settings[field], type: spec.multiline ? 'textarea' : 'text', required: true, maxLength: spec.max }]}
+        initialStyle={styles[field] ?? {}}
         onClose={close}
-        onSave={async (values) => {
+        onSave={async (values, style) => {
           const row = await request<SiteSettings>('/admin/homepage/hero', { method: 'PATCH', body: { [field]: values[field] } });
           onSettingsChange({ ...settings, heroTitle: row.heroTitle, heroSubtitle: row.heroSubtitle, ctaSecondaryLabel: row.ctaSecondaryLabel });
+          await saveStyle(field, styles[field], style);
           succeed();
         }}
       />
